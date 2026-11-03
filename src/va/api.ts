@@ -77,7 +77,8 @@ export type HubSummary = {
 
 export const va = {
   tasks: (show: 'open' | 'done' = 'open') => call<Task[]>('GET', `/admin/wa/tasks?show=${show}`),
-  addTask: (title: string, due_at?: string) => call<unknown>('POST', '/admin/wa/tasks', { title, due_at }),
+  addTask: (title: string, due_at?: string, contact_id?: string) => call<unknown>('POST', '/admin/wa/tasks', { title, due_at, contact_id }),
+  clearChat: (id: string) => call<{ removed: number }>('POST', `/admin/inbox/contacts/${id}/clear`, {}),
   toggleTask: (id: string) => call<unknown>('POST', `/admin/wa/tasks/${id}/toggle`),
   removeTask: (id: string) => call<unknown>('DELETE', `/admin/wa/tasks/${id}`),
   addNote: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/notes`, { text }),
@@ -95,6 +96,9 @@ export const va = {
   exportChat: (id: string) => call<{ filename: string; text: string; messages: number }>('GET', `/admin/wa/contacts/${id}/export`),
   learnChat: (id: string, chat_text: string, owner_speaker?: string, consent_private = false) =>
     call<{ need_owner?: boolean; speakers?: string[]; need_consent?: boolean; profile?: Record<string, unknown>; messages?: number }>('POST', `/admin/wa/contacts/${id}/learn`, { chat_text, owner_speaker, consent_private }),
+  report: (days = 7) => call<{ days: number; counts: Record<string, number>; per_day: { day: string; in: number; out: number }[]; by_reason: Record<string, number>; avg_reply_seconds: number | null; approval_rate: number | null }>('GET', `/admin/wa/report?days=${days}`),
+  waHealth: (remote = false) => call<{ summary: string; ok: number; bad: number; todo: number; items: { key: string; title: string; state: 'ok' | 'bad' | 'todo' | 'warn'; detail: string; fix: { label: string; href?: string } | null }[] }>('GET', `/admin/wa/health?remote=${remote}`),
+  simulate: (text: string, name = '', use_ai = true) => call<{ reply: string | null; reason: string; priority: number; kind: string; summary: string; need: string; notify: boolean; action: 'send' | 'draft' | 'silent'; note: string; ai_used: boolean }>('POST', '/admin/wa/simulate', { text, name, use_ai }),
   logout: () => call<unknown>('POST', '/device/logout', {}),
 
   overview: () => call<Overview>('GET', '/admin/wa/overview'),

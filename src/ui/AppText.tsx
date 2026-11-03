@@ -1,4 +1,5 @@
 import { createContext, forwardRef, useContext, useMemo, type ComponentRef } from 'react';
+import { useAppPreferencesOptional } from '../app/AppPreferences';
 import { Platform, StyleSheet, Text as RNText, TextInput as RNTextInput, type TextProps, type TextInputProps } from 'react-native';
 
 // Thin wrappers over RN's Text / TextInput that put a ceiling on OS font-scaling.
@@ -128,9 +129,13 @@ export const AppText = forwardRef<ComponentRef<typeof RNText>, TextProps>(functi
   }, [style, children]);
   const scale = useContext(TextScaleContext);
   const sized = useMemo(() => scaleTextStyle(safeStyle, scale), [safeStyle, scale]);
+  // Text that names no colour used to fall back to the system's black — invisible on a dark background. It now follows the theme.
+  const prefs = useAppPreferencesOptional();
+  const hasColor = useMemo(() => { const f = StyleSheet.flatten(sized as never) as { color?: unknown } | undefined; return !!f && f.color !== undefined; }, [sized]);
+  const finalStyle = !hasColor && prefs ? [{ color: prefs.colors.textPrimary }, sized] : sized;
 
   return (
-    <RNText ref={ref} maxFontSizeMultiplier={TEXT_CEILING} style={sized} {...rest}>
+    <RNText ref={ref} maxFontSizeMultiplier={TEXT_CEILING} style={finalStyle as never} {...rest}>
       {children}
     </RNText>
   );
@@ -150,5 +155,8 @@ export const AppTextInput = forwardRef<ComponentRef<typeof RNTextInput>, TextInp
   }, [props.style]);
   const scale = useContext(TextScaleContext);
   const sized = useMemo(() => scaleTextStyle(style, scale), [style, scale]);
-  return <RNTextInput ref={ref} maxFontSizeMultiplier={INPUT_CEILING} {...props} style={sized} />;
+  const prefs = useAppPreferencesOptional();
+  const hasColor = useMemo(() => { const f = StyleSheet.flatten(sized as never) as { color?: unknown } | undefined; return !!f && f.color !== undefined; }, [sized]);
+  const finalStyle = !hasColor && prefs ? [{ color: prefs.colors.textPrimary }, sized] : sized;
+  return <RNTextInput ref={ref} maxFontSizeMultiplier={INPUT_CEILING} placeholderTextColor={prefs?.colors.textMuted} {...props} style={finalStyle as never} />;
 });

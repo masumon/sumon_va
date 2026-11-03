@@ -56,6 +56,10 @@ object Store {
 
   fun packages(c: Context): Set<String> = prefs(c).getStringSet("packages", null) ?: DEFAULT_PACKAGES
   fun setPackages(c: Context, list: Set<String>) = prefs(c).edit().putStringSet("packages", list).apply()
+  /** How strongly each kind of alert vibrates/rings: 0 off, 1 soft, 2 medium, 3 strong. Chosen by the owner in Settings. */
+  fun level(c: Context, key: String, def: Int) = prefs(c).getInt("alert_$key", def).coerceIn(0, 3)
+  fun setLevels(c: Context, urgent: Int, important: Int, normal: Int, volume: Int) =
+    prefs(c).edit().putInt("alert_p1", urgent.coerceIn(0, 3)).putInt("alert_p2", important.coerceIn(0, 3)).putInt("alert_other", normal.coerceIn(0, 3)).putInt("alert_vol", volume.coerceIn(1, 3)).apply()
   fun pollSeconds(c: Context) = prefs(c).getInt("poll_s", 20).coerceIn(10, 300)
   fun setPollSeconds(c: Context, s: Int) = prefs(c).edit().putInt("poll_s", s.coerceIn(10, 300)).apply()
 }
@@ -144,11 +148,12 @@ object Outbox {
 fun sha(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
 
 /** One message for the server. `sender` is a phone number (SMS/call) or the name the chat app shows. */
-fun item(type: String, channel: String, sender: String, app: String?, body: String, ext: String, name: String? = null): JSONObject =
+fun item(type: String, channel: String, sender: String, app: String?, body: String, ext: String, name: String? = null, group: Boolean = false): JSONObject =
   JSONObject().put("type", type).put("channel", channel).put("sender", sender.take(60)).put("body", body.take(4000))
     .put("ext_id", ext.take(80)).put("at", System.currentTimeMillis()).apply {
       if (app != null) put("app", app.take(60))
       if (!name.isNullOrBlank()) put("name", name.take(120))
+      if (group) put("group", true)
     }
 
 /** The name saved for this number in the phone's contacts (needs the Contacts permission; null otherwise). */

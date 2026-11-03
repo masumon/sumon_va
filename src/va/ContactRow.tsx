@@ -8,6 +8,7 @@ import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date
 import { border, control, radius, spacing, type ThemeColors } from '../theme';
 import type { Contact } from './api';
 import { CATEGORY, PRIORITY, displayName } from './labels';
+import { ChatMenuButton } from './ChatMenu';
 import { sourceLabel } from './modules';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
@@ -28,6 +29,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
         <View style={styles.top}>
           <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
           <Text style={styles.when}>{when}</Text>
+          <ChatMenuButton contact={contact} size={20} />
         </View>
         <Text numberOfLines={1} style={styles.source}>{sourceLabel(contact.phone, contact.channel, bn)}</Text>
         <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>

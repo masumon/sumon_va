@@ -48,6 +48,8 @@ class VaBridgeModule : Module() {
         "postNotifications" to (Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS)),
         "batteryExempt" to (power?.isIgnoringBatteryOptimizations(c.packageName) ?: false),
         "dndAccess" to (nm?.isNotificationPolicyAccessGranted ?: false),
+        "activity" to (Build.VERSION.SDK_INT < 29 || granted(Manifest.permission.ACTIVITY_RECOGNITION)),
+        "alertUrgent" to Store.level(c, "p1", 3), "alertImportant" to Store.level(c, "p2", 2), "alertNormal" to Store.level(c, "other", 1), "alertVolume" to Store.prefs(c).getInt("alert_vol", 3),
         "location" to (granted(Manifest.permission.ACCESS_FINE_LOCATION) || granted(Manifest.permission.ACCESS_COARSE_LOCATION)),
         "contacts" to granted(Manifest.permission.READ_CONTACTS),
         "storage" to (if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_IMAGES) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)),
@@ -164,6 +166,9 @@ class VaBridgeModule : Module() {
     Function("setPollSeconds") { s: Int -> Store.setPollSeconds(ctx, s); true }
     /** A plain notification from the app itself (used for "a problem needs you"). target p1 = loud alarm, anything else = normal. */
     Function("notify") { target: String, body: String, id: String -> PollService.showAlert(ctx, target, body, id); true }
+    Function("setAlertLevels") { urgent: Int, important: Int, normal: Int, volume: Int -> Store.setLevels(ctx, urgent, important, normal, volume); true }
+    /** Settings test buttons: feel/hear exactly this strength (level 1–3) and loudness (1–3). */
+    Function("testAlertLevel") { level: Int, volume: Int -> PollService.test(ctx, level, volume); true }
     Function("testAlert") { PollService.showAlert(ctx, "p1", "পরীক্ষা: এভাবেই জরুরি বার্তা বাজবে", "test-" + System.currentTimeMillis()); true }
 
     Function("openNotificationAccess") { open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); true }

@@ -6,6 +6,7 @@ import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Telephony
 import android.service.notification.NotificationListenerService
@@ -24,14 +25,21 @@ class VaNotificationListener : NotificationListenerService() {
       if (!Store.paired(ctx) || sbn.packageName == ctx.packageName || sbn.packageName !in Store.packages(ctx)) return
       val n = sbn.notification ?: return
       if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+      // Not a message: a running/ongoing notification (backups, calls in progress, music, downloads) or one with a progress bar.
+      if (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_NO_CLEAR) != 0) return
       val extras = n.extras ?: return
+      if (extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0 || extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)) return
+      if (n.category in NOT_MESSAGE_CATEGORIES) return
       val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
       val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim().orEmpty()
-      if (title.isEmpty() || text.isEmpty() || SUMMARY.matches(text)) return  // "3 new messages" is not a message
+      if (title.isEmpty() || text.isEmpty() || SUMMARY.matches(text) || SYSTEM_TEXT.containsMatchIn(text)) return  // "3 new messages", "Preparing backup" are not messages
+      if (title.equals(appLabel(ctx, sbn.packageName), ignoreCase = true) && text.length < 40) return  // the app talking about itself
+
+      val group = Build.VERSION.SDK_INT >= 28 && (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false) || !extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE).isNullOrBlank())
       rememberReplyBox(sbn.packageName, title, n)
       if (Outbox.duplicate("${sbn.packageName}|$title|$text")) return
       val ext = "n:" + sha("${sbn.packageName}|$title|$text|${sbn.postTime / 60000}")
-      Outbox.add(ctx, item("msg", "notif", title, sbn.packageName, text, ext))
+      Outbox.add(ctx, item("msg", "notif", title, sbn.packageName, text, ext, null, group))
       Thread { Outbox.flush(ctx) }.start()
     } catch (_: Exception) {
       // A broken notification must never crash the listener.
@@ -43,7 +51,12 @@ class VaNotificationListener : NotificationListenerService() {
     ReplyBoxes.put("notif:${pkg.take(30)}:$sender", action.actionIntent, action.remoteInputs)
   }
 
+  private fun appLabel(ctx: Context, pkg: String): String = try { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { "" }
+
   companion object {
+    private val NOT_MESSAGE_CATEGORIES = setOf(Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
+      Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM, Notification.CATEGORY_RECOMMENDATION, Notification.CATEGORY_PROMO, Notification.CATEGORY_NAVIGATION)
+    private val SYSTEM_TEXT = Regex("(preparing|creating|restoring|uploading|backup|checking for new messages|waiting for network|connecting|syncing|end-to-end encrypted|\\d+%|ব্যাকআপ)", RegexOption.IGNORE_CASE)
     private val SUMMARY = Regex("^\\d+\\s+(new\\s+)?(messages?|chats?|conversations?).*", RegexOption.IGNORE_CASE)
   }
 }
@@ -159,6 +172,7 @@ object Presence {
   @Volatile private var touchedAt = System.currentTimeMillis()
   @Volatile private var movedAt = 0L
   @Volatile private var started = false
+  @Volatile private var lastSteps = -1f
   private var lastSent = 0L
   private var lastKey = ""
 
@@ -177,6 +191,17 @@ object Presence {
         if (screenOn) touchedAt = System.currentTimeMillis()
       }
     }, filter)
+    try {
+      val sm0 = app.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+      val steps = sm0.getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER)
+      val allowed = Build.VERSION.SDK_INT < 29 || androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+      if (steps != null && allowed) {
+        sm0.registerListener(object : android.hardware.SensorEventListener {
+          override fun onSensorChanged(e: android.hardware.SensorEvent) { val n = e.values[0]; if (lastSteps >= 0 && n > lastSteps) movedAt = System.currentTimeMillis(); lastSteps = n }
+          override fun onAccuracyChanged(s: android.hardware.Sensor?, a: Int) {}
+        }, steps, android.hardware.SensorManager.SENSOR_DELAY_NORMAL, 60_000_000)  // up to 60 s batching: almost no battery
+      }
+    } catch (_: Exception) {}
     try {
       val sm = app.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
       val sensor = sm.getDefaultSensor(android.hardware.Sensor.TYPE_SIGNIFICANT_MOTION)

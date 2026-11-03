@@ -12,6 +12,7 @@ import { Page, Status } from '../src/va/Page';
 import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
 import { TagEditor } from '../src/va/TagEditor';
 import { ChatTransfer } from '../src/va/ChatTransfer';
+import { ChatMenuButton } from '../src/va/ChatMenu';
 import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
 
@@ -66,7 +67,7 @@ export default function ContactScreen() {
   const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
 
   return (
-    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel].bn : CHANNEL[c.channel].en) : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
+    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel].bn : CHANNEL[c.channel].en) : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
       <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {c && pr ? (
         <>
@@ -88,7 +89,8 @@ export default function ContactScreen() {
 
           {drafts.map((d) => (
             <Card key={d.id} title={bn ? 'সহকারীর খসড়া উত্তর' : "Assistant's draft reply"}>
-              <Text style={{ marginBottom: 10 }}>{d.body}</Text>
+              <Text style={{ marginBottom: 6 }}>{d.body}</Text>
+              {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কেন: ' : 'Why: '}{d.note}</Text> : null}
               <View style={{ gap: 8 }}>
                 <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানো হয়েছে' : 'Sent')} />
                 <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />

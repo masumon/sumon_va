@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
@@ -9,7 +10,7 @@ import { va, type Limits } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
-import { unpair } from '../modules/va-bridge';
+import { getStatus, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
 import { APP_VERSION } from '../src/va/config';
 
 type Lang = 'bn' | 'en';
@@ -17,6 +18,35 @@ const SIZES = ['0.9', '1', '1.1', '1.2'] as const;
 const CAPS = ['3', '5', '8', '12'] as const;
 const FROM = ['21:00', '22:00', '23:00', '00:00'] as const;
 const TO = ['05:00', '06:00', '07:00', '08:00'] as const;
+
+const LEVELS = ['0', '1', '2', '3'] as const;
+
+/** How hard each kind of alert shakes and rings. Test buttons let you feel it before you choose. */
+function AlertStrength() {
+  const { bn } = useKit();
+  const [s, setS] = useState(() => getStatus());
+  const label = (v: string) => (v === '0' ? (bn ? 'বন্ধ' : 'Off') : v === '1' ? (bn ? 'কম' : 'Soft') : v === '2' ? (bn ? 'মাঝারি' : 'Medium') : (bn ? 'জোরে' : 'Strong'));
+  const save = (u: number, i: number, n: number, vol: number) => { setAlertLevels(u, i, n, vol); setS(getStatus()); };
+  const rows: { key: 'alertUrgent' | 'alertImportant' | 'alertNormal'; bn: string; en: string }[] = [
+    { key: 'alertUrgent', bn: '🔴 জরুরি (পরিবার, দুর্ঘটনা…)', en: '🔴 Urgent (family, emergency…)' },
+    { key: 'alertImportant', bn: '🟠 গুরুত্বপূর্ণ (ক্লায়েন্ট, ★ চিহ্নিত)', en: '🟠 Important (clients, starred)' },
+    { key: 'alertNormal', bn: '🔵 সাধারণ নতুন বার্তা', en: '🔵 Ordinary new messages' },
+  ];
+  return (
+    <Card title={bn ? 'কম্পন ও আওয়াজের মাত্রা' : 'Vibration and sound strength'}>
+      <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'কোন ধরনের বার্তায় ফোন কতটা কাঁপবে আর বাজবে — নিজে ঠিক করুন। “পরীক্ষা” চেপে এখনই অনুভব করুন।' : 'Choose how much the phone shakes and rings for each kind of message. Press “Test” to feel it now.'}</Text>
+      {rows.map((r) => (
+        <View key={r.key} style={{ marginBottom: 8 }}>
+          <ChipGroup<(typeof LEVELS)[number]> label={bn ? r.bn : r.en} options={LEVELS} value={String(s[r.key]) as (typeof LEVELS)[number]} labelOf={label}
+            onChange={(v) => { if (!v) return; const n = Number(v); save(r.key === 'alertUrgent' ? n : s.alertUrgent, r.key === 'alertImportant' ? n : s.alertImportant, r.key === 'alertNormal' ? n : s.alertNormal, s.alertVolume); testAlertLevel(n, s.alertVolume); }} />
+        </View>
+      ))}
+      <ChipGroup<'1' | '2' | '3'> label={bn ? 'জরুরির আওয়াজ কত জোরে' : 'How loud for urgent'} options={['1', '2', '3']} value={String(s.alertVolume) as '1' | '2' | '3'} labelOf={(v) => (v === '1' ? (bn ? 'আস্তে' : 'Low') : v === '2' ? (bn ? 'মাঝারি' : 'Medium') : (bn ? 'সর্বোচ্চ' : 'Max'))}
+        onChange={(v) => { if (v) { save(s.alertUrgent, s.alertImportant, s.alertNormal, Number(v)); testAlertLevel(s.alertUrgent, Number(v)); } }} />
+      <View style={{ marginTop: 8 }}><AppButton variant="secondary" icon="vibrate" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা' : 'Test the urgent alarm'} onPress={() => testAlertLevel(s.alertUrgent, s.alertVolume)} /></View>
+    </Card>
+  );
+}
 
 export default function SettingsScreen() {
   const { bn } = useKit();
@@ -54,6 +84,8 @@ export default function SettingsScreen() {
           onPress={() => { void p.setAppLockPin(pin).then(() => { setPin(''); showSnackbar(bn ? 'অ্যাপ-লক চালু' : 'App lock on', 'success'); }); }} />
         {p.appLockEnabled ? <AppButton variant="secondary" label={bn ? 'অ্যাপ-লক বন্ধ করুন' : 'Turn off app lock'} onPress={() => void p.setAppLockPin(null)} /> : null}
       </Card>
+
+      <AlertStrength />
 
       <Card title={bn ? 'জরুরি অ্যালার্টের সীমা' : 'Urgent alert limits'}>
         {limits ? (

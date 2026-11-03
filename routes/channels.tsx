@@ -10,7 +10,7 @@ import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
 import { MODULES } from '../src/va/modules';
-import { BrandLogo, type BrandKey } from '../src/va/BrandLogo';
+import { BrandLogo } from '../src/va/BrandLogo';
 import { getStatus } from '../modules/va-bridge';
 
 /** The modules overview: one card per way people reach you, with its own waiting/urgent counts. Tap to open that module. */

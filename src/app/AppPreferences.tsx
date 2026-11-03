@@ -398,6 +398,11 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
   return <PreferencesContext.Provider value={value}><TextScaleContext.Provider value={textScale}>{children}</TextScaleContext.Provider></PreferencesContext.Provider>;
 }
 
+/** Like useAppPreferences, but returns null outside the provider (for components that can also sit outside it, such as AppText). */
+export function useAppPreferencesOptional() {
+  return useContext(PreferencesContext);
+}
+
 export function useAppPreferences() {
   const context = useContext(PreferencesContext);
   if (!context) throw new Error('useAppPreferences must be used inside AppPreferencesProvider');

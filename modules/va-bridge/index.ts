@@ -18,6 +18,11 @@ export type BridgeStatus = {
   packages: string[];
   accountName: string | null;
   accountEmail: string | null;
+  activity: boolean;
+  alertUrgent: number;
+  alertImportant: number;
+  alertNormal: number;
+  alertVolume: number;
   location: boolean;
   contacts: boolean;
   storage: boolean;
@@ -41,6 +46,8 @@ type Native = {
   setPackages(list: string[]): boolean;
   setPollSeconds(seconds: number): boolean;
   testAlert(): boolean;
+  setAlertLevels(urgent: number, important: number, normal: number, volume: number): boolean;
+  testAlertLevel(level: number, volume: number): boolean;
   notify(target: string, body: string, id: string): boolean;
   openNotificationAccess(): boolean;
   openDndAccess(): boolean;
@@ -58,7 +65,7 @@ export const bridgeAvailable = native != null;
 export const emptyStatus: BridgeStatus = {
   paired: false, notificationAccess: false, smsReceive: false, smsSend: false, phoneState: false, callLog: false,
   postNotifications: false, batteryExempt: false, dndAccess: false, serviceAlive: false, queued: 0, lastOk: 0,
-  lastError: null, pollSeconds: 20, packages: [], accountName: null, accountEmail: null, location: false, contacts: false, storage: false, microphone: false, exactAlarm: false, fullScreen: false,
+  lastError: null, pollSeconds: 20, packages: [], accountName: null, accountEmail: null, activity: false, alertUrgent: 3, alertImportant: 2, alertNormal: 1, alertVolume: 3, location: false, contacts: false, storage: false, microphone: false, exactAlarm: false, fullScreen: false,
 };
 
 export function getStatus(): BridgeStatus {
@@ -107,6 +114,8 @@ export const stopService = call('stopService');
 export const setPackages = call('setPackages');
 export const setPollSeconds = call('setPollSeconds');
 export const testAlert = call('testAlert');
+export const setAlertLevels = call('setAlertLevels');
+export const testAlertLevel = call('testAlertLevel');
 export const notify = call('notify');
 export const openNotificationAccess = call('openNotificationAccess');
 export const openDndAccess = call('openDndAccess');

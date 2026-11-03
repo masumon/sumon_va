@@ -123,8 +123,8 @@ class PollService : Service() {
 
   companion object {
     const val CH_SERVICE = "va_service"
-    const val CH_URGENT = "va_urgent"
-    const val CH_NORMAL = "va_normal"
+    const val CH_URGENT = "va_urgent_v2"
+    const val CH_NORMAL = "va_normal_v2"
     @Volatile var alive = false
 
     fun start(ctx: Context) {
@@ -138,12 +138,11 @@ class PollService : Service() {
       if (Build.VERSION.SDK_INT < 26) return
       val nm = ctx.getSystemService(NotificationManager::class.java)
       nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "সহকারী চলছে", NotificationManager.IMPORTANCE_MIN))
-      nm.createNotificationChannel(NotificationChannel(CH_NORMAL, "গুরুত্বপূর্ণ বার্তা", NotificationManager.IMPORTANCE_HIGH))
+      nm.createNotificationChannel(NotificationChannel(CH_NORMAL, "গুরুত্বপূর্ণ বার্তা", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(false) })
       val urgent = NotificationChannel(CH_URGENT, "জরুরি (অ্যালার্ম)", NotificationManager.IMPORTANCE_HIGH).apply {
         description = "পরিবার ও সবচেয়ে জরুরি বার্তা — সাইলেন্ট মোডেও বাজে"
         setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
-        enableVibration(true)
-        vibrationPattern = longArrayOf(0, 600, 300, 600, 300, 900)
+        enableVibration(false)  // vibration is done by Alert.vibrate at the strength the owner chose
         setBypassDnd(true)  // honoured only when the owner granted "Do not disturb access" in Settings
         lockscreenVisibility = Notification.VISIBILITY_PRIVATE  // the lock screen shows "urgent", never the words
       }
@@ -162,6 +161,55 @@ class PollService : Service() {
         .setPublicVersion(Notification.Builder(ctx, if (urgent) CH_URGENT else CH_NORMAL).setSmallIcon(android.R.drawable.stat_notify_chat).setContentTitle(if (urgent) "জরুরি বার্তা" else "নতুন বার্তা").build())
       if (urgent) b.setFullScreenIntent(open, true)
       ctx.getSystemService(NotificationManager::class.java).notify(id.hashCode(), b.build())
+      Alert.fire(ctx, target)
     }
+
+    /** For the Settings test buttons: the same alert at an explicit strength. */
+    fun test(ctx: Context, level: Int, volume: Int) { Alert.vibrate(ctx, level); Alert.louder(ctx, level, volume) }
   }
 }
+
+/** Vibration strength and alarm loudness, by how urgent the message is. */
+object Alert {
+  private val PATTERNS = arrayOf(
+    longArrayOf(0, 120),                                              // 1 soft
+    longArrayOf(0, 400, 200, 400),                                    // 2 medium
+    longArrayOf(0, 900, 250, 900, 250, 1300, 250, 1300),              // 3 strong
+  )
+  private val AMPLITUDES = arrayOf(
+    intArrayOf(0, 70),
+    intArrayOf(0, 160, 0, 160),
+    intArrayOf(0, 255, 0, 255, 0, 255, 0, 255),
+  )
+
+  fun fire(ctx: Context, target: String) {
+    val key = when (target) { "p1" -> "p1"; "p2" -> "p2"; else -> "other" }
+    val level = Store.level(ctx, key, if (key == "p1") 3 else if (key == "p2") 2 else 1)
+    vibrate(ctx, level)
+    if (key == "p1") louder(ctx, level, Store.prefs(ctx).getInt("alert_vol", 3))
+  }
+
+  fun vibrate(ctx: Context, level: Int) {
+    if (level <= 0) return
+    try {
+      val v = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(android.os.VibratorManager::class.java)).defaultVibrator else @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+      if (!v.hasVibrator()) return
+      val i = (level - 1).coerceIn(0, 2)
+      val effect = if (v.hasAmplitudeControl()) android.os.VibrationEffect.createWaveform(PATTERNS[i], AMPLITUDES[i], -1) else android.os.VibrationEffect.createWaveform(PATTERNS[i], -1)
+      @Suppress("DEPRECATION") v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())  // alarm usage: strong, and honoured in silent mode
+    } catch (_: Exception) {}
+  }
+
+  /** Raises the alarm volume for a strong alert (soft = leave it, medium = at least 70 %, strong = full). */
+  fun louder(ctx: Context, level: Int, volume: Int) {
+    if (level < 2) return
+    try {
+      val am = ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+      val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+      val want = when (volume) { 1 -> 0.5; 2 -> 0.75; else -> 1.0 }
+      val target = (max * want).toInt().coerceAtLeast(1)
+      if (am.getStreamVolume(android.media.AudioManager.STREAM_ALARM) < target) am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, target, 0)
+    } catch (_: Exception) {}
+  }
+}
+
