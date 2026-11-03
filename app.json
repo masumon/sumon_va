@@ -1,0 +1,144 @@
+{
+  "expo": {
+    "name": "সুমনের ভার্চুয়াল সহকারী",
+    "slug": "sumon-va",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "sumonva",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#0C3C85",
+    "android": {
+      "package": "com.masumon.sumonva",
+      "versionCode": 1,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/monochrome-icon.png",
+        "backgroundColor": "#0C3C85"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "useLegacyPackaging": true,
+            "extraProguardRules": "# Neither native module ships consumer ProGuard rules of its own, and both are reached\n# from JS by class name at runtime. Under R8 full mode their classes were renamed, so the\n# TurboModule lookup threw, the JS caught it as \"no native module\", and the feature simply\n# vanished from the UI with no error anywhere -- the camera button never rendered and the\n# LLM runtime reported itself missing on a build that contained it.\n-keep class com.imageanalysis.** { *; }\n-keep class com.rnllama.** { *; }\n\n# One layer deeper than the two rules above, and the same failure shape: Scripts.kt inside\n# react-native-image-analysis itself resolves each ML Kit text-recognizer script with\n# Class.forName(\"com.google.mlkit.vision.text.latin.TextRecognizerOptions\") -- a bare string,\n# invisible to R8's static analysis. R8 full mode renamed that class too, so every script\n# lookup threw ClassNotFoundException, caught silently, leaving isSupported().textRecognition\n# false on a real device even though the ML Kit .so and the rest of the wrapper were all\n# present and correctly kept -- the OCR camera button vanished from both Home and Assistant\n# with nothing in logcat to explain why.\n-keep class com.google.mlkit.vision.text.** { *; }\n\n# react-native-image-analysis reaches for ML Kit's subject-segmentation classes from its\n# background-removal path. That dependency is optional and deliberately not installed:\n# this app only ever calls analyzeImage() for text, never extractSubject(). R8 stops the\n# whole build over the absent classes, so it is told they are absent on purpose. Adding\n# the segmentation library instead would grow the APK for a feature nothing calls.\n-dontwarn com.google.mlkit.vision.segmentation.subject.**\n\n# Same failure shape a third time, this one in a shared Expo core path rather than a leaf\n# feature module: AppLoaderProvider.createLoader() finds this class by name from a string\n# baked into AndroidManifest.xml's own meta-data tag. expo-modules-core's own shipped rule\n# (`-keep @expo.modules.core.interfaces.DoNotStrip class *`) doesn't match it, because the\n# @DoNotStrip annotation in RNHeadlessAppLoader.kt sits on the constructor, not the class --\n# so R8 full mode removed the class outright. Every OS-level background task this app\n# registers (expo-background-task/expo-task-manager) needs this class to even start its JS\n# callback; without it the task fails at native class-loading, silently, before any JS runs --\n# confirmed live via logcat (ClassNotFoundException, BackgroundTaskScheduler: Task failed: null).\n-keep class expo.modules.adapters.react.apploader.RNHeadlessAppLoader { *; }\n",
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-router",
+        {
+          "root": "routes"
+        }
+      ],
+      "expo-sqlite",
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-blank.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#0C3C85"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0C3C85",
+          "defaultChannel": "task-reminders",
+          "icon": "./assets/notification-icon.png"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Apon uses the microphone only while you hold the mic button, so you can speak a task or memory instead of typing.",
+          "speechRecognitionPermission": "Speech is turned into text on this device to capture what you say. Nothing is sent to a server.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-asset",
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "text/*"
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "QuickAdd",
+              "label": "আপন",
+              "description": "দ্রুত একটি কাজ বা স্মৃতি যোগ করুন",
+              "minWidth": "140dp",
+              "minHeight": "100dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 0
+            }
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Apon attaches a photo you choose to a record you are saving.",
+          "cameraPermission": "Apon lets you photograph a receipt and save it onto the record. Photos stay on this phone."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Apon attaches where you are to a memory only at the moment you tap to add it."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Apon reads only the one contact you pick, to fill in their name, number, email and address."
+        }
+      ],
+      "expo-background-task",
+      [
+        "llama.rn",
+        {
+          "enableOpenCLAndHexagon": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "root": "app"
+      }
+    }
+  }
+}

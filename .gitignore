@@ -1,0 +1,22 @@
+node_modules/
+.expo/
+dist/
+coverage/
+.env
+.env.*
+# Native build output / caches
+android/build/
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/app/release/
+modules/*/android/build/
+*.log
+# Signing material: never committed
+*.keystore
+*.jks
+keystore.properties
+local.properties
+# Personal data
+*.xlsx
+*.db

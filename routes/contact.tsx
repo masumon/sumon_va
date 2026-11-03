@@ -1,0 +1,106 @@
+import { useState } from 'react';
+import { View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { AppText as Text } from '../src/ui/AppText';
+import { AppBadge, AppButton } from '../src/ui/AppSurface';
+import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
+import { useAppFeedback } from '../src/ui/AppFeedback';
+import { formatBangladeshDateTime } from '../src/i18n/date-time';
+import { va, type Contact, type Message } from '../src/va/api';
+import { useLoad } from '../src/va/hooks';
+import { Page, Status } from '../src/va/Page';
+import { CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
+
+const MODES: Contact['mode'][] = ['inherit', 'auto', 'draft', 'notify'];
+
+function Bubble({ m }: { m: Message }) {
+  const { colors, bn, language } = useKit();
+  const mine = m.direction === 'out';
+  const st = MESSAGE_STATUS[m.status];
+  const text = m.transcript || m.body || (bn ? '(লেখা নেই)' : '(no text)');
+  return (
+    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
+      <View style={{ padding: 12, borderRadius: 16, backgroundColor: mine ? colors.primaryTint : colors.surfaceMuted }}>
+        <Text style={{ color: colors.textPrimary, lineHeight: 22 }}>{text}</Text>
+      </View>
+      <Text style={{ color: m.status === 'failed' ? colors.danger : colors.textMuted, fontSize: 11, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
+        {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}{mine ? ` · ${bn ? st.bn : st.en}` : ''}{m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+export default function ContactScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { bn } = useKit();
+  const { showSnackbar } = useAppFeedback();
+  const detail = useLoad(() => va.contact(String(id)), `contact:${String(id)}`, 10000);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const act = async (fn: () => Promise<unknown>, ok?: string) => {
+    setBusy(true);
+    try { await fn(); await detail.reload(); if (ok) showSnackbar(ok, 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    finally { setBusy(false); }
+  };
+
+  const c = detail.data?.contact;
+  const drafts = (detail.data?.messages ?? []).filter((m) => m.status === 'draft');
+  const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
+
+  return (
+    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel].bn : CHANNEL[c.channel].en) : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
+      <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
+      {c && pr ? (
+        <>
+          <Card>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} />
+              {c.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
+              {c.is_blocked ? <AppBadge label={bn ? 'ব্লক' : 'Blocked'} tone="danger" /> : null}
+            </View>
+            {c.need ? <Text style={{ marginTop: 8 }}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
+            {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
+          </Card>
+
+          <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
+
+          {drafts.map((d) => (
+            <Card key={d.id} title={bn ? 'সহকারীর খসড়া উত্তর' : "Assistant's draft reply"}>
+              <Text style={{ marginBottom: 10 }}>{d.body}</Text>
+              <View style={{ gap: 8 }}>
+                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানো হয়েছে' : 'Sent')} />
+                <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />
+              </View>
+            </Card>
+          ))}
+
+          <Card title={bn ? 'আপনার উত্তর' : 'Your reply'}>
+            <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'এখানে লিখুন…' : 'Write here…'} />
+            <View style={{ gap: 8, marginTop: 10 }}>
+              <AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
+                onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানো হয়েছে' : 'Sent')} />
+              <AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let the assistant draft it'} loading={busy}
+                onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} />
+            </View>
+          </Card>
+
+          <Card title={bn ? 'এই ব্যক্তির নিয়ম' : 'Rules for this person'}>
+            <ToggleRow icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} hint={bn ? 'পরিবারে কখনও অটো-উত্তর যায় না, শুধু আপনাকে জানানো হয়।' : 'Family never gets auto-replies; you are only notified.'}
+              value={c.is_family} onChange={(v) => void act(() => va.patchContact(c.id, { is_family: v }))} />
+            <ToggleRow icon="star-outline" label="VIP" value={c.is_vip} onChange={(v) => void act(() => va.patchContact(c.id, { is_vip: v }))} />
+            <ToggleRow icon="block-helper" label={bn ? 'ব্লক' : 'Block'} value={c.is_blocked} onChange={(v) => void act(() => va.patchContact(c.id, { is_blocked: v }))} />
+            <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m].bn : MODE[m].en)}
+              onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি নিচ্ছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
+              {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
+              {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'সহকারীর হাতে দিন' : 'Hand back'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
+            </View>
+          </Card>
+        </>
+      ) : null}
+    </Page>
+  );
+}

@@ -1,0 +1,57 @@
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '../ui/AppText';
+import { AppBadge } from '../ui/AppSurface';
+import { AppIcon } from '../ui/AppIcon';
+import { useAppPreferences } from '../app/AppPreferences';
+import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date-time';
+import { border, control, radius, spacing, type ThemeColors } from '../theme';
+import type { Contact } from './api';
+import { CHANNEL, PRIORITY, displayName } from './labels';
+
+/** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
+export function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
+  const { colors, language } = useAppPreferences();
+  const bn = language === 'bn';
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const ch = CHANNEL[contact.channel] ?? CHANNEL.webhook;
+  const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
+  const urgent = contact.unread > 0 && contact.priority === 1;
+  const when = contact.last_message_at
+    ? (formatBangladeshRelativeDate(contact.last_message_at, language) === (bn ? 'আজ' : 'Today') ? formatBangladeshTime(contact.last_message_at, language) : formatBangladeshRelativeDate(contact.last_message_at, language))
+    : '';
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress}
+      style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
+      <View style={styles.icon}><AppIcon name={ch.icon} size={22} color={colors.primary} /></View>
+      <View style={styles.main}>
+        <View style={styles.top}>
+          <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
+          <Text style={styles.when}>{when}</Text>
+        </View>
+        <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>
+        <View style={styles.badges}>
+          {contact.priority <= 2 || contact.unread > 0 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
+          {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
+          {contact.is_vip ? <AppBadge label="VIP" tone="primary" /> : null}
+          <AppBadge label={bn ? ch.bn : ch.en} tone="neutral" />
+          {contact.unread > 0 ? <AppBadge label={bn ? `${contact.unread}টি নতুন` : `${contact.unread} new`} tone="danger" /> : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
+  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: radius.lg, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface },
+  urgent: { borderColor: colors.danger, borderWidth: border.medium },
+  pressed: { opacity: 0.92 },
+  icon: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint },
+  main: { flex: 1, gap: spacing.xs },
+  top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
+  name: { flex: 1, color: colors.textPrimary, fontSize: 16 },
+  bold: { fontWeight: '700' },
+  when: { color: colors.textMuted, fontSize: 12 },
+  preview: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
+});

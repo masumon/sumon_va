@@ -1,0 +1,5 @@
+<resources>
+  <string name="app_name">সুমনের ভার্চুয়াল সহকারী</string>
+  <string name="widget_quickadd_description" translatable="false">দ্রুত একটি কাজ বা স্মৃতি যোগ করুন</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+</resources>
