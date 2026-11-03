@@ -48,7 +48,7 @@ export type KitStyles = ReturnType<typeof makeKitStyles>;
  * without editing this file.
  */
 export function ScreenHeader({
-  title, subtitle, right, backLabel, backTo, onBack,
+  title, subtitle, right, backLabel, backTo, onBack, hideBack,
 }: {
   title: string;
   subtitle?: string;
@@ -61,11 +61,13 @@ export function ScreenHeader({
    * the one exit that skipped the "discard changes?" question hardware back and Cancel ask.
    */
   onBack?: () => void;
+  /** A top-level screen (a tab) has nowhere to go back to, so it shows no back link. */
+  hideBack?: boolean;
 }) {
   const { s, t, colors } = useKit();
   return (
     <View style={s.headerWrap}>
-      <Pressable
+      {hideBack ? null : <Pressable
         accessibilityRole="button"
         accessibilityLabel={backLabel ?? t.back}
         // A label that names a place is a promise about where this lands. It used to call
@@ -85,7 +87,7 @@ export function ScreenHeader({
       >
         <AppIcon name="arrow-left" size={icon.md} color={colors.primary} />
         <Text numberOfLines={1} style={s.backText}>{backLabel ?? t.back}</Text>
-      </Pressable>
+      </Pressable>}
       <View style={s.headerRow}>
         <View style={s.grow}>
           <Text accessibilityRole="header" style={s.title}>{title}</Text>

@@ -18,7 +18,7 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]} showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}>
-      <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} />
+      <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
       <View style={styles.body}>{children}</View>
     </ScrollView>
   );
