@@ -43,7 +43,7 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       const r = await loginRequest(SERVER, email);
-      if (r.ok) { setStep('mailcode'); showSnackbar(bn ? 'কোড পাঠানো হয়েছে — ইমেইল দেখুন' : 'Code sent — check your e-mail', 'success'); } else fail(r.error);
+      if (r.ok) { setStep('mailcode'); showSnackbar(bn ? 'কোড পাঠানো হয়েছে, ইমেইল দেখুন' : 'Code sent — check your e-mail', 'success'); } else fail(r.error);
     } finally { setBusy(false); }
   };
   const verifyMail = async () => {
@@ -51,7 +51,7 @@ export default function LoginScreen() {
     try {
       const r = await loginVerify(SERVER, email, mailCode, null, name);
       if (r.ok) { router.replace('/lock-setup' as never); return; }
-      if (r.needTotp) { setStep('totp'); showSnackbar(bn ? 'এখন পাসওয়ার্ড দিয়েই ঢুকুন' : 'Please sign in with your password', 'info'); return; }
+      if (r.needTotp) { setStep('totp'); showSnackbar(bn ? 'এবার পাসওয়ার্ড দিয়ে ঢুকুন' : 'Please sign in with your password', 'info'); return; }
       fail(r.error);
     } finally { setBusy(false); }
   };
@@ -67,11 +67,11 @@ export default function LoginScreen() {
           <Field label={bn ? 'পাসওয়ার্ড' : 'Password'} value={password} onChangeText={setPassword} secure autofill="password" />
           {step === 'totp' ? (
             <>
-              <Text style={{ marginTop: 6, marginBottom: 4 }}>{bn ? 'আপনার অ্যাকাউন্টে Google Authenticator চালু আছে। সেখানকার ৬ সংখ্যার কোডটি দিন।' : 'Your account uses Google Authenticator. Enter its 6-digit code.'}</Text>
+              <Text style={{ marginTop: 6, marginBottom: 4 }}>{bn ? 'আপনার অ্যাকাউন্টে Google Authenticator চালু আছে। সেখানকার ৬ সংখ্যার কোডটি লিখুন।' : 'Your account uses Google Authenticator. Enter its 6-digit code.'}</Text>
               <Field label={bn ? 'অথেনটিকেটর কোড' : 'Authenticator code'} value={totp} onChangeText={(v) => setTotp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="numeric" autofill="otp" autoFocus />
             </>
           ) : (
-            <Text style={{ opacity: 0.7, fontSize: 13, marginTop: 6 }}>{bn ? 'এই ফোন একবার ঢুকলে মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। পাসওয়ার্ড ম্যানেজার (Google) ব্যবহার করলে নিজে ভরে দেবে।' : 'Once signed in, this phone is remembered. Next time only your PIN or fingerprint is needed. Your password manager (Google) can fill this in.'}</Text>
+            <Text style={{ opacity: 0.7, fontSize: 13, marginTop: 6 }}>{bn ? 'একবার ঢুকলে এই ফোন মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। Google পাসওয়ার্ড ম্যানেজার থাকলে সেটাই পাসওয়ার্ড বসিয়ে দেবে।' : 'Once signed in, this phone is remembered. Next time only your PIN or fingerprint is needed. Your password manager (Google) can fill this in.'}</Text>
           )}
         </Card>
       ) : (
@@ -84,13 +84,13 @@ export default function LoginScreen() {
       {step === 'mailcode' ? (
         <View style={{ gap: 10 }}>
           <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" loading={busy} disabled={mailCode.length !== 6} onPress={() => void verifyMail()} />
-          <AppButton variant="ghost" label={bn ? 'পাসওয়ার্ড দিয়ে ঢুকি' : 'Use my password instead'} onPress={() => setStep('password')} />
+          <AppButton variant="ghost" label={bn ? 'পাসওয়ার্ড দিয়ে ঢুকব' : 'Use my password instead'} onPress={() => setStep('password')} />
         </View>
       ) : (
         <View style={{ gap: 10 }}>
           <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" loading={busy} disabled={!emailOk || !password || (step === 'totp' && totp.length !== 6)} onPress={() => void signIn()} />
-          <AppButton variant="ghost" label={bn ? 'পাসওয়ার্ড ভুলে গেছি — ইমেইলে কোড পাঠান' : 'Forgot password — e-mail me a code'} disabled={!emailOk || busy} onPress={() => void sendMail()} />
-          <AppButton variant="ghost" label={bn ? 'অ্যাডমিনের জোড়া-লাগানোর কোড আছে?' : 'Have a pairing code from the admin?'} onPress={() => router.push('/pair' as never)} />
+          <AppButton variant="ghost" label={bn ? 'পাসওয়ার্ড ভুলে গেছি, ইমেইলে কোড পাঠান' : 'Forgot password — e-mail me a code'} disabled={!emailOk || busy} onPress={() => void sendMail()} />
+          <AppButton variant="ghost" label={bn ? 'অ্যাডমিনের দেওয়া জোড়া লাগানোর কোড আছে?' : 'Have a pairing code from the admin?'} onPress={() => router.push('/pair' as never)} />
         </View>
       )}
       <PoweredBy />

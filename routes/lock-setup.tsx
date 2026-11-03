@@ -28,16 +28,16 @@ export default function LockSetupScreen() {
   };
 
   return (
-    <Page title={bn ? 'অ্যাপ সুরক্ষিত করুন' : 'Protect the app'} subtitle={bn ? 'আপনার বার্তা শুধু আপনিই দেখবেন' : 'Only you can see your messages'} bottomPadding={40}>
-      <Card title={bn ? 'PIN দিন' : 'Set a PIN'}>
-        <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? '৪ থেকে ৮ সংখ্যার একটি PIN। অ্যাপ খুলতে এটা লাগবে।' : 'A 4–8 digit PIN, needed each time the app opens.'}</Text>
+    <Page title={bn ? 'অ্যাপে তালা দিন' : 'Protect the app'} subtitle={bn ? 'আপনার বার্তা শুধু আপনিই দেখতে পাবেন' : 'Only you can see your messages'} bottomPadding={40}>
+      <Card title={bn ? 'PIN ঠিক করুন' : 'Set a PIN'}>
+        <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? '৪ থেকে ৮ সংখ্যার একটি PIN দিন। অ্যাপ খুলতে প্রতিবার এটা লাগবে।' : 'A 4–8 digit PIN, needed each time the app opens.'}</Text>
         <Field label="PIN" value={pin} onChangeText={(v) => setPin(v.replace(/\D/g, '').slice(0, 8))} keyboardType="numeric" autoFocus />
         <Field label={bn ? 'আবার লিখুন' : 'Repeat'} value={again} onChangeText={(v) => setAgain(v.replace(/\D/g, '').slice(0, 8))} keyboardType="numeric" />
         {again.length > 0 && pin !== again ? <Text style={{ color: '#C13B2E', marginTop: 6 }}>{bn ? 'দুটো মিলছে না' : 'They do not match'}</Text> : null}
       </Card>
       <Card>
-        <ToggleRow icon="fingerprint" label={bn ? 'আঙুলের ছাপ / মুখ দিয়ে খোলা' : 'Open with fingerprint / face'}
-          hint={bio === false ? (bn ? 'এই ফোনে আঙুলের ছাপ বা মুখ-চেনা সেট করা নেই — ফোনের সেটিংসে আগে সেট করুন।' : 'No fingerprint or face is set up on this phone yet.') : (bn ? 'PIN চালু থাকলে ফোনের নিজস্ব আঙুলের ছাপ/মুখ-চেনাও কাজ করবে।' : 'With a PIN on, the phone’s own fingerprint/face works too.')}
+        <ToggleRow icon="fingerprint" label={bn ? 'আঙুলের ছাপ বা মুখ দিয়ে খোলা' : 'Open with fingerprint / face'}
+          hint={bio === false ? (bn ? 'এই ফোনে আঙুলের ছাপ বা ফেস আনলক সেট করা নেই। আগে ফোনের সেটিংসে গিয়ে সেট করুন।' : 'No fingerprint or face is set up on this phone yet.') : (bn ? 'PIN চালু থাকলে ফোনের আঙুলের ছাপ বা ফেস আনলকও কাজ করবে।' : 'With a PIN on, the phone’s own fingerprint/face works too.')}
           value={bio === true && p.appLockEnabled} onChange={() => { /* biometrics follow the PIN lock automatically */ }} />
       </Card>
       <AppButton label={bn ? 'লক চালু করুন' : 'Turn on lock'} icon="shield-lock-outline" disabled={!ok} onPress={() => void save()} />

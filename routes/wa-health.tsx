@@ -15,11 +15,11 @@ export default function WaHealthScreen() {
   const r = useLoad(() => va.waHealth(true), 'wa-health-remote');
   const d = r.data ?? h.data;
   return (
-    <Page title={bn ? 'WhatsApp সংযোগ' : 'WhatsApp connection'} subtitle={bn ? 'ব্যবসার WhatsApp ঠিক আছে কিনা' : 'Is the business WhatsApp healthy'} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { void h.reload(); void r.reload(); }} refreshing={(h.loading || r.loading) && !!d}>
+    <Page title={bn ? 'WhatsApp সংযোগ' : 'WhatsApp connection'} subtitle={bn ? 'ব্যবসার WhatsApp ঠিক চলছে কিনা' : 'Is the business WhatsApp healthy'} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { void h.reload(); void r.reload(); }} refreshing={(h.loading || r.loading) && !!d}>
       <Status loading={h.loading && !d} error={d ? null : h.error} onRetry={h.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {d ? (
         <>
-          <Hero icon={d.summary === 'ok' ? 'check-decagram-outline' : 'alert-outline'} title={d.summary === 'ok' ? (bn ? 'সব ঠিক আছে ✓' : 'All good ✓') : d.summary === 'bad' ? (bn ? 'সমস্যা আছে' : 'Problems found') : (bn ? 'কিছু ধাপ বাকি' : 'Some steps left')} subtitle={r.loading ? (bn ? 'Meta-র সাথে মিলিয়ে দেখা হচ্ছে…' : 'Checking with Meta…') : undefined}>
+          <Hero icon={d.summary === 'ok' ? 'check-decagram-outline' : 'alert-outline'} title={d.summary === 'ok' ? (bn ? 'সব ঠিক আছে ✓' : 'All good ✓') : d.summary === 'bad' ? (bn ? 'সমস্যা আছে' : 'Problems found') : (bn ? 'কিছু কাজ বাকি' : 'Some steps left')} subtitle={r.loading ? (bn ? 'Meta-তে দেখা হচ্ছে…' : 'Checking with Meta…') : undefined}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <HeroStat value={String(d.ok)} label={bn ? 'ঠিক' : 'OK'} /><HeroStat value={String(d.bad)} label={bn ? 'সমস্যা' : 'Bad'} /><HeroStat value={String(d.todo)} label={bn ? 'বাকি' : 'To do'} />
             </View>
@@ -35,7 +35,7 @@ export default function WaHealthScreen() {
               {i.fix ? <Text style={{ marginTop: 6, color: colors.primary, fontWeight: '700' }}>{i.fix.label}</Text> : null}
             </Card>
           ))}
-          <AppButton variant="secondary" icon="refresh" label={bn ? 'এখনই Meta-র সাথে পরীক্ষা' : 'Check with Meta now'} loading={r.loading} onPress={() => void r.reload()} />
+          <AppButton variant="secondary" icon="refresh" label={bn ? 'এখনই Meta-তে দেখুন' : 'Check with Meta now'} loading={r.loading} onPress={() => void r.reload()} />
         </>
       ) : null}
     </Page>

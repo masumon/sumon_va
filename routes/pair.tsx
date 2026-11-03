@@ -29,7 +29,7 @@ export default function PairScreen() {
       <Card title={bn ? 'কীভাবে কোড পাবেন' : 'How to get the code'}>
         <Text style={{ lineHeight: 24 }}>
           {bn
-            ? '১. কম্পিউটার বা অন্য ফোনে আপনার অ্যাডমিনে লগইন করুন।\n২. “সুমনের ভার্চুয়াল সহকারী” পাতায় যান → “ফোন জোড়া লাগান” বোতাম চাপুন।\n৩. যে ৮ অক্ষরের কোড দেখাবে, নিচে লিখুন। কোডটি ১০ মিনিট চলবে, একবারই ব্যবহার হবে।'
+            ? '১. কম্পিউটার বা অন্য ফোনে আপনার অ্যাডমিনে লগইন করুন।\n২. “সুমনের ভার্চুয়াল সহকারী” পাতায় গিয়ে “ফোন জোড়া লাগান” বোতাম চাপুন।\n৩. ৮ অক্ষরের যে কোড দেখাবে, নিচে লিখুন। কোডটি ১০ মিনিট চলবে এবং একবারই ব্যবহার করা যাবে।'
             : '1. Sign in to your admin on a computer or another phone.\n2. Open the “Sumon’s Virtual Assistant” page → press “Pair a phone”.\n3. Type the 8-character code below. It works for 10 minutes, once.'}
         </Text>
       </Card>

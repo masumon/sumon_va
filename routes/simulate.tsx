@@ -30,19 +30,19 @@ export default function SimulateScreen() {
   };
 
   return (
-    <Page title={bn ? 'পরীক্ষা' : 'Test'} subtitle={bn ? 'সহকারী কী করত — কাউকে কিছু পাঠানো হয় না' : 'What the assistant would do — nothing is sent'} back={bn ? 'নিয়ম' : 'Rules'}>
-      <Hero icon="flask-outline" title={bn ? 'নিরাপদে পরীক্ষা করুন' : 'Try it safely'} subtitle={bn ? 'কেউ আপনাকে কিছু লিখলে সহকারী কী উত্তর দিত, দেখে নিন' : 'See how the assistant would answer a message'} />
+    <Page title={bn ? 'পরীক্ষা' : 'Test'} subtitle={bn ? 'সহকারী কী করত তা দেখুন। কাউকে কিছু পাঠানো হয় না' : 'What the assistant would do — nothing is sent'} back={bn ? 'নিয়ম' : 'Rules'}>
+      <Hero icon="flask-outline" title={bn ? 'পাঠিয়ে না দেখেই পরীক্ষা করুন' : 'Try it safely'} subtitle={bn ? 'কেউ লিখলে সহকারী কী উত্তর দিত, দেখে নিন' : 'See how the assistant would answer a message'} />
       <Card>
         <Field label={bn ? 'যিনি লিখছেন (ঐচ্ছিক নাম)' : 'Who is writing (optional name)'} value={name} onChangeText={setName} />
         <Field label={bn ? 'বার্তা' : 'Message'} value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: ভাই, একটা ওয়েবসাইট বানাতে কত খরচ পড়বে?' : 'e.g. How much for a website?'} />
-        <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বোঝা' : 'Understand with AI'} value={ai} onChange={setAi} />
+        <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বুঝে নেওয়া' : 'Understand with AI'} value={ai} onChange={setAi} />
         <View style={{ marginTop: 8 }}><AppButton label={bn ? 'দেখি কী হয়' : 'Show me'} icon="play" loading={busy} disabled={!text.trim()} onPress={() => void run()} /></View>
       </Card>
       {r && pr ? (
         <Card title={bn ? 'সহকারীর সিদ্ধান্ত' : "The assistant's decision"}>
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
             <AppBadge tone={pr.tone} label={bn ? pr.bn : pr.en} />
-            <AppBadge tone={r.action === 'send' ? 'success' : r.action === 'draft' ? 'warning' : 'neutral'} label={r.action === 'send' ? (bn ? 'নিজে পাঠাত' : 'Would send') : r.action === 'draft' ? (bn ? 'খসড়া করত' : 'Would draft') : (bn ? 'চুপ থাকত' : 'Would stay silent')} />
+            <AppBadge tone={r.action === 'send' ? 'success' : r.action === 'draft' ? 'warning' : 'neutral'} label={r.action === 'send' ? (bn ? 'নিজে পাঠাত' : 'Would send') : r.action === 'draft' ? (bn ? 'খসড়া করত' : 'Would draft') : (bn ? 'কিছু বলত না' : 'Would stay silent')} />
             {r.notify ? <AppBadge tone="danger" label={bn ? 'আপনাকে জানাত' : 'Would alert you'} /> : null}
             {r.ai_used ? <AppBadge tone="primary" label="AI" /> : null}
           </View>

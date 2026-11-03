@@ -18,6 +18,8 @@ export type ModuleDef = {
   sources: string[];
   /** Which switch controls automatic replies here; 'none' = the assistant only drafts, you press send. */
   auto: 'telegram' | 'sms' | 'none';
+  /** How this platform is connected: read from the phone's notifications, or through its own bot/API. */
+  via?: 'notif' | 'telegram' | 'sms';
   /** Phone apps whose notifications this module reads (shown as switches). */
   apps?: { pkg: string; bn: string; en: string }[];
 };
@@ -39,13 +41,13 @@ export const MODULES: ModuleDef[] = [
     sources: ['telegram', 'notif:org.telegram.messenger', 'notif:org.thunderdog.challegram'], auto: 'telegram',
     apps: [{ pkg: 'org.telegram.messenger', bn: 'Telegram', en: 'Telegram' }, { pkg: 'org.thunderdog.challegram', bn: 'Telegram X', en: 'Telegram X' }],
   },
-  { key: 'sms', brand: 'sms', icon: 'message-text-outline', tone: 'orange', bn: 'SMS ও কল', en: 'SMS and calls', hintBn: 'সাধারণ SMS ও মিসড কল (কোন নম্বর থেকে এসেছে)', hintEn: 'Plain SMS and missed calls (which number)', sources: ['sms'], auto: 'sms' },
+  { key: 'sms', brand: 'sms', icon: 'message-text-outline', tone: 'orange', bn: 'SMS ও কল', en: 'SMS and calls', hintBn: 'সাধারণ SMS ও মিসড কল, নম্বরসহ', hintEn: 'Plain SMS and missed calls (which number)', sources: ['sms'], auto: 'sms' },
   { key: 'email', brand: 'email', icon: 'email-outline', tone: 'red', bn: 'ইমেইল', en: 'E-mail', hintBn: 'ইমেইল ও Gmail', hintEn: 'E-mail and Gmail', sources: ['email', 'notif:com.google.android.gm'], auto: 'none', apps: [{ pkg: 'com.google.android.gm', bn: 'Gmail', en: 'Gmail' }] },
-  {
-    key: 'others', brand: 'imo', icon: 'chat-processing-outline', tone: 'yellow', bn: 'অন্যান্য চ্যাট', en: 'Other chats', hintBn: 'IMO, Viber, Signal, LINE', hintEn: 'IMO, Viber, Signal, LINE',
-    sources: ['notif:com.imo.android.imoim', 'notif:com.viber.voip', 'notif:org.thoughtcrime.securesms', 'notif:jp.naver.line.android'], auto: 'none',
-    apps: [{ pkg: 'com.imo.android.imoim', bn: 'IMO', en: 'IMO' }, { pkg: 'com.viber.voip', bn: 'Viber', en: 'Viber' }, { pkg: 'org.thoughtcrime.securesms', bn: 'Signal', en: 'Signal' }, { pkg: 'jp.naver.line.android', bn: 'LINE', en: 'LINE' }],
-  },
+  { key: 'imo', brand: 'imo', icon: 'chat-processing-outline', tone: 'blue', bn: 'IMO', en: 'IMO', hintBn: 'IMO-র বার্তা (ফোনের নোটিফিকেশন থেকে পড়া)', hintEn: 'IMO chats (read from phone notifications)', sources: ['notif:com.imo.android.imoim', 'notif:com.imo.android.imous'], auto: 'none', apps: [{ pkg: 'com.imo.android.imoim', bn: 'IMO', en: 'IMO' }, { pkg: 'com.imo.android.imous', bn: 'IMO Lite', en: 'IMO Lite' }] },
+  { key: 'viber', brand: 'viber', icon: 'phone-in-talk-outline', tone: 'purple', bn: 'Viber', en: 'Viber', hintBn: 'Viber-এর বার্তা', hintEn: 'Viber chats', sources: ['notif:com.viber.voip'], auto: 'none', apps: [{ pkg: 'com.viber.voip', bn: 'Viber', en: 'Viber' }] },
+  { key: 'line', brand: 'line', icon: 'chat-outline', tone: 'green', bn: 'LINE', en: 'LINE', hintBn: 'LINE-এর বার্তা', hintEn: 'LINE chats', sources: ['notif:jp.naver.line.android'], auto: 'none', apps: [{ pkg: 'jp.naver.line.android', bn: 'LINE', en: 'LINE' }] },
+  { key: 'wechat', brand: 'wechat', icon: 'wechat', tone: 'green', bn: 'WeChat', en: 'WeChat', hintBn: 'WeChat-এর বার্তা', hintEn: 'WeChat chats', sources: ['notif:com.tencent.mm'], auto: 'none', apps: [{ pkg: 'com.tencent.mm', bn: 'WeChat', en: 'WeChat' }] },
+  { key: 'signal', brand: 'signal', icon: 'signal-variant', tone: 'blue', bn: 'Signal', en: 'Signal', hintBn: 'Signal-এর বার্তা', hintEn: 'Signal chats', sources: ['notif:org.thoughtcrime.securesms'], auto: 'none', apps: [{ pkg: 'org.thoughtcrime.securesms', bn: 'Signal', en: 'Signal' }] },
 ];
 
 export const moduleByKey = (key: string | undefined) => MODULES.find((m) => m.key === key);

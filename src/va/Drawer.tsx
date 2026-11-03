@@ -58,7 +58,7 @@ export function Drawer() {
           <View style={styles.avatar}><Text style={styles.avatarText}>{initial}</Text></View>
           <View style={{ flex: 1 }}>
             <Text numberOfLines={1} style={styles.name}>{bridge.accountName || (bn ? 'মালিক' : 'Owner')}</Text>
-            <Text numberOfLines={1} style={styles.email}>{bridge.accountEmail || (bn ? 'অ্যাডমিন-কোডে জোড়া' : 'Paired by admin code')}</Text>
+            <Text numberOfLines={1} style={styles.email}>{bridge.accountEmail || (bn ? 'অ্যাডমিন কোড দিয়ে জোড়া' : 'Paired by admin code')}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বন্ধ' : 'Close'} onPress={close} style={styles.x}><AppIcon name="close" size={22} color={colors.textMuted} /></Pressable>
         </View>
@@ -103,7 +103,7 @@ export function Drawer() {
         </View>
       </Animated.View>
       <AppConfirmDialog visible={confirm} danger icon="logout" title={bn ? 'সাইন আউট করবেন?' : 'Sign out?'}
-        description={bn ? 'এই ফোন আর বার্তা পাঠাবে না, জরুরি অ্যালার্মও আসবে না। আবার ঢুকতে ইমেইলের কোড লাগবে।' : 'This phone will stop syncing and will not ring for urgent alerts. You will need an e-mailed code to sign in again.'}
+        description={bn ? 'এই ফোন থেকে আর বার্তা সার্ভারে যাবে না, জরুরি অ্যালার্মও বাজবে না। আবার ঢুকতে ইমেইলে আসা কোড লাগবে।' : 'This phone will stop syncing and will not ring for urgent alerts. You will need an e-mailed code to sign in again.'}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'সাইন আউট' : 'Sign out'} onCancel={() => setConfirm(false)} onConfirm={() => void signOut()} />
     </View>
   );

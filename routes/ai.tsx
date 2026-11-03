@@ -39,7 +39,7 @@ export default function AiScreen() {
   };
 
   return (
-    <Page title={bn ? 'AI সংযোগ' : 'AI connections'} subtitle={bn ? 'সব AI কী এক জায়গায় — আগে ফ্রি, পরে পেইড' : 'All AI keys in one place — free first, paid after'} onRefresh={hub.reload} refreshing={hub.loading && !!h}>
+    <Page title={bn ? 'AI সংযোগ' : 'AI connections'} subtitle={bn ? 'সব AI কী এক জায়গায়। আগে ফ্রি, পরে পেইড' : 'All AI keys in one place — free first, paid after'} onRefresh={hub.reload} refreshing={hub.loading && !!h}>
       <Status loading={hub.loading && !h} error={h ? null : hub.error} onRetry={hub.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {h ? (
         <>
@@ -52,7 +52,7 @@ export default function AiScreen() {
           </Hero>
           {h.last_error?.text ? <Card title={bn ? 'শেষ সমস্যা' : 'Last problem'}><Text style={{ opacity: 0.85 }}>{h.last_error.text}</Text></Card> : null}
 
-          {h.connections.length === 0 ? <EmptyNote icon="key-outline" text={bn ? 'এখনও কোনো AI কী নেই। নিচে যোগ করুন (Gemini বা Groq-এর ফ্রি কী দিয়ে শুরু করা যায়)।' : 'No AI key yet. Add one below (a free Gemini or Groq key is a good start).'} /> : null}
+          {h.connections.length === 0 ? <EmptyNote icon="key-outline" text={bn ? 'এখনও কোনো AI কী নেই। নিচে যোগ করুন। Gemini বা Groq-এর ফ্রি কী দিয়ে শুরু করতে পারেন।' : 'No AI key yet. Add one below (a free Gemini or Groq key is a good start).'} /> : null}
           {h.connections.map((c, i) => {
             const st = STATUS[c.status];
             return (
@@ -69,7 +69,7 @@ export default function AiScreen() {
                   <AppButton variant="secondary" label={bn ? 'পরীক্ষা' : 'Test'} icon="flash-outline" loading={busy === c.id} onPress={() => void act(c.id, () => va.aiTest(c.id), bn ? 'পরীক্ষা হয়েছে' : 'Tested')} />
                   <AppButton variant="secondary" label="↑" disabled={i === 0} onPress={() => void act(c.id, () => va.aiPatch(c.id, { move: -1 }))} />
                   <AppButton variant="secondary" label="↓" disabled={i === h.connections.length - 1} onPress={() => void act(c.id, () => va.aiPatch(c.id, { move: 1 }))} />
-                  <AppButton variant="secondary" label={c.tier === 'free' ? (bn ? 'পেইড করুন' : 'Mark paid') : (bn ? 'ফ্রি করুন' : 'Mark free')} onPress={() => void act(c.id, () => va.aiPatch(c.id, { tier: c.tier === 'free' ? 'paid' : 'free' }))} />
+                  <AppButton variant="secondary" label={c.tier === 'free' ? (bn ? 'পেইড হিসেবে রাখুন' : 'Mark paid') : (bn ? 'ফ্রি হিসেবে রাখুন' : 'Mark free')} onPress={() => void act(c.id, () => va.aiPatch(c.id, { tier: c.tier === 'free' ? 'paid' : 'free' }))} />
                   <AppButton variant="danger" label={bn ? 'মুছুন' : 'Remove'} onPress={() => setDrop(c)} />
                 </View>
               </Card>
@@ -79,7 +79,7 @@ export default function AiScreen() {
 
           <Card title={bn ? 'নতুন AI কী যোগ করুন' : 'Add an AI key'}>
             <ChipGroup<(typeof PROVIDERS)[number]> label={bn ? 'কোন সেবা (না জানলে “auto”)' : 'Provider (“auto” if unsure)'} options={PROVIDERS} value={provider} labelOf={(p) => p} onChange={(p) => { if (p) setProvider(p); }} />
-            <Text style={{ marginTop: 8, marginBottom: 4, fontSize: 12, opacity: 0.7 }}>{bn ? 'কী (গোপন — লুকানো থাকবে)' : 'Key (secret — hidden)'}</Text>
+            <Text style={{ marginTop: 8, marginBottom: 4, fontSize: 12, opacity: 0.7 }}>{bn ? 'কী (গোপন, দেখা যাবে না)' : 'Key (secret — hidden)'}</Text>
             <AppTextInput value={key} onChangeText={setKey} secureTextEntry autoCapitalize="none" autoCorrect={false} placeholder="sk-… / AIza…" style={{ minHeight: 50, borderWidth: 1, borderColor: '#8884', borderRadius: 12, paddingHorizontal: 12 }} />
             <Field label={bn ? 'নাম (ঐচ্ছিক)' : 'Name (optional)'} value={label} onChangeText={setLabel} />
             <View style={{ marginTop: 10 }}><AppButton label={bn ? 'যোগ করুন ও পরীক্ষা করুন' : 'Add and test'} icon="plus" loading={busy === 'add'} disabled={key.trim().length < 8} onPress={() => void act('add', async () => { await va.aiAdd({ key: key.trim(), provider, label: label.trim() }); setKey(''); setLabel(''); }, bn ? 'যোগ হয়েছে' : 'Added')} /></View>
@@ -87,11 +87,11 @@ export default function AiScreen() {
 
           <Card title={bn ? 'পেইড AI-এর নিয়ম' : 'Paid AI rule'}>
             <ToggleRow label={bn ? 'ফ্রি শেষ হলে পেইড ব্যবহার করবে' : 'Use paid when free runs out'} hint={bn ? 'বন্ধ থাকলে শুধু ফ্রি AI চলবে।' : 'Off = free AI only.'} value={h.prefs.allow_paid} onChange={(v) => void act('prefs', () => va.aiPrefs({ allow_paid: v }))} />
-            {h.prefs.allow_paid ? <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে পেইড সর্বোচ্চ' : 'Paid cap per day'} options={CAPS} value={String(h.prefs.paid_daily_cap) as (typeof CAPS)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void act('prefs', () => va.aiPrefs({ paid_daily_cap: Number(c) })); }} /> : null}
+            {h.prefs.allow_paid ? <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে সর্বোচ্চ পেইড ব্যবহার' : 'Paid cap per day'} options={CAPS} value={String(h.prefs.paid_daily_cap) as (typeof CAPS)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void act('prefs', () => va.aiPrefs({ paid_daily_cap: Number(c) })); }} /> : null}
           </Card>
 
-          <Card title={bn ? 'এখনই চেষ্টা করুন' : 'Try it now'}>
-            <Field label="" value={question} onChangeText={setQuestion} placeholder={bn ? 'কিছু জিজ্ঞেস করুন (খালি রাখলে নমুনা প্রশ্ন)' : 'Ask something (empty = sample)'} />
+          <Card title={bn ? 'এখনই চেষ্টা করে দেখুন' : 'Try it now'}>
+            <Field label="" value={question} onChangeText={setQuestion} placeholder={bn ? 'কিছু জিজ্ঞেস করুন (খালি রাখলে একটা নমুনা প্রশ্ন যাবে)' : 'Ask something (empty = sample)'} />
             <View style={{ marginTop: 8 }}><AppButton variant="secondary" icon="send" label={bn ? 'উত্তর দেখি' : 'Show answer'} loading={busy === 'try'} onPress={() => void act('try', async () => setAnswer(await va.aiTry('chat', question)))} /></View>
             {answer ? <View style={{ marginTop: 10 }}><Text style={{ lineHeight: 22 }}>{answer.text}</Text>{answer.provider ? <Text style={{ opacity: 0.6, fontSize: 12, marginTop: 4 }}>{bn ? 'উত্তর দিয়েছে: ' : 'Answered by: '}{answer.provider}</Text> : null}</View> : null}
           </Card>

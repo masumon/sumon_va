@@ -34,11 +34,11 @@ export function HealthBanner() {
   const first = problems[0]!;
   const bg = critical ? colors.danger : colors.warning;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সমস্যার বিস্তারিত' : 'Problem details'} onPress={() => router.push('/health' as never)} style={[styles.bar, { backgroundColor: bg }]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সমস্যার বিবরণ' : 'Problem details'} onPress={() => router.push('/health' as never)} style={[styles.bar, { backgroundColor: bg }]}>
       <AppIcon name={critical ? 'alert-circle' : 'alert'} size={20} color="#FFFFFF" />
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-          {problems.length > 1 ? (bn ? `${problems.length}টি সমস্যা — ` : `${problems.length} problems — `) : ''}{bn ? first.bn : first.en}
+          {problems.length > 1 ? (bn ? `${problems.length}টি সমস্যা: ` : `${problems.length} problems — `) : ''}{bn ? first.bn : first.en}
         </Text>
       </View>
       <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>{bn ? 'দেখুন ›' : 'View ›'}</Text>

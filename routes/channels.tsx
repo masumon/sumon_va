@@ -11,7 +11,8 @@ import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
 import { MODULES } from '../src/va/modules';
 import { BrandLogo } from '../src/va/BrandLogo';
-import { getStatus } from '../modules/va-bridge';
+import { getStatus, isInstalled } from '../modules/va-bridge';
+import { computeChecks, verdict } from '../src/va/connect';
 
 /** The modules overview: one card per way people reach you, with its own waiting/urgent counts. Tap to open that module. */
 export default function ModulesScreen() {
@@ -21,14 +22,15 @@ export default function ModulesScreen() {
   // One small request per module for its own counts (cheap: the server only counts).
   const counts = useLoad(async () => Promise.all(MODULES.map(async (m) => {
     const [w, u] = await Promise.all([va.contacts('waiting', '', 1, m.sources), va.contacts('urgent', '', 1, m.sources)]);
-    return { key: m.key, waiting: w.total, urgent: u.total };
+    const all = await va.contacts('all', '', 1, m.sources);
+    return { key: m.key, waiting: w.total, urgent: u.total, total: all.total };
   })), 'module-counts', 25000);
-  const watched = new Set(getStatus().packages);
+  const chans = useLoad(() => va.channels(), 'channels', 30000);
   const by = new Map((counts.data ?? []).map((c) => [c.key, c]));
 
   return (
-    <Page title={bn ? 'মডিউল' : 'Modules'} subtitle={bn ? 'প্রতিটি মাধ্যম আলাদা — কোন নম্বর বা কে পাঠিয়েছে দেখা যায়' : 'Each channel apart — see which number or who wrote'} onRefresh={() => { void counts.reload(); void overview.reload(); }} refreshing={counts.loading && !!counts.data}>
-      <Hero icon="apps" title={bn ? 'সব মাধ্যম' : 'All channels'} subtitle={bn ? 'একটা মডিউল খুলে তার নিজস্ব সেটিং ও মানুষজন দেখুন' : 'Open a module for its own settings and people'}>
+    <Page title={bn ? 'মডিউল' : 'Modules'} subtitle={bn ? 'প্রতিটি মাধ্যম আলাদা। কোন নম্বর বা কে পাঠিয়েছে, দেখা যায়' : 'Each channel apart — see which number or who wrote'} onRefresh={() => { void counts.reload(); void overview.reload(); }} refreshing={counts.loading && !!counts.data}>
+      <Hero icon="apps" title={bn ? 'সব মাধ্যম' : 'All channels'} subtitle={bn ? 'একটা মডিউল খুলে তার সেটিং ও মানুষদের দেখুন' : 'Open a module for its own settings and people'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(overview.data?.waiting ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
           <HeroStat value={n(overview.data?.urgent ?? 0)} label={bn ? 'জরুরি' : 'Urgent'} />
@@ -38,7 +40,8 @@ export default function ModulesScreen() {
 
       {MODULES.map((m) => {
         const c = by.get(m.key);
-        const live = m.apps ? m.apps.some((a) => watched.has(a.pkg)) || m.sources.includes('whatsapp') : m.key === 'sms' ? getStatus().smsReceive : true;
+        const total = c ? c.total : 0;
+        const vd = verdict(computeChecks(m, { bridge: getStatus(), channels: chans.data ?? null, received: total, installed: isInstalled }));
         return (
           <Pressable key={m.key} accessibilityRole="button" onPress={() => router.push({ pathname: '/m/[key]', params: { key: m.key } } as never)}
             style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, pressed && { opacity: 0.92 }]}>
@@ -47,10 +50,10 @@ export default function ModulesScreen() {
               <Text style={{ fontWeight: '700', fontSize: 16 }}>{bn ? m.bn : m.en}</Text>
               <Text numberOfLines={1} style={{ opacity: 0.65, fontSize: 12 }}>{bn ? m.hintBn : m.hintEn}</Text>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <AppBadge tone={live ? 'success' : 'warning'} label={live ? (bn ? 'চালু' : 'On') : (bn ? 'অ্যাপ বন্ধ' : 'App off')} />
+                <AppBadge tone={vd === 'ok' ? 'success' : vd === 'partial' ? 'warning' : 'danger'} label={vd === 'ok' ? (bn ? 'সংযুক্ত ✓' : 'Connected ✓') : vd === 'partial' ? (bn ? 'প্রায় হয়ে গেছে' : 'Almost') : (bn ? 'সংযুক্ত নয়' : 'Not connected')} />
                 {c && c.urgent ? <AppBadge tone="danger" label={bn ? `${n(c.urgent)} জরুরি` : `${c.urgent} urgent`} /> : null}
                 {c && c.waiting ? <AppBadge tone="warning" label={bn ? `${n(c.waiting)} বাকি` : `${c.waiting} waiting`} /> : null}
-                <AppBadge tone={m.auto === 'none' ? 'neutral' : 'primary'} label={m.auto === 'none' ? (bn ? 'শুধু খসড়া' : 'Drafts only') : (bn ? 'অটো-উত্তর সম্ভব' : 'Can auto-reply')} />
+                <AppBadge tone={m.auto === 'none' ? 'neutral' : 'primary'} label={m.auto === 'none' ? (bn ? 'শুধু খসড়া' : 'Drafts only') : (bn ? 'নিজে উত্তর দিতে পারে' : 'Can auto-reply')} />
               </View>
             </View>
             <AppIcon name="chevron-right" size={22} color={colors.textMuted} />

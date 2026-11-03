@@ -46,6 +46,7 @@ type Native = {
   setPackages(list: string[]): boolean;
   setPollSeconds(seconds: number): boolean;
   testAlert(): boolean;
+  isInstalled(pkg: string): boolean;
   setAlertLevels(urgent: number, important: number, normal: number, volume: number): boolean;
   testAlertLevel(level: number, volume: number): boolean;
   notify(target: string, body: string, id: string): boolean;
@@ -114,6 +115,7 @@ export const stopService = call('stopService');
 export const setPackages = call('setPackages');
 export const setPollSeconds = call('setPollSeconds');
 export const testAlert = call('testAlert');
+export const isInstalled = (pkg: string): boolean => { try { return !!native?.isInstalled(pkg); } catch { return false; } };
 export const setAlertLevels = call('setAlertLevels');
 export const testAlertLevel = call('testAlertLevel');
 export const notify = call('notify');

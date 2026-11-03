@@ -35,19 +35,19 @@ export function ChatMenuButton({ contact, onChanged, size = 22 }: { contact: Con
   const items: Item[] = [
     { key: 'open', icon: 'message-text-outline', bn: 'চ্যাট খুলুন', en: 'Open chat', run: () => go('/contact') },
     c.unread > 0 || c.state !== 'done'
-      ? { key: 'done', icon: 'check-circle-outline', bn: 'শেষ — উত্তর দেওয়া হয়ে গেছে', en: 'Done — handled', run: () => patch({ state: 'done' }, bn ? 'শেষ চিহ্নিত' : 'Marked done') }
+      ? { key: 'done', icon: 'check-circle-outline', bn: 'শেষ, উত্তর দেওয়া হয়ে গেছে', en: 'Done — handled', run: () => patch({ state: 'done' }, bn ? 'শেষ হিসেবে রাখা হয়েছে' : 'Marked done') }
       : { key: 'reopen', icon: 'restore', bn: 'আবার খুলুন', en: 'Reopen', run: () => patch({ state: 'assistant' }) },
     c.state !== 'owner'
-      ? { key: 'mine', icon: 'hand-front-right-outline', bn: 'আমি নিচ্ছি (সহকারী চুপ থাকবে)', en: "I'll handle it (assistant stays quiet)", run: () => patch({ state: 'owner' }, bn ? 'আপনি নিয়েছেন' : 'You took over') }
-      : { key: 'give', icon: 'robot-outline', bn: 'সহকারীর হাতে দিন', en: 'Hand back to the assistant', run: () => patch({ state: 'assistant' }, bn ? 'সহকারীর হাতে' : 'Handed back') },
+      ? { key: 'mine', icon: 'hand-front-right-outline', bn: 'আমি দেখছি (সহকারী চুপ থাকবে)', en: "I'll handle it (assistant stays quiet)", run: () => patch({ state: 'owner' }, bn ? 'আপনি নিজে দেখছেন' : 'You took over') }
+      : { key: 'give', icon: 'robot-outline', bn: 'সহকারীর হাতে দিন', en: 'Hand back to the assistant', run: () => patch({ state: 'assistant' }, bn ? 'সহকারীকে ফেরানো হয়েছে' : 'Handed back') },
     { key: 'mode', icon: 'tune-variant', bn: 'উত্তরের ধরন', en: 'Reply style', hintBn: MODE[c.mode].bn, hintEn: MODE[c.mode].en, run: () => setSub('mode') },
-    { key: 'category', icon: 'shape-outline', bn: 'ধরন: ব্যবসায়িক/ব্যক্তিগত/সামাজিক', en: 'Kind: business/personal/social', hintBn: c.category ? CATEGORY[c.category].bn : 'নিজে ঠিক হবে', hintEn: c.category ? CATEGORY[c.category].en : 'decided by itself', run: () => setSub('category') },
-    { key: 'family', icon: 'account-heart-outline', bn: 'পরিবার', en: 'Family', hintBn: 'কখনও নিজে উত্তর নয়', hintEn: 'never answered by itself', on: c.is_family, run: () => patch({ is_family: !c.is_family }) },
+    { key: 'category', icon: 'shape-outline', bn: 'ধরন: ব্যবসায়িক/ব্যক্তিগত/সামাজিক', en: 'Kind: business/personal/social', hintBn: c.category ? CATEGORY[c.category].bn : 'সহকারী নিজে ঠিক করবে', hintEn: c.category ? CATEGORY[c.category].en : 'decided by itself', run: () => setSub('category') },
+    { key: 'family', icon: 'account-heart-outline', bn: 'পরিবার', en: 'Family', hintBn: 'সহকারী কখনও নিজে উত্তর দেবে না', hintEn: 'never answered by itself', on: c.is_family, run: () => patch({ is_family: !c.is_family }) },
     { key: 'vip', icon: 'star-outline', bn: 'VIP', en: 'VIP', on: c.is_vip, run: () => patch({ is_vip: !c.is_vip }) },
-    { key: 'tags', icon: 'tag-outline', bn: 'ট্যাগ ও তথ্য (ক্লায়েন্ট, মামলা, NID…)', en: 'Tags and notes (client, case, NID…)', hintBn: `${c.tags?.length ?? 0}টি`, hintEn: `${c.tags?.length ?? 0}`, run: () => go('/contact') },
-    { key: 'task', icon: 'checkbox-marked-circle-plus-outline', bn: 'এর জন্য কাজ যোগ করুন', en: 'Add a task for this person', run: () => act(() => va.addTask(`${displayName(c)} — ${bn ? 'উত্তর দিন' : 'reply'}`, undefined, c.id), bn ? 'কাজ যোগ হয়েছে' : 'Task added') },
+    { key: 'tags', icon: 'tag-outline', bn: 'ট্যাগ ও নোট (ক্লায়েন্ট, মামলা, NID…)', en: 'Tags and notes (client, case, NID…)', hintBn: `${c.tags?.length ?? 0}টি`, hintEn: `${c.tags?.length ?? 0}`, run: () => go('/contact') },
+    { key: 'task', icon: 'checkbox-marked-circle-plus-outline', bn: 'এই ব্যক্তির জন্য কাজ যোগ করুন', en: 'Add a task for this person', run: () => act(() => va.addTask(`${displayName(c)}: ${bn ? 'উত্তর দিন' : 'reply'}`, undefined, c.id), bn ? 'কাজ যোগ হয়েছে' : 'Task added') },
     { key: 'xfer', icon: 'file-swap-outline', bn: 'চ্যাট ইমপোর্ট / এক্সপোর্ট', en: 'Import / export chat', run: () => go('/contact') },
-    { key: 'block', icon: 'block-helper', bn: 'ব্লক', en: 'Block', hintBn: 'কোনো সাড়া নয়', hintEn: 'no reply, no alert', on: c.is_blocked, run: () => patch({ is_blocked: !c.is_blocked }) },
+    { key: 'block', icon: 'block-helper', bn: 'ব্লক', en: 'Block', hintBn: 'উত্তর বা সতর্কতা কিছুই আসবে না', hintEn: 'no reply, no alert', on: c.is_blocked, run: () => patch({ is_blocked: !c.is_blocked }) },
     { key: 'clear', icon: 'delete-sweep-outline', bn: 'চ্যাট খালি করুন', en: 'Clear chat', hintBn: 'বার্তা মুছবে, ব্যক্তি থাকবে', hintEn: 'removes messages, keeps the person', danger: true, run: () => { setOpen(false); setConfirm(true); } },
   ];
 
@@ -88,13 +88,13 @@ export function ChatMenuButton({ contact, onChanged, size = 22 }: { contact: Con
           </View>
           <ScrollView style={{ maxHeight: 520 }}>
             {sub === 'mode' ? (['inherit', 'auto', 'draft', 'notify'] as const).map((m) => choice(bn ? MODE[m].bn : MODE[m].en, c.mode === m, () => { void patch({ mode: m }); close(); }))
-              : sub === 'category' ? (CATEGORY_KEYS as readonly Category[]).map((k) => choice(`${bn ? CATEGORY[k].bn : CATEGORY[k].en} — ${bn ? CATEGORY[k].hintBn : CATEGORY[k].hintEn}`, c.category === k, () => { void patch({ category: k }); close(); }))
+              : sub === 'category' ? (CATEGORY_KEYS as readonly Category[]).map((k) => choice(`${bn ? CATEGORY[k].bn : CATEGORY[k].en}: ${bn ? CATEGORY[k].hintBn : CATEGORY[k].hintEn}`, c.category === k, () => { void patch({ category: k }); close(); }))
               : items.map(render)}
           </ScrollView>
         </View>
       </Modal>
       <AppConfirmDialog visible={confirm} danger icon="delete-sweep-outline" title={bn ? 'এই চ্যাটের সব বার্তা মুছবেন?' : 'Delete all messages of this chat?'}
-        description={bn ? `${displayName(c)}-এর সব বার্তা মুছে যাবে। ব্যক্তি, ট্যাগ ও নোট থাকবে। ফেরানো যাবে না।` : `All messages with ${displayName(c)} will be removed. The person, tags and notes stay. This cannot be undone.`}
+        description={bn ? `${displayName(c)}-এর সব বার্তা মুছে যাবে। ব্যক্তি, ট্যাগ ও নোট থাকবে। এটা আর ফেরানো যাবে না।` : `All messages with ${displayName(c)} will be removed. The person, tags and notes stay. This cannot be undone.`}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'মুছুন' : 'Delete'} onCancel={() => setConfirm(false)}
         onConfirm={() => { setConfirm(false); void act(() => va.clearChat(c.id), bn ? 'চ্যাট খালি হয়েছে' : 'Chat cleared'); }} />
     </>

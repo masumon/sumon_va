@@ -33,7 +33,7 @@ export default function TasksScreen() {
   };
 
   return (
-    <Page title={bn ? 'কাজের তালিকা' : 'Tasks'} subtitle={bn ? 'কাকে কী দেওয়ার কথা দিয়েছেন' : 'What you promised to whom'} onRefresh={() => { void list.reload(); void open.reload(); }} refreshing={list.loading && !!list.data}>
+    <Page title={bn ? 'কাজের তালিকা' : 'Tasks'} subtitle={bn ? 'কাকে কী কথা দিয়েছেন' : 'What you promised to whom'} onRefresh={() => { void list.reload(); void open.reload(); }} refreshing={list.loading && !!list.data}>
       <Hero icon="checkbox-marked-circle-outline" title={bn ? 'আপনার কাজ' : 'Your tasks'} subtitle={late ? (bn ? `${late}টির সময় পার হয়ে গেছে` : `${late} overdue`) : (bn ? 'সময়মতো চলছে ✓' : 'On track ✓')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={String(open.data?.length ?? 0)} label={bn ? 'বাকি' : 'Open'} />
@@ -46,7 +46,7 @@ export default function TasksScreen() {
       </Card>
       <ChipGroup<Show> options={['open', 'done']} value={show} labelOf={(k) => (k === 'open' ? (bn ? 'বাকি' : 'Open') : (bn ? 'শেষ' : 'Done'))} onChange={(v) => { if (v) setShow(v); }} />
       <Status loading={list.loading && !list.data} error={list.data ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
-      {list.data && list.data.length === 0 ? <EmptyNote icon="check-all" text={show === 'open' ? (bn ? 'কোনো কাজ বাকি নেই 🎉' : 'Nothing left to do 🎉') : (bn ? 'এখনও কিছু শেষ হয়নি' : 'Nothing done yet')} /> : null}
+      {list.data && list.data.length === 0 ? <EmptyNote icon="check-all" text={show === 'open' ? (bn ? 'কোনো কাজ বাকি নেই ✓' : 'Nothing left to do ✓') : (bn ? 'এখনও কিছু শেষ হয়নি' : 'Nothing done yet')} /> : null}
       {(list.data ?? []).map((t) => (
         <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: t.is_done }} accessibilityLabel={t.title} onPress={() => void act(() => va.toggleTask(t.id))} hitSlop={8}>

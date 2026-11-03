@@ -47,7 +47,7 @@ export default function SetupScreen() {
         setLast((m) => ({ ...m, [def.key]: out }));
       }
       await status.reload();
-      showSnackbar(bn ? 'অনুমতির অবস্থা নিচে দেখুন' : 'See each permission below', 'info');
+      showSnackbar(bn ? 'প্রতিটি অনুমতির অবস্থা নিচে দেখুন' : 'See each permission below', 'info');
     } finally { setBusy(null); }
   };
 
@@ -57,8 +57,8 @@ export default function SetupScreen() {
         <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.surfaceMuted, overflow: 'hidden' }}>
           <View style={{ width: `${Math.round((mustOk / must.length) * 100)}%`, height: 10, backgroundColor: mustOk === must.length ? colors.success : colors.warning }} />
         </View>
-        <Text style={{ marginTop: 8 }}>{mustOk === must.length ? (bn ? '✓ সব জরুরি অনুমতি ঠিক আছে।' : '✓ All essential permissions are fine.') : (bn ? 'কিছু জরুরি অনুমতি বাকি — নিচে লাল চিহ্নগুলো ঠিক করুন।' : 'Some essential permissions are missing — fix the red ones below.')}</Text>
-        <View style={{ marginTop: 10 }}><AppButton label={bn ? 'সব অনুমতি একসাথে চাই' : 'Ask for all at once'} icon="shield-check-outline" loading={busy === 'all'} onPress={() => void grantAllRuntime()} /></View>
+        <Text style={{ marginTop: 8 }}>{mustOk === must.length ? (bn ? '✓ সব জরুরি অনুমতি ঠিক আছে।' : '✓ All essential permissions are fine.') : (bn ? 'কিছু জরুরি অনুমতি বাকি আছে। নিচে লাল চিহ্ন দেওয়াগুলো ঠিক করুন।' : 'Some essential permissions are missing — fix the red ones below.')}</Text>
+        <View style={{ marginTop: 10 }}><AppButton label={bn ? 'সব অনুমতি একসাথে দিন' : 'Ask for all at once'} icon="shield-check-outline" loading={busy === 'all'} onPress={() => void grantAllRuntime()} /></View>
       </Card>
 
       {GROUPS.map((g) => (
@@ -89,7 +89,7 @@ export default function SetupScreen() {
                 {!ok ? (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                     <AppButton label={def.runtime ? (bn ? 'অনুমতি দিন' : 'Allow') : (bn ? 'সেটিংসে চালু করুন' : 'Turn on in Settings')} loading={busy === def.key} onPress={() => void grant(def)} />
-                    {reason ? <AppButton variant="secondary" label={bn ? 'অ্যাপ-তথ্য খুলুন' : 'Open app info'} onPress={() => { openAppSettings(); }} /> : null}
+                    {reason ? <AppButton variant="secondary" label={bn ? 'অ্যাপের তথ্য খুলুন' : 'Open app info'} onPress={() => { openAppSettings(); }} /> : null}
                   </View>
                 ) : null}
               </Card>
@@ -100,15 +100,15 @@ export default function SetupScreen() {
 
       <Card title={bn ? 'সংযোগের অবস্থা' : 'Connection health'}>
         <Text>{bn ? 'ব্যাকগ্রাউন্ড সিঙ্ক: ' : 'Background sync: '}{s.serviceAlive ? (bn ? 'চালু ✓' : 'running ✓') : (bn ? 'বন্ধ' : 'stopped')}</Text>
-        <Text>{bn ? 'শেষ সফল সংযোগ: ' : 'Last successful sync: '}{s.lastOk ? formatBangladeshDateTime(new Date(s.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
-        <Text>{bn ? 'পাঠানোর অপেক্ষায় (অফলাইন): ' : 'Waiting to upload (offline): '}{s.queued}</Text>
+        <Text>{bn ? 'শেষবার সংযোগ হয়েছে: ' : 'Last successful sync: '}{s.lastOk ? formatBangladeshDateTime(new Date(s.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
+        <Text>{bn ? 'পাঠাতে বাকি (অফলাইন): ' : 'Waiting to upload (offline): '}{s.queued}</Text>
         {s.lastError ? <Text style={{ color: colors.danger }}>{s.lastError}</Text> : null}
         <View style={{ gap: 8, marginTop: 10 }}>
           <AppButton variant="secondary" icon="sync" label={bn ? 'সিঙ্ক আবার চালু করুন' : 'Restart sync'} onPress={() => { startService(); void status.reload(); }} />
-          <AppButton variant="secondary" icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা (সাইলেন্টে রেখে চাপুন)' : 'Test urgent alarm (press while on silent)'} onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম পাঠানো হয়েছে' : 'Alarm sent', 'info'); }} />
+          <AppButton variant="secondary" icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা (ফোন সাইলেন্টে রেখে চাপুন)' : 'Test urgent alarm (press while on silent)'} onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম বাজানো হয়েছে' : 'Alarm sent', 'info'); }} />
         </View>
       </Card>
-      <AppButton label={bn ? 'শেষ — হোমে যাই' : 'Done — go Home'} icon="home-variant" onPress={() => { startService(); router.replace('/' as never); }} />
+      <AppButton label={bn ? 'হয়ে গেছে, হোমে যাই' : 'Done — go Home'} icon="home-variant" onPress={() => { startService(); router.replace('/' as never); }} />
     </Page>
   );
 }

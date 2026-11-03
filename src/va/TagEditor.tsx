@@ -22,8 +22,8 @@ export function TagEditor({ tags, onSave }: { tags: Tag[]; onSave: (tags: Tag[])
   const remove = (l: string) => void onSave(tags.filter((t) => t.label !== l));
   const flip = (l: string) => void onSave(tags.map((t) => (t.label === l ? { ...t, important: !t.important } : t)));
   return (
-    <Card title={bn ? 'এই ব্যক্তির তথ্য ও ট্যাগ' : 'Notes and tags for this person'}>
-      <Text style={{ opacity: 0.75, marginBottom: 8, fontSize: 13 }}>{bn ? 'ক্লায়েন্ট, মামলা, NID — যা খুশি লিখে রাখুন। ★ চিহ্নিতগুলো আপনাকে আগে দেখানো হবে।' : 'Client, case, NID — write anything. Starred ones are shown to you first.'}</Text>
+    <Card title={bn ? 'এই ব্যক্তির ট্যাগ ও নোট' : 'Notes and tags for this person'}>
+      <Text style={{ opacity: 0.75, marginBottom: 8, fontSize: 13 }}>{bn ? 'ক্লায়েন্ট, মামলা, NID, যা খুশি লিখে রাখুন। ★ দেওয়াগুলো আপনাকে আগে দেখানো হবে।' : 'Client, case, NID — write anything. Starred ones are shown to you first.'}</Text>
       {tags.length === 0 ? <Text style={{ opacity: 0.6 }}>{bn ? 'এখনও কোনো ট্যাগ নেই।' : 'No tags yet.'}</Text> : null}
       {[...tags].sort((a, b) => Number(b.important) - Number(a.important)).map((t) => (
         <View key={t.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
@@ -43,8 +43,8 @@ export function TagEditor({ tags, onSave }: { tags: Tag[]; onSave: (tags: Tag[])
         ))}
       </View>
       <Field label={bn ? 'নিজের লেখা ট্যাগ' : 'Your own tag'} value={label} onChangeText={setLabel} placeholder={bn ? 'যেমন: মামলা, NID, ঠিকাদার' : 'e.g. Case, NID, Contractor'} />
-      <Field label={bn ? 'পাশে কী লিখবেন (ঐচ্ছিক)' : 'Note beside it (optional)'} value={value} onChangeText={setValue} placeholder={bn ? 'যেমন: ১২৩৪ ৫৬৭৮ ৯০' : 'e.g. 1234 5678 90'} />
-      <ToggleRow icon="star-outline" label={bn ? 'গুরুত্বপূর্ণ (আমাকে আগে দেখাও)' : 'Important (show me first)'} value={important} onChange={setImportant} />
+      <Field label={bn ? 'পাশে কিছু লিখবেন? (না লিখলেও চলবে)' : 'Note beside it (optional)'} value={value} onChangeText={setValue} placeholder={bn ? 'যেমন: ১২৩৪ ৫৬৭৮ ৯০' : 'e.g. 1234 5678 90'} />
+      <ToggleRow icon="star-outline" label={bn ? 'গুরুত্বপূর্ণ (আমাকে আগে দেখান)' : 'Important (show me first)'} value={important} onChange={setImportant} />
       <View style={{ marginTop: 8 }}><AppButton label={bn ? 'সেভ করুন' : 'Save'} icon="content-save-outline" disabled={!label.trim()} onPress={() => add({ label, value, important })} /></View>
     </Card>
   );

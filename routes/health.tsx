@@ -30,9 +30,9 @@ export default function HealthScreen() {
   };
 
   return (
-    <Page title={bn ? 'সমস্যা ও স্বাস্থ্য' : 'Problems & health'} subtitle={bn ? 'এখন কী কী ঠিক নেই — নিজে থেকে হালনাগাদ হয়' : 'What is not right — updates by itself'} onRefresh={reload} refreshing={loading}>
+    <Page title={bn ? 'সমস্যা ও অবস্থা' : 'Problems & health'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={reload} refreshing={loading}>
       <Hero icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
-        subtitle={bn ? 'অ্যাপ প্রতি ১৫ সেকেন্ডে নিজে পরীক্ষা করে, আর নতুন সমস্যা এলে নোটিফিকেশন দেয়।' : 'The app checks itself every 15 seconds and notifies you of new problems.'}>
+        subtitle={bn ? 'অ্যাপ প্রতি ১৫ সেকেন্ডে নিজেই দেখে নেয়, নতুন সমস্যা হলে নোটিফিকেশন দেয়।' : 'The app checks itself every 15 seconds and notifies you of new problems.'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={String(serious)} label={bn ? 'গুরুতর' : 'Serious'} />
           <HeroStat value={String(warn)} label={bn ? 'সতর্কতা' : 'Warnings'} />
@@ -40,7 +40,7 @@ export default function HealthScreen() {
         </View>
       </Hero>
 
-      {issues.length === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'কোনো সমস্যা নেই। বার্তা আসছে, সংযোগ ঠিক, অনুমতি পূর্ণ, AI চলছে।' : 'No problems. Messages arrive, the connection is fine, permissions are complete, the AI works.'} /> : null}
+      {issues.length === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'কোনো সমস্যা নেই। বার্তা আসছে, সংযোগ ঠিক আছে, সব অনুমতি দেওয়া আছে, AI চলছে।' : 'No problems. Messages arrive, the connection is fine, permissions are complete, the AI works.'} /> : null}
       {issues.map((i) => {
         const s = SEV[i.severity];
         return (
@@ -58,11 +58,11 @@ export default function HealthScreen() {
 
       <Card title={bn ? 'সংযোগের বিবরণ' : 'Connection details'}>
         <Text>{bn ? 'ব্যাকগ্রাউন্ড সিঙ্ক: ' : 'Background sync: '}{bridge.serviceAlive ? (bn ? 'চালু ✓' : 'running ✓') : (bn ? 'বন্ধ' : 'stopped')}</Text>
-        <Text>{bn ? 'শেষ সফল সংযোগ: ' : 'Last successful sync: '}{bridge.lastOk ? formatBangladeshDateTime(new Date(bridge.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
-        <Text>{bn ? 'পাঠানোর অপেক্ষায়: ' : 'Waiting to upload: '}{bridge.queued}</Text>
-        <Text>{bn ? 'ব্যবহারকারী: ' : 'Account: '}{bridge.accountEmail ?? '—'}</Text>
+        <Text>{bn ? 'শেষবার সংযোগ হয়েছে: ' : 'Last successful sync: '}{bridge.lastOk ? formatBangladeshDateTime(new Date(bridge.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
+        <Text>{bn ? 'পাঠাতে বাকি: ' : 'Waiting to upload: '}{bridge.queued}</Text>
+        <Text>{bn ? 'অ্যাকাউন্ট: ' : 'Account: '}{bridge.accountEmail ?? '—'}</Text>
         {bridge.lastError ? <Text style={{ color: colors.danger }}>{bridge.lastError}</Text> : null}
-        <View style={{ marginTop: 10 }}><AppButton variant="secondary" icon="refresh" label={bn ? 'এখনই পরীক্ষা করুন' : 'Check now'} onPress={reload} /></View>
+        <View style={{ marginTop: 10 }}><AppButton variant="secondary" icon="refresh" label={bn ? 'এখনই দেখুন' : 'Check now'} onPress={reload} /></View>
       </Card>
     </Page>
   );

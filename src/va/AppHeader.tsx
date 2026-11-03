@@ -43,7 +43,7 @@ export function AppHeader() {
         <AppIcon name="menu" size={26} color={colors.textPrimary} />
       </Pressable>
       <Text numberOfLines={1} style={styles.title}>{titleFor(pathname, bn)}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? `রং: ${themeLabel?.bn ?? ''} — বদলান` : `Theme: ${themeLabel?.en ?? ''} — change`} onPress={nextTheme} style={styles.iconBtn} hitSlop={4}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? `রং: ${themeLabel?.bn ?? ''}, বদলান` : `Theme: ${themeLabel?.en ?? ''} — change`} onPress={nextTheme} style={styles.iconBtn} hitSlop={4}>
         <AppIcon name={themeIcon} size={22} color={colors.textPrimary} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'ভাষা বদলান' : 'Change language'} onPress={() => void setLanguage(bn ? 'en' : 'bn')} style={styles.langBtn} hitSlop={4}>

@@ -15,12 +15,12 @@ const SCRIPTS: [string, string, string][] = [
   ['away_notice', '“কল নয়, লিখুন” অনুরোধ', 'আপনি ফ্রি না থাকলে প্রতিটি উত্তরের সঙ্গে যায়'],
   ['ask_intro', 'প্রশ্ন করার শুরুতে', 'প্রথম প্রশ্নের আগে'],
   ['thanks', 'তথ্য নেওয়ার পর ধন্যবাদ', '{name} {owner} {reply_by} ব্যবহার করা যায়'],
-  ['urgent_ack', 'জরুরি বার্তা পেলে', 'শুধু এটুকু বলা হয়, আপনাকে সাথে সাথে জানানো হয়'],
-  ['repeat_ack', 'বারবার জিজ্ঞাসা করলে (ক্ষমা চেয়ে)', 'কেউ তিনবার লিখে উত্তর না পেলে'],
-  ['call_notice', 'কল করেছিল বললে', '“ফোন দিলাম ধরলেন না” ধরনের কথায়'],
-  ['voice_ack', 'ভয়েস মেসেজ এলে', 'লেখায় রূপান্তর না হলে'],
+  ['urgent_ack', 'জরুরি বার্তা পেলে', 'শুধু এটুকু বলা হয়, আর আপনাকে সাথে সাথে জানানো হয়'],
+  ['repeat_ack', 'বারবার জিজ্ঞেস করলে (দুঃখ প্রকাশ করে)', 'কেউ তিনবার লিখেও উত্তর না পেলে'],
+  ['call_notice', 'কল করেছিল বললে', '“ফোন দিলাম, ধরলেন না” ধরনের কথায়'],
+  ['voice_ack', 'ভয়েস মেসেজ এলে', 'লেখায় বদলাতে না পারলে'],
   ['unknown_ack', 'উত্তর জানা না থাকলে', 'আন্দাজে কিছু বলে না'],
-  ['identity_reply', '“আপনি কি মানুষ/বট?” জিজ্ঞেস করলে', 'সবসময় সৎ উত্তর যায়, বন্ধ করা যায় না'],
+  ['identity_reply', '“আপনি কি মানুষ/বট?” জিজ্ঞেস করলে', 'সব সময় সত্যি উত্তর যায়, বন্ধ করা যায় না'],
   ['note_reply', 'আপনার লেখা নোট জানানো', '{note} = নোটের লেখা'],
 ];
 
@@ -42,16 +42,16 @@ export default function ScriptsScreen() {
       await va.saveAssistantConfig({ scripts: { [lang]: edits } });
       setEdits({});
       await cfg.reload();
-      showSnackbar(bn ? 'সংরক্ষিত' : 'Saved', 'success');
+      showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success');
     } catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
   };
 
   return (
-    <Page title={bn ? 'উত্তরের লেখা' : 'Reply wording'} subtitle={bn ? 'সহকারী যে বাক্যগুলো বলে' : 'The sentences the assistant says'} back={bn ? 'নিয়ম' : 'Rules'} onRefresh={cfg.reload} refreshing={cfg.loading && !!scripts}>
+    <Page title={bn ? 'উত্তরের লেখা' : 'Reply wording'} subtitle={bn ? 'সহকারী যে কথাগুলো বলে' : 'The sentences the assistant says'} back={bn ? 'নিয়ম' : 'Rules'} onRefresh={cfg.reload} refreshing={cfg.loading && !!scripts}>
       <Status loading={cfg.loading && !scripts} error={scripts ? null : cfg.error} onRetry={cfg.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {scripts ? (
         <>
-          <Hero icon="text-box-edit-outline" title={bn ? 'নিজের ভাষায় বদলান' : 'Make it sound like you'} subtitle={bn ? '{name} = ব্যক্তির নাম, {owner} = আপনার নাম, {reply_by} = কখন উত্তর পাবেন' : '{name} = their name, {owner} = your name, {reply_by} = when you will reply'} />
+          <Hero icon="text-box-edit-outline" title={bn ? 'নিজের মতো করে লিখুন' : 'Make it sound like you'} subtitle={bn ? '{name} = ব্যক্তির নাম, {owner} = আপনার নাম, {reply_by} = কখন উত্তর পাবেন' : '{name} = their name, {owner} = your name, {reply_by} = when you will reply'} />
           <ChipGroup<Lang> options={['bn', 'en']} value={lang} labelOf={(l) => (l === 'bn' ? 'বাংলা' : 'English')} onChange={(l) => { if (l) { setLang(l); setEdits({}); } }} />
           {SCRIPTS.map(([key, title, hint]) => (
             <Card key={key} title={title}>

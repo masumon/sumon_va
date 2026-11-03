@@ -21,7 +21,7 @@ const FOR = [{ k: '', bn: 'যতক্ষণ না বদলাই', en: 'Unti
 
 function greeting(bn: boolean): string {
   const h = new Date().getHours();
-  return bn ? (h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 16 ? 'শুভ দুপুর' : h < 19 ? 'শুভ বিকাল' : 'শুভ সন্ধ্যা') : (h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+  return bn ? (h < 5 ? 'শুভ রাত' : h < 12 ? 'শুভ সকাল' : h < 16 ? 'শুভ দুপুর' : h < 19 ? 'শুভ বিকাল' : 'শুভ সন্ধ্যা') : (h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
 }
 
 /** The home screen: a personal view (family, friends, your promises) and a business view (orders, bookings, leads), one tap apart. */
@@ -45,6 +45,12 @@ export default function DashboardScreen() {
   const auto = o ? o.mode === 'auto' && o.enabled : false;
   const setupNeeded = !bridge.notificationAccess || !bridge.smsReceive || !bridge.phoneState || !bridge.batteryExempt;
   const status = c?.statuses.find((s) => s.key === c.status.key);
+  const first = (bridge.accountName ?? '').split(' ')[0];
+  const welcome = bn ? `${greeting(true)}${first ? `, ${first} ভাই` : ''}` : `${greeting(false)}${first ? `, ${first}` : ''}`;
+  const summary = !o ? (bn ? 'আপনার বার্তাগুলো দেখে নিচ্ছি…' : 'Checking your messages…')
+    : o.urgent > 0 ? (bn ? `${n(o.urgent)}টি জরুরি বার্তা আপনার অপেক্ষায় আছে` : `${o.urgent} urgent message${o.urgent > 1 ? 's' : ''} waiting for you`)
+    : o.waiting > 0 ? (bn ? `${n(o.waiting)}টি বার্তার উত্তর বাকি আছে` : `${o.waiting} message${o.waiting > 1 ? 's' : ''} still need a reply`)
+    : (bn ? 'এখন সব শান্ত। কারও উত্তর বাকি নেই' : 'All quiet. Nobody is waiting for you');
   const familyWaiting = (family.data?.items ?? []).filter((x) => x.unread > 0);
   const go = (href: string, params?: Record<string, string>) => router.push((params ? { pathname: href, params } : href) as never);
 
@@ -57,16 +63,15 @@ export default function DashboardScreen() {
   const setStatus = (key: string) => {
     const mins = FOR.find((f) => f.k === forKey)?.min ?? 0;
     const until = key === 'free' || !mins ? null : new Date(Date.now() + mins * 60_000).toISOString();
-    void run(() => va.saveAssistantConfig({ status: { key, until, custom: '' } }), bn ? 'অবস্থা বদলেছে' : 'Status updated');
+    void run(() => va.saveAssistantConfig({ status: { key, until, custom: '' } }), bn ? 'অবস্থা বদলানো হয়েছে' : 'Status updated');
   };
   const reloadAll = () => { void overview.reload(); void family.reload(); void urgent.reload(); void work.reload(); void biz.reload(); void tasks.reload(); void cfg.reload(); };
 
   return (
-    <Page title={`${greeting(bn)}${bridge.accountName ? `, ${bridge.accountName.split(' ')[0]}` : ''}`} subtitle={formatBangladeshWeekdayDate(new Date(), language)} onRefresh={reloadAll} refreshing={overview.loading && !!o}>
+    <Page title={bn ? 'ড্যাশবোর্ড' : 'Dashboard'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} onRefresh={reloadAll} refreshing={overview.loading && !!o}>
       <Status loading={overview.loading && !o} error={o ? null : overview.error} onRetry={overview.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
 
-      <Hero icon={lens === 'personal' ? 'account-heart-outline' : 'briefcase-outline'} title={lens === 'personal' ? (bn ? 'ব্যক্তিগত' : 'Personal') : (bn ? 'ব্যবসায়িক' : 'Business')}
-        subtitle={lens === 'personal' ? (bn ? 'পরিবার, বন্ধু ও আপনার কথা দেওয়া কাজ' : 'Family, friends and what you promised') : (bn ? 'নতুন কাজ, অর্ডার, বুকিং ও আগ্রহী (লিড)' : 'New work, orders, bookings and leads')}>
+      <Hero title={welcome} subtitle={summary}>
         {o ? (
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {lens === 'personal' ? (
@@ -92,17 +97,17 @@ export default function DashboardScreen() {
       ) : null}
 
       {setupNeeded ? (
-        <Card title={bn ? '⚠️ সেটআপ বাকি' : '⚠️ Setup unfinished'}>
-          <Text style={{ marginBottom: 8 }}>{bn ? 'কিছু অনুমতি দেওয়া হয়নি, তাই সব বার্তা ধরা পড়ছে না।' : 'Some permissions are missing, so not every message is caught.'}</Text>
-          <AppButton label={bn ? 'অনুমতিগুলো ঠিক করি' : 'Fix permissions'} icon="shield-check-outline" onPress={() => go('/setup')} />
+        <Card title={bn ? '⚠ সেটআপ বাকি' : '⚠ Setup unfinished'}>
+          <Text style={{ marginBottom: 8 }}>{bn ? 'কিছু অনুমতি দেওয়া হয়নি, তাই সব বার্তা আসছে না।' : 'Some permissions are missing, so not every message is caught.'}</Text>
+          <AppButton label={bn ? 'অনুমতি ঠিক করুন' : 'Fix permissions'} icon="shield-check-outline" onPress={() => go('/setup')} />
         </Card>
       ) : null}
 
       {o ? (
-        <Card title={bn ? 'আমি এখন…' : 'Right now I am…'}>
+        <Card title={bn ? 'আমার অবস্থা' : 'Right now I am…'}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <AppBadge tone={status && status.key !== 'free' ? 'warning' : 'success'} label={status?.label ?? (bn ? 'ফ্রি আছি' : 'Free')} />
-            <Text style={{ flex: 1, opacity: 0.7, fontSize: 13 }}>{bn ? 'সহকারী মানুষকে এটাই জানায়।' : 'This is what the assistant tells people.'}</Text>
+            <Text style={{ flex: 1, opacity: 0.7, fontSize: 13 }}>{bn ? 'সহকারী মানুষকে এটাই বলে।' : 'This is what the assistant tells people.'}</Text>
           </View>
           {c ? (
             <>
@@ -111,8 +116,8 @@ export default function DashboardScreen() {
             </>
           ) : null}
           <View style={{ marginTop: 8 }}>
-            <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর দেবে' : 'Reply by itself'} hint={auto ? (bn ? 'চালু — পরিবারে কখনও নয়।' : 'On — never to family.') : (bn ? 'বন্ধ — শুধু খসড়া বানাচ্ছে।' : 'Off — drafts only.')}
-              value={auto} onChange={(next) => { if (!busy) void run(() => va.killSwitch(!next), next ? (bn ? 'অটো-উত্তর চালু' : 'Auto-reply on') : (bn ? 'সব অটো-উত্তর বন্ধ' : 'All auto-replies off')); }} />
+            <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর দেবে' : 'Reply by itself'} hint={auto ? (bn ? 'চালু। পরিবারকে কখনও নয়।' : 'On — never to family.') : (bn ? 'বন্ধ। শুধু খসড়া করবে।' : 'Off — drafts only.')}
+              value={auto} onChange={(next) => { if (!busy) void run(() => va.killSwitch(!next), next ? (bn ? 'নিজে-নিজে উত্তর চালু' : 'Auto-reply on') : (bn ? 'সব নিজে-নিজে উত্তর বন্ধ' : 'All auto-replies off')); }} />
           </View>
         </Card>
       ) : null}
@@ -123,7 +128,7 @@ export default function DashboardScreen() {
             <StatTile icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} value={n(familyWaiting.length)} tone={familyWaiting.length ? accents.orange : undefined} onPress={() => go('/inbox', { view: 'family' })} />
             <StatTile icon="alert-octagon-outline" label={bn ? 'জরুরি' : 'Urgent'} value={n(o.urgent)} tone={o.urgent ? accents.red : undefined} onPress={() => go('/inbox', { view: 'urgent' })} />
             <StatTile icon="message-reply-text-outline" label={bn ? 'উত্তর বাকি' : 'Waiting'} value={n(o.waiting)} onPress={() => go('/inbox', { view: 'waiting' })} />
-            <StatTile icon="file-document-edit-outline" label={bn ? 'খসড়া অনুমোদনের অপেক্ষায়' : 'Drafts to approve'} value={n(o.drafts)} onPress={() => go('/inbox', { view: 'drafts' })} />
+            <StatTile icon="file-document-edit-outline" label={bn ? 'খসড়া দেখে দিতে হবে' : 'Drafts to approve'} value={n(o.drafts)} onPress={() => go('/inbox', { view: 'drafts' })} />
           </TileGrid>
           <AppSectionHeader title={bn ? 'পরিবার ও জরুরি' : 'Family and urgent'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'urgent' })} />
           {familyWaiting.length === 0 && (urgent.data?.items.length ?? 0) === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'পরিবারের বা জরুরি কিছু বাকি নেই ✓' : 'No family or urgent messages waiting ✓'} /> : null}
@@ -136,13 +141,13 @@ export default function DashboardScreen() {
       {o && lens === 'business' ? (
         <>
           <TileGrid>
-            <StatTile icon="cart-outline" label={bn ? 'অপেক্ষমান অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
-            <StatTile icon="briefcase-outline" label={bn ? 'অপেক্ষমান বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
+            <StatTile icon="cart-outline" label={bn ? 'বাকি অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
+            <StatTile icon="briefcase-outline" label={bn ? 'বাকি বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
             <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} />
             <StatTile icon="file-account-outline" label={bn ? 'চাকরির আবেদন' : 'Applications'} value={n(biz.data?.new_applications ?? 0)} />
           </TileGrid>
-          <AppSectionHeader title={bn ? 'নতুন কাজের অনুসন্ধান' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
-          {work.data && work.data.items.length === 0 ? <EmptyNote icon="briefcase-check-outline" text={bn ? 'নতুন কাজের অনুসন্ধান নেই' : 'No new work enquiries'} /> : null}
+          <AppSectionHeader title={bn ? 'নতুন কাজের খোঁজ' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
+          {work.data && work.data.items.length === 0 ? <EmptyNote icon="briefcase-check-outline" text={bn ? 'নতুন কাজের খোঁজ নেই' : 'No new work enquiries'} /> : null}
           <View style={{ gap: 12 }}>{(work.data?.items ?? []).slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}</View>
         </>
       ) : null}
@@ -163,10 +168,10 @@ export default function DashboardScreen() {
 
       <AppSectionHeader title={bn ? 'দ্রুত কাজ' : 'Quick actions'} />
       <TileGrid>
-        <StatTile icon="plus-circle-outline" label={bn ? 'নতুন কাজ যোগ' : 'Add a task'} value="＋" onPress={() => go('/tasks')} />
-        <StatTile icon="brain" label={bn ? 'AI সংযোগ' : 'AI connections'} value="AI" onPress={() => go('/ai')} />
-        <StatTile icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা' : 'Test urgent alarm'} value="🔔" onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম পাঠানো হয়েছে' : 'Alarm sent', 'info'); }} />
-        <StatTile icon="robot-outline" label={bn ? 'সহকারীর নিয়ম' : 'Assistant rules'} value="⚙" onPress={() => go('/rules')} />
+        <StatTile icon="plus-circle-outline" label={bn ? 'নতুন কাজ যোগ' : 'Add a task'} value="নতুন" onPress={() => go('/tasks')} />
+        <StatTile icon="brain" label={bn ? 'AI সংযোগ' : 'AI connections'} value="খুলুন" onPress={() => go('/ai')} />
+        <StatTile icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা' : 'Test urgent alarm'} value="বাজান" onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম বাজানো হয়েছে' : 'Alarm sent', 'info'); }} />
+        <StatTile icon="robot-outline" label={bn ? 'সহকারীর নিয়ম' : 'Assistant rules'} value="দেখুন" onPress={() => go('/rules')} />
       </TileGrid>
     </Page>
   );

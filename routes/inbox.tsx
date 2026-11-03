@@ -46,7 +46,7 @@ export default function InboxScreen() {
   const total = list.data?.total ?? 0;
 
   return (
-    <Page title={bn ? 'ইনবক্স' : 'Inbox'} subtitle={bn ? 'সব মাধ্যমের সব মানুষ, গুরুত্ব অনুযায়ী' : 'Everyone, every channel, by importance'}
+    <Page title={bn ? 'ইনবক্স' : 'Inbox'} subtitle={bn ? 'সব মাধ্যমের সবাই, জরুরি আগে' : 'Everyone, every channel, by importance'}
       onRefresh={() => { setPage(1); void list.reload(); }} refreshing={list.loading && items.length > 0}>
       <ChipGroup<InboxView> value={view} options={VIEWS.map((v) => v.key)} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
       <Field label={bn ? 'খুঁজুন' : 'Search'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা বিষয়' : 'Name, number or topic'} />
@@ -55,7 +55,7 @@ export default function InboxScreen() {
       <View style={{ gap: 12 }}>
         {items.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
       </View>
-      {items.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখুন' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
+      {items.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখান' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
     </Page>
   );
 }

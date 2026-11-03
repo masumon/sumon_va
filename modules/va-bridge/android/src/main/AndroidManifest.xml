@@ -14,6 +14,13 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+  <queries>
+    <package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /><package android:name="com.facebook.orca" /><package android:name="com.facebook.mlite" />
+    <package android:name="com.instagram.android" /><package android:name="org.telegram.messenger" /><package android:name="org.thunderdog.challegram" />
+    <package android:name="com.imo.android.imoim" /><package android:name="com.imo.android.imous" /><package android:name="com.viber.voip" />
+    <package android:name="jp.naver.line.android" /><package android:name="com.tencent.mm" /><package android:name="org.thoughtcrime.securesms" /><package android:name="com.google.android.gm" />
+  </queries>
+
   <application>
     <!-- Reads the notifications of the chat apps the owner chose (WhatsApp, Messenger, IMO, ...). The owner turns this on in Settings. -->
     <service

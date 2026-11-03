@@ -51,7 +51,7 @@ object Store {
   val DEFAULT_PACKAGES = setOf(
     "com.whatsapp", "com.whatsapp.w4b", "com.facebook.orca", "com.facebook.mlite", "com.instagram.android",
     "org.telegram.messenger", "org.thunderdog.challegram", "com.imo.android.imoim", "com.viber.voip",
-    "org.thoughtcrime.securesms", "jp.naver.line.android", "com.google.android.gm",
+    "org.thoughtcrime.securesms", "jp.naver.line.android", "com.tencent.mm", "com.imo.android.imous", "com.google.android.gm",
   )
 
   fun packages(c: Context): Set<String> = prefs(c).getStringSet("packages", null) ?: DEFAULT_PACKAGES

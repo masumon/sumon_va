@@ -90,7 +90,7 @@ export default function ContactScreen() {
           {drafts.map((d) => (
             <Card key={d.id} title={bn ? 'সহকারীর খসড়া উত্তর' : "Assistant's draft reply"}>
               <Text style={{ marginBottom: 6 }}>{d.body}</Text>
-              {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কেন: ' : 'Why: '}{d.note}</Text> : null}
+              {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
               <View style={{ gap: 8 }}>
                 <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানো হয়েছে' : 'Sent')} />
                 <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />
@@ -112,20 +112,20 @@ export default function ContactScreen() {
 
           <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
 
-          <Card title={bn ? 'এটা কী ধরনের মানুষ?' : 'What kind of person is this?'}>
+          <Card title={bn ? 'ইনি কেমন মানুষ?' : 'What kind of person is this?'}>
             <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
             <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
           </Card>
 
-          <Card title={bn ? 'এই ব্যক্তির নিয়ম' : 'Rules for this person'}>
-            <ToggleRow icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} hint={bn ? 'পরিবারে কখনও অটো-উত্তর যায় না, শুধু আপনাকে জানানো হয়।' : 'Family never gets auto-replies; you are only notified.'}
+          <Card title={bn ? 'এই মানুষটির নিয়ম' : 'Rules for this person'}>
+            <ToggleRow icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} hint={bn ? 'পরিবারকে কখনও নিজে উত্তর দেওয়া হয় না, শুধু আপনাকে জানানো হয়।' : 'Family never gets auto-replies; you are only notified.'}
               value={c.is_family} onChange={(v) => void act(() => va.patchContact(c.id, { is_family: v }))} />
             <ToggleRow icon="star-outline" label="VIP" value={c.is_vip} onChange={(v) => void act(() => va.patchContact(c.id, { is_vip: v }))} />
             <ToggleRow icon="block-helper" label={bn ? 'ব্লক' : 'Block'} value={c.is_blocked} onChange={(v) => void act(() => va.patchContact(c.id, { is_blocked: v }))} />
             <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m].bn : MODE[m].en)}
               onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি নিচ্ছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
+              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি দেখছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
               {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
               {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'সহকারীর হাতে দিন' : 'Hand back'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
             </View>

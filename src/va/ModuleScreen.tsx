@@ -14,6 +14,8 @@ import { BrandLogo } from './BrandLogo';
 import { Page, Status } from './Page';
 import { ContactRow } from './ContactRow';
 import type { ModuleDef } from './modules';
+import { ConnectGuide } from './ConnectGuide';
+import { EmailFilterCard } from './EmailFilterCard';
 
 const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'all', bn: 'সবাই', en: 'Everyone' }, { key: 'urgent', bn: 'জরুরি', en: 'Urgent' }, { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
@@ -44,7 +46,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
   const n = (v: number) => formatBangladeshNumber(v, language);
 
   const save = async (patch: Record<string, unknown>) => {
-    try { await va.saveConfig(patch); await info.reload(); showSnackbar(bn ? 'সংরক্ষিত' : 'Saved', 'success'); }
+    try { await va.saveConfig(patch); await info.reload(); showSnackbar(bn ? 'সেভ হয়েছে' : 'Saved', 'success'); }
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
   };
   const toggleApp = (pkg: string, on: boolean) => {
@@ -59,7 +61,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
 
   return (
     <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
-      <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত — বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয় — নিচে দেখুন' : 'Not connected yet — see below')}>
+      <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত, বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয়, নিচে দেখুন' : 'Not connected yet — see below')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
           <HeroStat value={n(urgent.data?.total ?? 0)} label={bn ? 'জরুরি' : 'Urgent'} />
@@ -67,22 +69,26 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
         </View>
       </Hero>
 
+      <ConnectGuide mod={mod} channels={d ?? null} received={total} onTested={() => { void list.reload(); void waiting.reload(); }} />
+
+      {mod.key === 'email' ? <EmailFilterCard /> : null}
+
       {mod.auto === 'telegram' && d ? (
         <Card title={bn ? 'Telegram বট' : 'Telegram bot'}>
-          <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও সংযুক্ত নয় — অ্যাডমিনের “মাধ্যম ও ফোন” ট্যাবে ধাপগুলো আছে।' : 'Bot is not connected yet — steps are in the admin “Channels & phone” tab.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
+          <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও সংযুক্ত নয়। অ্যাডমিনের “মাধ্যম ও ফোন” ট্যাবে ধাপগুলো দেওয়া আছে।' : 'Bot is not connected yet — steps are in the admin “Channels & phone” tab.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
           <ToggleRow icon="send" label={bn ? 'Telegram চালু' : 'Telegram on'} value={d.settings.telegram.enabled} onChange={(v) => void save({ channels: { telegram: { enabled: v } } })} />
-          <ToggleRow icon="robot-outline" label={bn ? 'বটে নিজে উত্তর দেবে' : 'Bot replies by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া। পরিবারে কখনও নয়।' : 'Off = drafts only. Never family.'} value={d.settings.telegram.auto} onChange={(v) => void save({ channels: { telegram: { auto: v } } })} />
+          <ToggleRow icon="robot-outline" label={bn ? 'বট নিজে উত্তর দেবে' : 'Bot replies by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে। পরিবারের কাউকে কখনও নিজে উত্তর দেবে না।' : 'Off = drafts only. Never family.'} value={d.settings.telegram.auto} onChange={(v) => void save({ channels: { telegram: { auto: v } } })} />
         </Card>
       ) : null}
       {mod.auto === 'sms' && d ? (
         <Card title={bn ? 'SMS ও কল' : 'SMS and calls'}>
-          <ToggleRow icon="message-text-outline" label={bn ? 'SMS-এ নিজে উত্তর দেবে' : 'Reply to SMS by itself'} hint={bn ? 'যেমন মিসড কলে “পরে কল করছি”। পরিবারে কখনও নয়।' : 'E.g. “I’ll call back”. Never family.'} value={d.settings.device.auto_sms} onChange={(v) => void save({ channels: { device: { auto_sms: v } } })} />
+          <ToggleRow icon="message-text-outline" label={bn ? 'SMS-এ নিজে উত্তর দেবে' : 'Reply to SMS by itself'} hint={bn ? 'যেমন মিসড কলে “পরে কল করছি”। পরিবারের কাউকে কখনও নিজে উত্তর দেবে না।' : 'E.g. “I’ll call back”. Never family.'} value={d.settings.device.auto_sms} onChange={(v) => void save({ channels: { device: { auto_sms: v } } })} />
           {!getStatus().smsReceive ? <AppButton variant="secondary" label={bn ? 'SMS-এর অনুমতি দিন' : 'Allow SMS'} onPress={() => router.push('/setup' as never)} /> : null}
         </Card>
       ) : null}
       {mod.auto === 'none' ? (
-        <Card title={bn ? 'এই মাধ্যমে উত্তর' : 'Replies here'}>
-          <Text style={{ opacity: 0.8, lineHeight: 22 }}>{bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই যায়। এতে আপনার নম্বর নিরাপদ থাকে।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'}</Text>
+        <Card title={bn ? 'এখানে উত্তর দেওয়া' : 'Replies here'}>
+          <Text style={{ opacity: 0.8, lineHeight: 22 }}>{bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই বার্তা যায়। এতে আপনার নম্বর ব্লক হওয়ার ভয় থাকে না।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'}</Text>
         </Card>
       ) : null}
       {mod.apps ? (
@@ -94,8 +100,8 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
 
       <ChipGroup<InboxView> value={view} options={VIEWS.map((v) => v.key)} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
       <Field label={bn ? 'নাম বা নম্বর খুঁজুন' : 'Search name or number'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম বা নম্বর' : 'Name or number'} />
-      <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
-      {!list.loading && !list.error && items.length === 0 ? <EmptyNote icon="inbox-outline" text={bn ? 'এই মাধ্যমে এখনও কেউ লেখেনি। নতুন বার্তা এলে এখানে নাম ও নম্বরসহ দেখা যাবে।' : 'Nobody has written here yet. New messages will show with name and number.'} /> : null}
+      <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা করুন' : 'Retry'} />
+      {!list.loading && !list.error && items.length === 0 ? <EmptyNote icon="inbox-outline" text={bn ? 'এখানে এখনও কেউ লেখেননি। নতুন বার্তা এলে নাম ও নম্বরসহ এখানে দেখা যাবে।' : 'Nobody has written here yet. New messages will show with name and number.'} /> : null}
       <View style={{ gap: 12 }}>
         {items.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
       </View>

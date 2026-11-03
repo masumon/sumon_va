@@ -28,13 +28,13 @@ function AlertStrength() {
   const label = (v: string) => (v === '0' ? (bn ? 'বন্ধ' : 'Off') : v === '1' ? (bn ? 'কম' : 'Soft') : v === '2' ? (bn ? 'মাঝারি' : 'Medium') : (bn ? 'জোরে' : 'Strong'));
   const save = (u: number, i: number, n: number, vol: number) => { setAlertLevels(u, i, n, vol); setS(getStatus()); };
   const rows: { key: 'alertUrgent' | 'alertImportant' | 'alertNormal'; bn: string; en: string }[] = [
-    { key: 'alertUrgent', bn: '🔴 জরুরি (পরিবার, দুর্ঘটনা…)', en: '🔴 Urgent (family, emergency…)' },
-    { key: 'alertImportant', bn: '🟠 গুরুত্বপূর্ণ (ক্লায়েন্ট, ★ চিহ্নিত)', en: '🟠 Important (clients, starred)' },
-    { key: 'alertNormal', bn: '🔵 সাধারণ নতুন বার্তা', en: '🔵 Ordinary new messages' },
+    { key: 'alertUrgent', bn: 'জরুরি (পরিবার, দুর্ঘটনা…)', en: 'Urgent (family, emergency…)' },
+    { key: 'alertImportant', bn: 'গুরুত্বপূর্ণ (ক্লায়েন্ট, ★ চিহ্নিত)', en: 'Important (clients, starred)' },
+    { key: 'alertNormal', bn: 'সাধারণ নতুন বার্তা', en: 'Ordinary new messages' },
   ];
   return (
     <Card title={bn ? 'কম্পন ও আওয়াজের মাত্রা' : 'Vibration and sound strength'}>
-      <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'কোন ধরনের বার্তায় ফোন কতটা কাঁপবে আর বাজবে — নিজে ঠিক করুন। “পরীক্ষা” চেপে এখনই অনুভব করুন।' : 'Choose how much the phone shakes and rings for each kind of message. Press “Test” to feel it now.'}</Text>
+      <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'কোন ধরনের বার্তায় ফোন কতটা কাঁপবে আর বাজবে, তা ঠিক করুন। “পরীক্ষা” চেপে এখনই দেখে নিন।' : 'Choose how much the phone shakes and rings for each kind of message. Press “Test” to feel it now.'}</Text>
       {rows.map((r) => (
         <View key={r.key} style={{ marginBottom: 8 }}>
           <ChipGroup<(typeof LEVELS)[number]> label={bn ? r.bn : r.en} options={LEVELS} value={String(s[r.key]) as (typeof LEVELS)[number]} labelOf={label}
@@ -58,7 +58,7 @@ export default function SettingsScreen() {
   const [confirm, setConfirm] = useState(false);
 
   const saveLimits = async (patch: Partial<Limits>) => {
-    try { await va.saveConfig({ limits: patch }); await channels.reload(); showSnackbar(bn ? 'সংরক্ষিত' : 'Saved', 'success'); }
+    try { await va.saveConfig({ limits: patch }); await channels.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
   };
 
@@ -76,7 +76,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Card title={bn ? 'নিরাপত্তা' : 'Security'}>
-        <ToggleRow icon="cellphone-lock" label={bn ? 'স্ক্রিনশট ও রিসেন্ট-অ্যাপে লুকান' : 'Hide from screenshots and recents'} hint={bn ? 'আপনার চ্যাট কেউ স্ক্রিনশটে বা রিসেন্ট অ্যাপের ছবিতে দেখতে পাবে না।' : 'Nobody can capture your chats.'}
+        <ToggleRow icon="cellphone-lock" label={bn ? 'স্ক্রিনশট ও রিসেন্ট অ্যাপে লুকান' : 'Hide from screenshots and recents'} hint={bn ? 'স্ক্রিনশটে বা রিসেন্ট অ্যাপের তালিকায় আপনার চ্যাট দেখা যাবে না।' : 'Nobody can capture your chats.'}
           value={p.blockScreenshots} onChange={(v) => void p.setBlockScreenshots(v)} />
         <Text style={{ marginTop: 12, fontWeight: '700' }}>{p.appLockEnabled ? (bn ? 'অ্যাপ-লক চালু (PIN ও আঙুলের ছাপ)' : 'App lock on (PIN and fingerprint)') : (bn ? 'অ্যাপ-লক বন্ধ' : 'App lock off')}</Text>
         <Field label={bn ? 'নতুন PIN (৪–৮ সংখ্যা)' : 'New PIN (4–8 digits)'} value={pin} onChangeText={(v) => setPin(v.replace(/\D/g, '').slice(0, 8))} keyboardType="numeric" />
@@ -91,9 +91,9 @@ export default function SettingsScreen() {
         {limits ? (
           <>
             <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts a day'} options={CAPS} value={String(limits.urgent_per_day) as (typeof CAPS)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ urgent_per_day: Number(c) }); }} />
-            <ChipGroup<(typeof FROM)[number]> label={bn ? 'রাতের শান্ত সময় শুরু' : 'Quiet time starts'} options={FROM} value={limits.quiet_from as (typeof FROM)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_from: c }); }} />
-            <ChipGroup<(typeof TO)[number]> label={bn ? 'শান্ত সময় শেষ' : 'Quiet time ends'} options={TO} value={limits.quiet_to as (typeof TO)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_to: c }); }} />
-            <ToggleRow label={bn ? 'শান্ত সময়ে শুধু সবচেয়ে জরুরি' : 'Only the most urgent in quiet time'} value={limits.quiet_urgent_only} onChange={(v) => void saveLimits({ quiet_urgent_only: v })} />
+            <ChipGroup<(typeof FROM)[number]> label={bn ? 'রাতে চুপ থাকার সময় শুরু' : 'Quiet time starts'} options={FROM} value={limits.quiet_from as (typeof FROM)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_from: c }); }} />
+            <ChipGroup<(typeof TO)[number]> label={bn ? 'চুপ থাকার সময় শেষ' : 'Quiet time ends'} options={TO} value={limits.quiet_to as (typeof TO)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_to: c }); }} />
+            <ToggleRow label={bn ? 'চুপ থাকার সময়ে শুধু সবচেয়ে জরুরি' : 'Only the most urgent in quiet time'} value={limits.quiet_urgent_only} onChange={(v) => void saveLimits({ quiet_urgent_only: v })} />
           </>
         ) : <Text>{channels.error ?? '…'}</Text>}
       </Card>
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
       </Card>
 
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
-        description={bn ? 'এই ফোন আর বার্তা পাঠাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
+        description={bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
         onConfirm={() => { setConfirm(false); unpair(); router.replace('/login' as never); }} />
     </Page>
