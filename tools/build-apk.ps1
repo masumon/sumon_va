@@ -16,6 +16,7 @@ param(
   [ValidateSet('phone', 'emulator', 'both')][string]$Target = 'phone',
   [switch]$Install,
   [switch]$FreeMemory,
+  [switch]$Qa,   # test build: screenshots allowed (the normal build always blocks them)
   [string]$Avd = 'Pixel_6'
 )
 $ErrorActionPreference = 'Stop'
@@ -48,11 +49,13 @@ if ($FreeMemory -or $needsMemory) {
 
 $abis = switch ($Target) { 'phone' { @('arm64-v8a') } 'emulator' { @('x86_64') } default { @('arm64-v8a', 'x86_64') } }
 $env:NODE_ENV = 'production'
+if ($Qa) { $env:EXPO_PUBLIC_QA = '1' } else { Remove-Item Env:\EXPO_PUBLIC_QA -ErrorAction SilentlyContinue }
 foreach ($abi in $abis) {
   Write-Host "=== Building $abi (cached, incremental) ==="
   Push-Location $android
   # No --no-daemon and no clean: the daemon, build cache, .cxx objects and Metro cache are all reused.
-  & .\gradlew.bat assembleRelease "-PreactNativeArchitectures=$abi" --build-cache --max-workers=2 --console=plain
+  # The JS bundle is re-made every time (cheap, ~20 s) so a changed setting such as -Qa can never leave an old bundle behind.
+  & .\gradlew.bat :app:createBundleReleaseJsAndAssets --rerun assembleRelease "-PreactNativeArchitectures=$abi" --build-cache --max-workers=2 --console=plain
   $code = $LASTEXITCODE
   Pop-Location
   if ($code -ne 0) { throw "Build failed for $abi (exit $code). Read the last lines above; if you see 0x5AA, free memory and rerun." }
@@ -72,10 +75,11 @@ if ($Install) {
     if (-not $emu) {
       Write-Host "Starting the emulator $Avd ..."
       Start-Process -FilePath $emulator -ArgumentList '-avd', $Avd, '-no-snapshot-save', '-no-boot-anim' -WindowStyle Minimized
-      & $adb wait-for-device
-      do { Start-Sleep 3 } until ((& $adb shell getprop sys.boot_completed 2>$null) -match '1')
-      $emu = Get-Device $true
+      # wait until the emulator both shows up in `adb devices` and has finished booting (up to ~3 minutes)
+      for ($i = 0; $i -lt 60 -and -not $emu; $i++) { Start-Sleep 3; $emu = Get-Device $true }
+      if ($emu) { for ($i = 0; $i -lt 60; $i++) { if ((& $adb -s $emu shell getprop sys.boot_completed 2>$null) -match '1') { break }; Start-Sleep 3 } }
     }
+    if (-not $emu) { throw 'The emulator did not come up. Start it from Android Studio, then run again.' }
     Write-Host "Installing on the emulator ($emu)..."; & $adb -s $emu install -r (Join-Path $dist 'sumon-va-x86_64.apk')
   }
 }

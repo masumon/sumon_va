@@ -58,7 +58,7 @@ export default function LoginScreen() {
       <Card>
         {step === 'email' ? (
           <>
-            <Field label={bn ? 'ইমেইল' : 'E-mail'} value={email} onChangeText={setEmail} placeholder="you@example.com" autoFocus />
+            <Field label={bn ? 'ইমেইল' : 'E-mail'} value={email} onChangeText={setEmail} placeholder="you@example.com" />
             <Text style={{ opacity: 0.7, fontSize: 13, marginTop: 6 }}>{bn ? 'এই ইমেইলে ৬ সংখ্যার একটি কোড পাঠানো হবে। শুধু অ্যাডমিন (মালিক) ঢুকতে পারেন।' : 'A 6-digit code will be e-mailed to you. Only the admin (owner) can sign in.'}</Text>
           </>
         ) : null}

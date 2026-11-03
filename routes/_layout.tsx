@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
 import { KeyboardAvoidingView, StatusBar, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,7 +46,8 @@ function AppNavigator() {
 
   // Private by default: the recent-apps thumbnail and screenshots show nothing of the owner's chats.
   useEffect(() => {
-    if (blockScreenshots) void preventScreenCaptureAsync().catch(() => {});
+    // QA builds (tools/build-apk.ps1 -Qa) allow screenshots so the app can be inspected; real builds never do.
+    if (blockScreenshots && process.env.EXPO_PUBLIC_QA !== '1') void preventScreenCaptureAsync().catch(() => {});
     else void allowScreenCaptureAsync().catch(() => {});
   }, [blockScreenshots]);
 
@@ -87,6 +88,9 @@ export default function RootLayout() {
   useEffect(() => { const t = setTimeout(() => setFontTimedOut(true), 4000); return () => clearTimeout(t); }, []);
   const canRender = fontsLoaded || Boolean(fontError) || fontTimedOut;
   const [splashDone, setSplashDone] = useState(false);
+  const finishSplash = useCallback(() => setSplashDone(true), []);
+  // Safety net, independent of the splash's own timer: whatever happens, the splash is gone after 3.5 s.
+  useEffect(() => { const t = setTimeout(() => { setSplashDone(true); }, 3500); return () => clearTimeout(t); }, []);
   const hidden = useRef(false);
   useEffect(() => {
     if (canRender && !hidden.current) { hidden.current = true; void SplashScreen.hideAsync().catch(() => {}); }
@@ -97,9 +101,10 @@ export default function RootLayout() {
       <AppErrorBoundary>
         <AppProviders>
           <AppNavigator />
-          {splashDone ? null : <Splash onFinish={() => setSplashDone(true)} />}
         </AppProviders>
       </AppErrorBoundary>
+      {/* Outside the providers on purpose: nothing inside the app can keep the opening screen alive. */}
+      {splashDone ? null : <Splash onFinish={finishSplash} />}
     </SafeAreaProvider>
   );
 }
