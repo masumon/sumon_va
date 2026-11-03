@@ -46,3 +46,12 @@ export const THEME_OPTIONS = [
 ] as const;
 export type ThemeChoice = (typeof THEME_OPTIONS)[number]['value'];
 export const LANGUAGE_OPTIONS = [{ value: 'bn', label: 'বাংলা' }, { value: 'en', label: 'English' }] as const;
+
+/** The four kinds of message: what it is, a one-line meaning for a non-technical owner, and what the assistant does with it. */
+export const CATEGORY = {
+  business: { bn: 'ব্যবসায়িক', en: 'Business', icon: 'briefcase-outline', tone: 'primary', hintBn: 'কাজ, দাম, অর্ডার, বুকিং — সহকারী উত্তর দিতে পারে', hintEn: 'Work, prices, orders — the assistant may reply' },
+  personal: { bn: 'ব্যক্তিগত', en: 'Personal', icon: 'account-heart-outline', tone: 'success', hintBn: 'পরিবার ও কাছের মানুষ — আপনি নিজে উত্তর দেন', hintEn: 'Family and close people — you answer yourself' },
+  social: { bn: 'সামাজিক', en: 'Social', icon: 'party-popper', tone: 'warning', hintBn: 'দাওয়াত, শুভেচ্ছা, দোয়া — আপনার সিদ্ধান্ত', hintEn: 'Invitations, greetings — your call' },
+  spam: { bn: 'প্রচার/স্প্যাম', en: 'Spam', icon: 'delete-empty-outline', tone: 'neutral', hintBn: 'বিজ্ঞাপন — চুপচাপ সরিয়ে রাখা হয়', hintEn: 'Ads — quietly set aside' },
+} as const;
+export const CATEGORY_KEYS = ['business', 'personal', 'social', 'spam'] as const;

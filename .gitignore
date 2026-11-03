@@ -20,3 +20,4 @@ local.properties
 # Personal data
 *.xlsx
 *.db
+.gradle-build-cache/

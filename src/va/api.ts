@@ -19,10 +19,12 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path
 }
 
 export type Channel = 'whatsapp' | 'telegram' | 'sms' | 'notif' | 'email' | 'webhook';
-export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work';
+export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work' | 'business' | 'personal' | 'social' | 'spam';
+
+export type Category = 'business' | 'personal' | 'social' | 'spam';
 
 export type Contact = {
-  id: string; channel: Channel; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
+  id: string; channel: Channel; category: Category | null; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
   is_vip: boolean; is_family: boolean; is_blocked: boolean; state: 'assistant' | 'owner' | 'done'; priority: number;
   need: string | null; summary: string | null; unread: number; last_message_at: string | null; preview: string;
 };
@@ -54,6 +56,7 @@ export type StatusDef = { key: string; label: string; say: string };
 export type AssistantConfig = {
   enabled: boolean; mode: 'auto' | 'shadow'; assistant_name: string; owner_name: string; reply_by: string;
   status: { key: string; until: string | null; custom: string }; statuses: StatusDef[];
+  categories: Record<Category, { auto?: boolean; silent?: boolean }>;
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
   notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };
 };
@@ -94,7 +97,7 @@ export const va = {
     call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}&src=${encodeURIComponent(src.join(','))}`),
   business: () => call<{ pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
   contact: (id: string) => call<{ contact: Contact; messages: Message[]; notes: { id: string; text: string }[]; tasks: { id: string; title: string; is_done: boolean }[] }>('GET', `/admin/wa/contacts/${id}`),
-  patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
+  patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state' | 'category'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
   reply: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/reply`, { text }),
   suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
   approve: (mid: string, text?: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/approve`, text ? { text } : undefined),

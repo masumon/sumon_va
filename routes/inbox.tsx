@@ -10,9 +10,12 @@ import { ContactRow } from '../src/va/ContactRow';
 
 const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'all', bn: 'সব', en: 'All' },
+  { key: 'business', bn: 'ব্যবসায়িক', en: 'Business' },
+  { key: 'personal', bn: 'ব্যক্তিগত', en: 'Personal' },
+  { key: 'social', bn: 'সামাজিক', en: 'Social' },
   { key: 'family', bn: 'পরিবার', en: 'Family' },
   { key: 'vip', bn: 'VIP', en: 'VIP' },
-  { key: 'work', bn: 'ব্যবসা', en: 'Business' },
+  { key: 'spam', bn: 'স্প্যাম', en: 'Spam' },
   { key: 'blocked', bn: 'ব্লক', en: 'Blocked' },
   { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
   { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },

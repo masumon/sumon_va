@@ -7,7 +7,7 @@ import { useAppPreferences } from '../app/AppPreferences';
 import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date-time';
 import { border, control, radius, spacing, type ThemeColors } from '../theme';
 import type { Contact } from './api';
-import { CHANNEL, PRIORITY, displayName } from './labels';
+import { CATEGORY, CHANNEL, PRIORITY, displayName } from './labels';
 import { sourceLabel } from './modules';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
@@ -34,6 +34,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
         <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>
         <View style={styles.badges}>
           {contact.priority <= 2 || contact.unread > 0 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
+          {contact.category ? <AppBadge label={bn ? CATEGORY[contact.category].bn : CATEGORY[contact.category].en} tone={CATEGORY[contact.category].tone} /> : null}
           {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
           {contact.is_vip ? <AppBadge label="VIP" tone="primary" /> : null}
           <AppBadge label={bn ? ch.bn : ch.en} tone="neutral" />

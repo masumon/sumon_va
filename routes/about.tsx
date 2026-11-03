@@ -1,4 +1,6 @@
 import { Linking, Pressable, View } from 'react-native';
+import { router } from 'expo-router';
+import { AppButton } from '../src/ui/AppSurface';
 import { AppText as Text } from '../src/ui/AppText';
 import { Card, useKit } from '../src/ui/AppKit';
 import { Page } from '../src/va/Page';
@@ -37,6 +39,9 @@ export default function AboutScreen() {
           </View>
           <View><Text style={{ opacity: 0.7, fontSize: 13 }}>{bn ? 'প্রতিষ্ঠান' : 'Company'}</Text><Link label={CREDITS.company.name} url={CREDITS.company.url} /></View>
         </View>
+      </Card>
+      <Card>
+        <AppButton variant="secondary" icon="school-outline" label={bn ? 'পরিচিতি-গাইড আবার দেখুন' : 'See the quick tour again'} onPress={() => router.push('/tour' as never)} />
       </Card>
       <PoweredBy />
     </Page>

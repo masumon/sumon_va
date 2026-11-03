@@ -6,6 +6,7 @@ import { useAppFeedback } from '../src/ui/AppFeedback';
 import { va } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero } from '../src/va/Hero';
+import { CATEGORY, CATEGORY_KEYS } from '../src/va/labels';
 import { Page, Status } from '../src/va/Page';
 
 const SECS = ['10', '20', '40', '60', '120'] as const;
@@ -37,6 +38,15 @@ export default function RulesScreen() {
             <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর' : 'Reply by itself'} hint={bn ? 'বন্ধ = শুধু খসড়া, আপনি অনুমোদন করলে যাবে।' : 'Off = drafts, sent when you approve.'} value={c.mode === 'auto'} onChange={(v) => void save({ mode: v ? 'auto' : 'shadow' })} />
             <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বোঝা' : 'Understand with AI'} value={c.ai.enabled} onChange={(v) => void save({ ai: { enabled: v } })} />
             <ToggleRow icon="microphone-outline" label={bn ? 'ভয়েস মেসেজ লিখে ফেলা' : 'Transcribe voice notes'} value={c.ai.voice} onChange={(v) => void save({ ai: { voice: v } })} />
+          </Card>
+
+          <Card title={bn ? 'কোন ধরনের বার্তায় কী করবে' : 'What to do with each kind of message'}>
+            <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'সহকারী প্রতিটি বার্তা পড়ে ব্যবসায়িক, ব্যক্তিগত, সামাজিক বা স্প্যাম ঠিক করে। কোনটায় নিজে উত্তর দেবে সেটা এখানে ঠিক করুন।' : 'The assistant sorts each message as business, personal, social or spam. Choose where it may answer by itself.'}</Text>
+            {CATEGORY_KEYS.filter((k) => k !== 'spam').map((k) => (
+              <ToggleRow key={k} icon={CATEGORY[k].icon} label={`${bn ? CATEGORY[k].bn : CATEGORY[k].en} — ${(c.categories?.[k]?.auto ?? k === 'business') ? (bn ? 'নিজে উত্তর দেবে' : 'replies by itself') : (bn ? 'শুধু খসড়া' : 'drafts only')}`}
+                hint={bn ? CATEGORY[k].hintBn : CATEGORY[k].hintEn} value={c.categories?.[k]?.auto ?? k === 'business'} onChange={(v) => void save({ categories: { [k]: { auto: v } } })} />
+            ))}
+            <Text style={{ opacity: 0.65, fontSize: 12, marginTop: 6 }}>{bn ? 'পরিবার সবসময় ব্যক্তিগত — সেখানে সহকারী কখনও নিজে উত্তর দেয় না। স্প্যাম চুপচাপ সরে যায়।' : 'Family is always personal — never answered by the assistant. Spam is quietly set aside.'}</Text>
           </Card>
 
           <Card title={bn ? 'নাম ও কথার ধরন' : 'Names and wording'}>

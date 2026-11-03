@@ -9,7 +9,7 @@ import { formatBangladeshDateTime } from '../src/i18n/date-time';
 import { va, type Contact, type Message } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page, Status } from '../src/va/Page';
-import { CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
+import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
 
 const MODES: Contact['mode'][] = ['inherit', 'auto', 'draft', 'notify'];
 
@@ -84,6 +84,11 @@ export default function ContactScreen() {
               <AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let the assistant draft it'} loading={busy}
                 onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} />
             </View>
+          </Card>
+
+          <Card title={bn ? 'এটা কী ধরনের মানুষ?' : 'What kind of person is this?'}>
+            <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
+            <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
           </Card>
 
           <Card title={bn ? 'এই ব্যক্তির নিয়ম' : 'Rules for this person'}>

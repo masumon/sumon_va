@@ -24,7 +24,7 @@ export default function LockSetupScreen() {
   const save = async () => {
     await p.setAppLockPin(pin);
     showSnackbar(bn ? 'অ্যাপ-লক চালু হয়েছে ✓' : 'App lock is on ✓', 'success');
-    router.replace('/setup' as never);
+    router.replace('/tour' as never);
   };
 
   return (
@@ -41,7 +41,7 @@ export default function LockSetupScreen() {
           value={bio === true && p.appLockEnabled} onChange={() => { /* biometrics follow the PIN lock automatically */ }} />
       </Card>
       <AppButton label={bn ? 'লক চালু করুন' : 'Turn on lock'} icon="shield-lock-outline" disabled={!ok} onPress={() => void save()} />
-      <AppButton variant="ghost" label={bn ? 'এখন নয়' : 'Not now'} onPress={() => router.replace('/setup' as never)} />
+      <AppButton variant="ghost" label={bn ? 'এখন নয়' : 'Not now'} onPress={() => router.replace('/tour' as never)} />
     </Page>
   );
 }
