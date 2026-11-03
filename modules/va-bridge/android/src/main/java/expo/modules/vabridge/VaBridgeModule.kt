@@ -48,12 +48,20 @@ class VaBridgeModule : Module() {
         "postNotifications" to (Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS)),
         "batteryExempt" to (power?.isIgnoringBatteryOptimizations(c.packageName) ?: false),
         "dndAccess" to (nm?.isNotificationPolicyAccessGranted ?: false),
+        "location" to (granted(Manifest.permission.ACCESS_FINE_LOCATION) || granted(Manifest.permission.ACCESS_COARSE_LOCATION)),
+        "contacts" to granted(Manifest.permission.READ_CONTACTS),
+        "storage" to (if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_IMAGES) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)),
+        "microphone" to granted(Manifest.permission.RECORD_AUDIO),
+        "exactAlarm" to (if (Build.VERSION.SDK_INT >= 31) (c.getSystemService(android.app.AlarmManager::class.java)?.canScheduleExactAlarms() ?: false) else true),
+        "fullScreen" to (if (Build.VERSION.SDK_INT >= 34) (nm?.canUseFullScreenIntent() ?: false) else true),
         "serviceAlive" to PollService.alive,
         "queued" to Outbox.size(c),
         "lastOk" to Store.prefs(c).getLong("last_ok", 0L).toDouble(),
         "lastError" to Store.prefs(c).getString("last_error", null),
         "pollSeconds" to Store.pollSeconds(c),
         "packages" to Store.packages(c).sorted(),
+        "accountName" to Store.prefs(c).getString("account_name", null),
+        "accountEmail" to Store.prefs(c).getString("account_email", null),
       )
     }
 
@@ -103,6 +111,7 @@ class VaBridgeModule : Module() {
           val token = json.optString("token")
           if (token.isEmpty()) return@AsyncFunction mapOf("ok" to false, "error" to "সার্ভার ভুল উত্তর দিয়েছে")
           Store.setPaired(c, clean, token)
+          Store.setAccount(c, json.optString("name"), email.trim())
           PollService.start(c)
           mapOf("ok" to true, "name" to json.optString("name"))
         }
@@ -116,7 +125,7 @@ class VaBridgeModule : Module() {
     /** Server call with the device token. Only the owner's inbox endpoints are reachable from the screens. */
     AsyncFunction("request") { method: String, path: String, body: String? ->
       val m = method.uppercase()
-      if (m !in setOf("GET", "POST", "PUT", "PATCH", "DELETE") || !(path.startsWith("/admin/wa/") || path.startsWith("/admin/inbox/")) || path.contains("..")) {
+      if (m !in setOf("GET", "POST", "PUT", "PATCH", "DELETE") || !(path.startsWith("/admin/wa/") || path.startsWith("/admin/inbox/") || path.startsWith("/admin/ai-hub") || path == "/device/logout") || path.contains("..")) {
         return@AsyncFunction mapOf("status" to 0, "body" to "path not allowed")
       }
       val r = Http.call(ctx, m, path, body)
@@ -128,12 +137,22 @@ class VaBridgeModule : Module() {
     Function("stopService") { PollService.stop(ctx); true }
     Function("setPackages") { list: List<String> -> Store.setPackages(ctx, list.filter { it.length in 3..120 }.toSet()); true }
     Function("setPollSeconds") { s: Int -> Store.setPollSeconds(ctx, s); true }
+    /** A plain notification from the app itself (used for "a problem needs you"). target p1 = loud alarm, anything else = normal. */
+    Function("notify") { target: String, body: String, id: String -> PollService.showAlert(ctx, target, body, id); true }
     Function("testAlert") { PollService.showAlert(ctx, "p1", "পরীক্ষা: এভাবেই জরুরি বার্তা বাজবে", "test-" + System.currentTimeMillis()); true }
 
     Function("openNotificationAccess") { open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); true }
     Function("openDndAccess") { open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)); true }
     Function("openBatterySettings") {
       val i = if (Build.VERSION.SDK_INT >= 23) Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx.packageName)) else Intent(Settings.ACTION_SETTINGS)
+      open(i); true
+    }
+    Function("openExactAlarmSettings") {
+      val i = if (Build.VERSION.SDK_INT >= 31) Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + ctx.packageName)) else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))
+      open(i); true
+    }
+    Function("openFullScreenSettings") {
+      val i = if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + ctx.packageName)) else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))
       open(i); true
     }
     Function("openAppSettings") { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))); true }

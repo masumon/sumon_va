@@ -22,6 +22,9 @@ import { PrimaryNav, primaryNavItems } from '../src/ui/PrimaryNav';
 import { getWindowSizeClass, layout } from '../src/theme';
 import { getStatus } from '../modules/va-bridge';
 import { Splash } from '../src/va/Splash';
+import { AppHeader } from '../src/va/AppHeader';
+import { Drawer } from '../src/va/Drawer';
+import { HealthBanner } from '../src/va/HealthBanner';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -36,8 +39,9 @@ function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const windowClass = getWindowSizeClass(width);
-  const dark = themeMode === 'dark';
+  const dark = themeMode !== 'light';
   const showNav = primaryRoutes.includes(pathname);
+  const signedIn = !openRoutes.includes(pathname);
   const expandedNav = windowClass === 'expanded';
 
   // Private by default: the recent-apps thumbnail and screenshots show nothing of the owner's chats.
@@ -55,6 +59,8 @@ function AppNavigator() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      {signedIn ? <AppHeader /> : null}
+      {signedIn ? <HealthBanner /> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <Stack
           screenOptions={{
@@ -65,6 +71,7 @@ function AppNavigator() {
         />
       </KeyboardAvoidingView>
       {showNav ? <PrimaryNav /> : null}
+      {signedIn ? <Drawer /> : null}
       <LockGate>{null}</LockGate>
     </SafeAreaView>
   );

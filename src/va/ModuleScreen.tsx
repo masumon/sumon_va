@@ -1,0 +1,104 @@
+import { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { router } from 'expo-router';
+import { AppText as Text } from '../ui/AppText';
+import { AppButton } from '../ui/AppSurface';
+import { Card, ChipGroup, EmptyNote, Field, ToggleRow, useKit } from '../ui/AppKit';
+import { useAppFeedback } from '../ui/AppFeedback';
+import { formatBangladeshNumber } from '../i18n/date-time';
+import { getStatus, setPackages } from '../../modules/va-bridge';
+import { va, type Contact, type View as InboxView } from './api';
+import { useLoad } from './hooks';
+import { Hero, HeroStat } from './Hero';
+import { Page, Status } from './Page';
+import { ContactRow } from './ContactRow';
+import type { ModuleDef } from './modules';
+
+const VIEWS: { key: InboxView; bn: string; en: string }[] = [
+  { key: 'all', bn: 'সবাই', en: 'Everyone' }, { key: 'urgent', bn: 'জরুরি', en: 'Urgent' }, { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
+  { key: 'drafts', bn: 'খসড়া', en: 'Drafts' }, { key: 'family', bn: 'পরিবার', en: 'Family' },
+];
+
+/** One module (WhatsApp, Messenger, Telegram, SMS…): its own summary, its own auto-reply switch, and only its own people with their numbers. */
+export function ModuleScreen({ mod }: { mod: ModuleDef }) {
+  const { bn, language } = useKit();
+  const { showSnackbar } = useAppFeedback();
+  const [view, setView] = useState<InboxView>('all');
+  const [q, setQ] = useState('');
+  const [term, setTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<Contact[]>([]);
+  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); }, 400); return () => clearTimeout(t); }, [q]);
+
+  const list = useLoad(async () => {
+    const r = await va.contacts(view, term, page, mod.sources);
+    setItems((prev) => (page === 1 ? r.items : [...prev, ...r.items]));
+    return r;
+  }, `${mod.key}|${view}|${term}|${page}`, 20000);
+  const waiting = useLoad(() => va.contacts('waiting', '', 1, mod.sources), `${mod.key}-waiting`, 20000);
+  const urgent = useLoad(() => va.contacts('urgent', '', 1, mod.sources), `${mod.key}-urgent`, 20000);
+  const info = useLoad(() => va.channels(), 'channels', 30000);
+  const watched = new Set(getStatus().packages);
+  const d = info.data;
+  const n = (v: number) => formatBangladeshNumber(v, language);
+
+  const save = async (patch: Record<string, unknown>) => {
+    try { await va.saveConfig(patch); await info.reload(); showSnackbar(bn ? 'সংরক্ষিত' : 'Saved', 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+  };
+  const toggleApp = (pkg: string, on: boolean) => {
+    const next = new Set(getStatus().packages);
+    if (on) next.add(pkg); else next.delete(pkg);
+    setPackages([...next]);
+    void info.reload();
+  };
+
+  const total = list.data?.total ?? 0;
+  const connected = mod.auto === 'telegram' ? !!d?.telegram.configured && !!d?.settings.telegram.enabled : mod.auto === 'sms' ? getStatus().smsReceive : (mod.apps ?? []).some((a) => watched.has(a.pkg)) || mod.sources.includes('whatsapp');
+
+  return (
+    <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
+      <Hero icon={mod.icon} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত — বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয় — নিচে দেখুন' : 'Not connected yet — see below')}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
+          <HeroStat value={n(urgent.data?.total ?? 0)} label={bn ? 'জরুরি' : 'Urgent'} />
+          <HeroStat value={n(total)} label={bn ? 'এই তালিকায়' : 'In this list'} />
+        </View>
+      </Hero>
+
+      {mod.auto === 'telegram' && d ? (
+        <Card title={bn ? 'Telegram বট' : 'Telegram bot'}>
+          <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও সংযুক্ত নয় — অ্যাডমিনের “মাধ্যম ও ফোন” ট্যাবে ধাপগুলো আছে।' : 'Bot is not connected yet — steps are in the admin “Channels & phone” tab.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
+          <ToggleRow icon="send" label={bn ? 'Telegram চালু' : 'Telegram on'} value={d.settings.telegram.enabled} onChange={(v) => void save({ channels: { telegram: { enabled: v } } })} />
+          <ToggleRow icon="robot-outline" label={bn ? 'বটে নিজে উত্তর দেবে' : 'Bot replies by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া। পরিবারে কখনও নয়।' : 'Off = drafts only. Never family.'} value={d.settings.telegram.auto} onChange={(v) => void save({ channels: { telegram: { auto: v } } })} />
+        </Card>
+      ) : null}
+      {mod.auto === 'sms' && d ? (
+        <Card title={bn ? 'SMS ও কল' : 'SMS and calls'}>
+          <ToggleRow icon="message-text-outline" label={bn ? 'SMS-এ নিজে উত্তর দেবে' : 'Reply to SMS by itself'} hint={bn ? 'যেমন মিসড কলে “পরে কল করছি”। পরিবারে কখনও নয়।' : 'E.g. “I’ll call back”. Never family.'} value={d.settings.device.auto_sms} onChange={(v) => void save({ channels: { device: { auto_sms: v } } })} />
+          {!getStatus().smsReceive ? <AppButton variant="secondary" label={bn ? 'SMS-এর অনুমতি দিন' : 'Allow SMS'} onPress={() => router.push('/setup' as never)} /> : null}
+        </Card>
+      ) : null}
+      {mod.auto === 'none' ? (
+        <Card title={bn ? 'এই মাধ্যমে উত্তর' : 'Replies here'}>
+          <Text style={{ opacity: 0.8, lineHeight: 22 }}>{bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই যায়। এতে আপনার নম্বর নিরাপদ থাকে।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'}</Text>
+        </Card>
+      ) : null}
+      {mod.apps ? (
+        <Card title={bn ? 'যে অ্যাপের বার্তা পড়া হবে' : 'Apps that are read'}>
+          {mod.apps.map((a) => <ToggleRow key={a.pkg} label={bn ? a.bn : a.en} value={watched.has(a.pkg)} onChange={(v) => toggleApp(a.pkg, v)} />)}
+          {!getStatus().notificationAccess ? <AppButton variant="secondary" label={bn ? 'বার্তা পড়ার অনুমতি দিন' : 'Allow reading messages'} onPress={() => router.push('/setup' as never)} /> : null}
+        </Card>
+      ) : null}
+
+      <ChipGroup<InboxView> value={view} options={VIEWS.map((v) => v.key)} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
+      <Field label={bn ? 'নাম বা নম্বর খুঁজুন' : 'Search name or number'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম বা নম্বর' : 'Name or number'} />
+      <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
+      {!list.loading && !list.error && items.length === 0 ? <EmptyNote icon="inbox-outline" text={bn ? 'এই মাধ্যমে এখনও কেউ লেখেনি। নতুন বার্তা এলে এখানে নাম ও নম্বরসহ দেখা যাবে।' : 'Nobody has written here yet. New messages will show with name and number.'} /> : null}
+      <View style={{ gap: 12 }}>
+        {items.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
+      </View>
+      {items.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখুন' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
+    </Page>
+  );
+}

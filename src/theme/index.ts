@@ -28,8 +28,11 @@ export const fonts={regular:'NotoSansBengali_400Regular',medium:'NotoSansBengali
 // relative-luminance contrast ratios, not eyeballed) — hue kept, lightness trimmed.
 export const lightColors={background:'#F1F4FA',surface:'#FBFCFF',surfaceMuted:'#E7ECF6',surfaceSunken:'#DCE3F1',primary:'#1E2B6B',primaryPressed:'#182357',primaryTint:'#E7EAF6',onPrimary:'#FFFFFF',accent:'#8E6724',textPrimary:'#131720',textSecondary:'#464E60',textMuted:'#676E7D',border:'#DBE1EF',borderStrong:'#C5CDE0',success:'#1C7E45',warning:'#92660F',danger:'#C13B2E',info:'#2A79BE',overlay:'rgba(16, 20, 30, 0.46)'} as const;
 export const darkColors={background:'#0A0E18',surface:'#161C2B',surfaceMuted:'#1F2637',surfaceSunken:'#10131E',primary:'#8EA0E6',primaryPressed:'#7A8CD0',primaryTint:'#1A2347',onPrimary:'#07122A',accent:'#D9B663',textPrimary:'#EFF2FA',textSecondary:'#B2BBCD',textMuted:'#8A93A7',border:'#2C3446',borderStrong:'#3F4A5F',success:'#46CE86',warning:'#E1A94E',danger:'#F0736A',info:'#5FB2E6',overlay:'rgba(0, 0, 0, 0.66)'} as const;
-export type ThemeColors=typeof lightColors|typeof darkColors;
-export function getThemeColors(mode:'light'|'dark'):ThemeColors{return mode==='dark'?darkColors:lightColors;}
+// Low-light ("dim") mode: near-black warm ground (saves OLED battery), soft warm text, almost no blue light — easy on tired eyes at night.
+export const dimColors={background:'#0B0A09',surface:'#15130F',surfaceMuted:'#1E1B16',surfaceSunken:'#0F0D0B',primary:'#D6A453',primaryPressed:'#BF8F44',primaryTint:'#2A2214',onPrimary:'#1A1204',accent:'#D6A453',textPrimary:'#DCD2C0',textSecondary:'#B3A898',textMuted:'#8A8172',border:'#2B2620',borderStrong:'#3A332A',success:'#86BC8E',warning:'#D9A64A',danger:'#E0796B',info:'#86A9C6',overlay:'rgba(0, 0, 0, 0.78)'} as const;
+export type ThemeColors=typeof lightColors|typeof darkColors|typeof dimColors;
+export type AppThemeMode='light'|'dark'|'dim';
+export function getThemeColors(mode:AppThemeMode):ThemeColors{return mode==='dark'?darkColors:mode==='dim'?dimColors:lightColors;}
 export const colors=lightColors;
 
 // Ascending 4-pt-ish rhythm. `xxs`/`xs` are a deliberate alias (both 4) kept so call
@@ -103,7 +106,9 @@ export const darkAccents={
 export type AccentName=keyof typeof lightAccents;
 export type AccentRole={base:string;soft:string;on:string;border:string};
 export type ThemeAccents=typeof lightAccents|typeof darkAccents;
-export function getThemeAccents(mode:'light'|'dark'):ThemeAccents{return mode==='dark'?darkAccents:lightAccents;}
+function warmDim(hex:string):string{const n=parseInt(hex.slice(1),16);const r=(n>>16)&255,g=(n>>8)&255,b=n&255;const k=0.78;const w=(v:number,t:number)=>Math.round(Math.min(255,(v*k)*0.85+t*0.15));return '#'+[w(r,216),w(g,176),w(b,128)].map((v)=>v.toString(16).padStart(2,'0')).join('');}
+export const dimAccents=Object.fromEntries(Object.entries(darkAccents).map(([k,v])=>[k,Object.fromEntries(Object.entries(v).map(([kk,vv])=>[kk,typeof vv==='string'&&vv.startsWith('#')?warmDim(vv):vv]))])) as unknown as typeof darkAccents;
+export function getThemeAccents(mode:AppThemeMode):ThemeAccents{return mode==='dark'?darkAccents:mode==='dim'?dimAccents:lightAccents;}
 export const accents=lightAccents;
 
 // ── Glass surfaces ─────────────────────────────────────────────────────────────────────
@@ -121,7 +126,7 @@ export type GlassTokens={ tint:'light'|'dark'; intensity:number; scrim:string; n
 // stronger blur so it reads as real glass while its solid-colour labels stay legible.
 export const lightGlass:GlassTokens={ tint:'light', intensity:24, scrim:'rgba(255,255,255,0.56)', navScrim:'rgba(246,248,253,0.44)', navSolid:'rgba(244,247,252,0.95)', border:'rgba(19,23,32,0.08)', highlight:'rgba(255,255,255,0.5)' };
 export const darkGlass:GlassTokens={ tint:'dark', intensity:28, scrim:'rgba(18,22,33,0.46)', navScrim:'rgba(14,17,26,0.44)', navSolid:'rgba(15,19,29,0.95)', border:'rgba(255,255,255,0.08)', highlight:'rgba(255,255,255,0.1)' };
-export function getGlassTokens(mode:'light'|'dark'):GlassTokens{return mode==='dark'?darkGlass:lightGlass;}
+export function getGlassTokens(mode:AppThemeMode):GlassTokens{return mode==='light'?lightGlass:darkGlass;}
 
 // Gradient stop pairs (from→to) — plain colour arrays; stop [0] is a safe solid fallback.
 // Both brand gradients now *start* on the logo's own navy, so the hero card and the logo

@@ -30,11 +30,10 @@ import { border, elevation, getWindowSizeClass, icon as iconToken, layout, radiu
 // tap from every main page, and আপন became a floating button (FloatingApon) that is on
 // every one of those pages instead of only its own tab.
 export const primaryNavItems = [
-  { href: '/', icon: 'home-variant-outline' as const, activeIcon: 'home-variant' as const, tone: 'green' as AccentName, en: 'Home', bn: 'হোম' },
-  { href: '/planning', icon: 'calendar-blank-outline' as const, activeIcon: 'calendar-blank' as const, tone: 'blue' as AccentName, en: 'Planning', bn: 'পরিকল্পনা' },
-  { href: '/memory', icon: 'bookmark-multiple-outline' as const, activeIcon: 'bookmark-multiple' as const, tone: 'purple' as AccentName, en: 'Memory', bn: 'মেমোরি' },
-  { href: '/finance', icon: 'swap-vertical' as const, activeIcon: 'swap-vertical-bold' as const, tone: 'green' as AccentName, en: 'Money', bn: 'আয়-ব্যয়' },
-  { href: '/health', icon: 'pill' as const, activeIcon: 'pill' as const, tone: 'red' as AccentName, en: 'Health', bn: 'স্বাস্থ্য' },
+  { href: '/', icon: 'view-dashboard-outline' as const, activeIcon: 'view-dashboard' as const, tone: 'green' as AccentName, en: 'Home', bn: 'হোম' },
+  { href: '/inbox', icon: 'inbox-outline' as const, activeIcon: 'inbox' as const, tone: 'blue' as AccentName, en: 'Inbox', bn: 'ইনবক্স' },
+  { href: '/tasks', icon: 'checkbox-marked-circle-outline' as const, activeIcon: 'checkbox-marked-circle' as const, tone: 'orange' as AccentName, en: 'Tasks', bn: 'কাজ' },
+  { href: '/channels', icon: 'apps' as const, activeIcon: 'apps' as const, tone: 'purple' as AccentName, en: 'Modules', bn: 'মডিউল' },
   { href: '/more', icon: 'dots-horizontal-circle-outline' as const, activeIcon: 'dots-horizontal-circle' as const, tone: 'yellow' as AccentName, en: 'More', bn: 'আরও' },
 ];
 

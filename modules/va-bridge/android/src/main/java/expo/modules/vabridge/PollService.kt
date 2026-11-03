@@ -68,7 +68,15 @@ class PollService : Service() {
   /** One long-poll round. True when the server answered. The server holds the call until something arrives, so news is instant. */
   private fun pollOnce(ctx: Context): Boolean {
     val r = Http.call(ctx, "GET", "/device/poll?wait=25", readMs = 35000)
-    if (r.code == 401) { Store.note(ctx, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার লগইন করুন"); return false }
+    if (r.code == 401) {
+      Store.note(ctx, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার লগইন করুন")
+      val last = Store.prefs(ctx).getLong("last_401_notice", 0L)
+      if (System.currentTimeMillis() - last > 6 * 3600_000L) {  // tell the owner once in a while, never spam
+        Store.prefs(ctx).edit().putLong("last_401_notice", System.currentTimeMillis()).apply()
+        showAlert(ctx, "p3", "⚠ এই ফোনের লগইন শেষ — বার্তা আর আসছে না। অ্যাপ খুলে ইমেইল-কোড দিয়ে আবার ঢুকুন।", "problem-401")
+      }
+      return false
+    }
     if (r.code !in 200..299) { Store.note(ctx, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); return false }
     Store.note(ctx, null)
     val json = JSONObject(r.body)

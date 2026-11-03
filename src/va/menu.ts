@@ -1,0 +1,56 @@
+import type { IconName } from '../ui/AppKit';
+import { MODULES } from './modules';
+
+/**
+ * The ONE list of everything in the app. The bottom bar, the side drawer and the "More" page all read it,
+ * so a feature added here appears everywhere and can never exist in one place and be missing in another.
+ */
+export type MenuItem = { href: string; icon: IconName; bn: string; en: string; hintBn: string; hintEn: string };
+export type MenuSection = { key: string; bn: string; en: string; items: MenuItem[] };
+
+export const MENU: MenuSection[] = [
+  {
+    key: 'assistant', bn: 'সহকারী', en: 'Assistant',
+    items: [
+      { href: '/', icon: 'view-dashboard-outline', bn: 'ড্যাশবোর্ড', en: 'Dashboard', hintBn: 'আজকের অবস্থা এক নজরে', hintEn: 'Today at a glance' },
+      { href: '/inbox', icon: 'inbox-outline', bn: 'ইনবক্স', en: 'Inbox', hintBn: 'সব মাধ্যমের সব বার্তা', hintEn: 'Every message, every channel' },
+      { href: '/tasks', icon: 'checkbox-marked-circle-outline', bn: 'কাজের তালিকা', en: 'Tasks', hintBn: 'কার কাছে কী করতে হবে', hintEn: 'Who needs what from you' },
+      { href: '/rules', icon: 'robot-outline', bn: 'সহকারীর অবস্থা ও নিয়ম', en: 'Assistant status & rules', hintBn: 'ঘুমাচ্ছি/মিটিং, উত্তরের নিয়ম', hintEn: 'Away status and reply rules' },
+    ],
+  },
+  {
+    key: 'modules', bn: 'মডিউল', en: 'Modules',
+    items: [
+      { href: '/channels', icon: 'apps', bn: 'সব মডিউল', en: 'All modules', hintBn: 'প্রতিটি মাধ্যম আলাদা', hintEn: 'Each channel apart' },
+      ...MODULES.map((m) => ({ href: `/m/${m.key}`, icon: m.icon, bn: m.bn, en: m.en, hintBn: m.hintBn, hintEn: m.hintEn })),
+    ],
+  },
+  {
+    key: 'connect', bn: 'সংযোগ', en: 'Connections',
+    items: [
+      { href: '/ai', icon: 'brain', bn: 'AI সংযোগ', en: 'AI connections', hintBn: 'কী, মডেল, আগে ফ্রি পরে পেইড', hintEn: 'Keys, models, free before paid' },
+      { href: '/health', icon: 'heart-pulse', bn: 'সমস্যা ও স্বাস্থ্য', en: 'Problems & health', hintBn: 'এখন কী ঠিক নেই, কেন, কীভাবে সারাবেন', hintEn: 'What is wrong, why, how to fix' },
+      { href: '/setup', icon: 'shield-check-outline', bn: 'অনুমতি', en: 'Permissions', hintBn: 'সব অনুমতি ও তাদের অবস্থা', hintEn: 'Every permission and its state' },
+    ],
+  },
+  {
+    key: 'app', bn: 'অ্যাপ', en: 'App',
+    items: [
+      { href: '/settings', icon: 'cog-outline', bn: 'সেটিংস', en: 'Settings', hintBn: 'ভাষা, রং, লক, সীমা', hintEn: 'Language, theme, lock, limits' },
+      { href: '/about', icon: 'information-outline', bn: 'অ্যাপ সম্পর্কে', en: 'About', hintBn: 'ক্রেডিট ও সংস্করণ', hintEn: 'Credits and version' },
+    ],
+  },
+];
+
+export const ALL_ITEMS: MenuItem[] = MENU.flatMap((s) => s.items);
+
+/** Title for the header bar from the current path. */
+export function titleFor(pathname: string, bn: boolean): string {
+  const mod = pathname.startsWith('/m/') ? MODULES.find((m) => pathname === `/m/${m.key}`) : undefined;
+  if (mod) return bn ? mod.bn : mod.en;
+  const hit = ALL_ITEMS.find((i) => (i.href === '/' ? pathname === '/' : pathname === i.href || pathname.startsWith(`${i.href}/`)));
+  if (hit) return bn ? hit.bn : hit.en;
+  if (pathname.startsWith('/contact')) return bn ? 'ব্যক্তি' : 'Contact';
+  if (pathname.startsWith('/more')) return bn ? 'আরও' : 'More';
+  return bn ? 'সুমনের ভার্চুয়াল সহকারী' : "Sumon's Virtual Assistant";
+}

@@ -16,6 +16,14 @@ export type BridgeStatus = {
   lastError: string | null;
   pollSeconds: number;
   packages: string[];
+  accountName: string | null;
+  accountEmail: string | null;
+  location: boolean;
+  contacts: boolean;
+  storage: boolean;
+  microphone: boolean;
+  exactAlarm: boolean;
+  fullScreen: boolean;
 };
 
 type Native = {
@@ -32,10 +40,13 @@ type Native = {
   setPackages(list: string[]): boolean;
   setPollSeconds(seconds: number): boolean;
   testAlert(): boolean;
+  notify(target: string, body: string, id: string): boolean;
   openNotificationAccess(): boolean;
   openDndAccess(): boolean;
   openBatterySettings(): boolean;
   openAppSettings(): boolean;
+  openExactAlarmSettings(): boolean;
+  openFullScreenSettings(): boolean;
 };
 
 // Optional, like device-state: null in tests and in any build without the native side.
@@ -46,7 +57,7 @@ export const bridgeAvailable = native != null;
 export const emptyStatus: BridgeStatus = {
   paired: false, notificationAccess: false, smsReceive: false, smsSend: false, phoneState: false, callLog: false,
   postNotifications: false, batteryExempt: false, dndAccess: false, serviceAlive: false, queued: 0, lastOk: 0,
-  lastError: null, pollSeconds: 20, packages: [],
+  lastError: null, pollSeconds: 20, packages: [], accountName: null, accountEmail: null, location: false, contacts: false, storage: false, microphone: false, exactAlarm: false, fullScreen: false,
 };
 
 export function getStatus(): BridgeStatus {
@@ -92,8 +103,11 @@ export const stopService = call('stopService');
 export const setPackages = call('setPackages');
 export const setPollSeconds = call('setPollSeconds');
 export const testAlert = call('testAlert');
+export const notify = call('notify');
 export const openNotificationAccess = call('openNotificationAccess');
 export const openDndAccess = call('openDndAccess');
 export const openBatterySettings = call('openBatterySettings');
 export const openAppSettings = call('openAppSettings');
+export const openExactAlarmSettings = call('openExactAlarmSettings');
+export const openFullScreenSettings = call('openFullScreenSettings');
 export const flush = () => (native ? native.flush() : Promise.resolve(false));

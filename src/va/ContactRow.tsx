@@ -8,6 +8,7 @@ import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date
 import { border, control, radius, spacing, type ThemeColors } from '../theme';
 import type { Contact } from './api';
 import { CHANNEL, PRIORITY, displayName } from './labels';
+import { sourceLabel } from './modules';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
 export function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
@@ -29,6 +30,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
           <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
           <Text style={styles.when}>{when}</Text>
         </View>
+        <Text numberOfLines={1} style={styles.source}>{sourceLabel(contact.phone, contact.channel, bn)}</Text>
         <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>
         <View style={styles.badges}>
           {contact.priority <= 2 || contact.unread > 0 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
@@ -52,6 +54,7 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   name: { flex: 1, color: colors.textPrimary, fontSize: 16 },
   bold: { fontWeight: '700' },
   when: { color: colors.textMuted, fontSize: 12 },
+  source: { color: colors.textMuted, fontSize: 12 },
   preview: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
 });

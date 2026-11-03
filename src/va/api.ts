@@ -19,7 +19,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path
 }
 
 export type Channel = 'whatsapp' | 'telegram' | 'sms' | 'notif' | 'email' | 'webhook';
-export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked';
+export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work';
 
 export type Contact = {
   id: string; channel: Channel; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
@@ -48,10 +48,51 @@ export type ChannelsInfo = {
   devices: { id: string; name: string; paired_at: string; last_seen_at: string | null; revoked: boolean }[];
 };
 
+export type Task = { id: string; title: string; due_at: string | null; is_done: boolean; source: string; contact_name?: string | null; contact_phone?: string | null };
+
+export type StatusDef = { key: string; label: string; say: string };
+export type AssistantConfig = {
+  enabled: boolean; mode: 'auto' | 'shadow'; assistant_name: string; owner_name: string; reply_by: string;
+  status: { key: string; until: string | null; custom: string }; statuses: StatusDef[];
+  delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
+  notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };
+};
+
+export type HubModel = { id: string; label?: string; free?: boolean };
+export type HubConn = {
+  id: string; provider: string; label: string; hint: string; base_url: string; enabled: boolean; tier: 'free' | 'paid';
+  status: 'ok' | 'bad' | 'limit' | 'new' | 'error'; note: string; checked_at: string; resting_until: string; used_today: number; models: HubModel[];
+};
+export type HubTask = 'chat' | 'translate' | 'vision' | 'writing' | 'json';
+export type HubPrefs = { allow_paid: boolean; paid_daily_cap: number; tasks: Partial<Record<HubTask, string>> };
+export type HubSummary = {
+  enabled: boolean; connections: HubConn[]; prefs: HubPrefs; today: { count: number; paid: number };
+  best: Record<HubTask, string>; last_error: { text: string; at: string }; working: number;
+};
+
 export const va = {
+  tasks: (show: 'open' | 'done' = 'open') => call<Task[]>('GET', `/admin/wa/tasks?show=${show}`),
+  addTask: (title: string, due_at?: string) => call<unknown>('POST', '/admin/wa/tasks', { title, due_at }),
+  toggleTask: (id: string) => call<unknown>('POST', `/admin/wa/tasks/${id}/toggle`),
+  removeTask: (id: string) => call<unknown>('DELETE', `/admin/wa/tasks/${id}`),
+  addNote: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/notes`, { text }),
+  removeNote: (noteId: string) => call<unknown>('DELETE', `/admin/wa/notes/${noteId}`),
+  assistantConfig: () => call<{ config: AssistantConfig }>('GET', '/admin/wa/config'),
+  saveAssistantConfig: (config: Record<string, unknown>) => call<unknown>('PUT', '/admin/wa/config', { config }),
+  aiHub: () => call<HubSummary>('GET', '/admin/ai-hub'),
+  aiAdd: (d: { key: string; provider: string; base_url?: string; label?: string }) => call<HubConn>('POST', '/admin/ai-hub/connections', d),
+  aiTest: (id: string) => call<HubConn>('POST', `/admin/ai-hub/connections/${id}/test`, {}),
+  aiPatch: (id: string, d: { enabled?: boolean; move?: -1 | 0 | 1; tier?: 'free' | 'paid' }) => call<HubConn>('PATCH', `/admin/ai-hub/connections/${id}`, d),
+  aiRemove: (id: string) => call<unknown>('DELETE', `/admin/ai-hub/connections/${id}`),
+  aiPrefs: (d: Partial<HubPrefs>) => call<HubPrefs>('PUT', '/admin/ai-hub/prefs', d),
+  aiTestAll: () => call<HubConn[]>('POST', '/admin/ai-hub/test-all', {}),
+  aiTry: (task: HubTask, text: string) => call<{ text: string; provider?: string; model?: string }>('POST', '/admin/ai-hub/try', { task, text }),
+  logout: () => call<unknown>('POST', '/device/logout', {}),
+
   overview: () => call<Overview>('GET', '/admin/wa/overview'),
-  contacts: (view: View, q = '', page = 1) =>
-    call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}`),
+  contacts: (view: View, q = '', page = 1, src: string[] = []) =>
+    call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}&src=${encodeURIComponent(src.join(','))}`),
+  business: () => call<{ pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
   contact: (id: string) => call<{ contact: Contact; messages: Message[]; notes: { id: string; text: string }[]; tasks: { id: string; title: string; is_done: boolean }[] }>('GET', `/admin/wa/contacts/${id}`),
   patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
   reply: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/reply`, { text }),

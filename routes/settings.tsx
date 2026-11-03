@@ -8,11 +8,11 @@ import { useAppPreferences } from '../src/app/AppPreferences';
 import { va, type Limits } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
+import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
 import { unpair } from '../modules/va-bridge';
 import { APP_VERSION } from '../src/va/config';
 
 type Lang = 'bn' | 'en';
-type Theme = 'system' | 'light' | 'dark';
 const SIZES = ['0.9', '1', '1.1', '1.2'] as const;
 const CAPS = ['3', '5', '8', '12'] as const;
 const FROM = ['21:00', '22:00', '23:00', '00:00'] as const;
@@ -39,7 +39,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Card title={bn ? 'চেহারা' : 'Appearance'}>
-        <ChipGroup<Theme> label={bn ? 'রং' : 'Theme'} options={['system', 'light', 'dark']} value={p.themeSetting} labelOf={(t) => (t === 'system' ? (bn ? 'ফোনের মতো' : 'Like phone') : t === 'light' ? (bn ? 'দিন' : 'Day') : (bn ? 'রাত' : 'Night'))} onChange={(t) => { if (t) void p.setThemeMode(t); }} />
+        <ChipGroup<ThemeChoice> label={bn ? 'রং' : 'Theme'} options={THEME_OPTIONS.map((t) => t.value)} value={p.themeSetting} labelOf={(v) => { const t = THEME_OPTIONS.find((x) => x.value === v); return t ? (bn ? t.bn : t.en) : v; }} onChange={(t) => { if (t) void p.setThemeMode(t); }} />
         <ChipGroup<(typeof SIZES)[number]> label={bn ? 'লেখার মাপ' : 'Text size'} options={SIZES} value={String(p.textScale) as (typeof SIZES)[number]}
           labelOf={(s) => (s === '0.9' ? (bn ? 'ছোট' : 'Small') : s === '1' ? (bn ? 'স্বাভাবিক' : 'Normal') : s === '1.1' ? (bn ? 'বড়' : 'Large') : (bn ? 'আরও বড়' : 'Larger'))} onChange={(s) => { if (s) void p.setTextScale(Number(s)); }} />
         <ToggleRow icon="motion-pause-outline" label={bn ? 'কম অ্যানিমেশন' : 'Reduce motion'} value={p.reduceMotion} onChange={(v) => void p.setReduceMotion(v)} />

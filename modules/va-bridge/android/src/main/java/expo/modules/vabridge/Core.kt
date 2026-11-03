@@ -38,7 +38,8 @@ object Store {
   fun token(c: Context) = prefs(c).getString("token", null)
   fun paired(c: Context) = !baseUrl(c).isNullOrEmpty() && !token(c).isNullOrEmpty()
   fun setPaired(c: Context, base: String, token: String) = prefs(c).edit().putString("base", base).putString("token", token).apply()
-  fun clear(c: Context) = prefs(c).edit().remove("token").remove("queue").apply()
+  fun clear(c: Context) = prefs(c).edit().remove("token").remove("queue").remove("account_name").remove("account_email").apply()
+  fun setAccount(c: Context, name: String?, email: String?) = prefs(c).edit().putString("account_name", name).putString("account_email", email).apply()
 
   fun note(c: Context, error: String?) {
     val e = prefs(c).edit().putLong("last_try", System.currentTimeMillis())
@@ -143,6 +144,18 @@ object Outbox {
 fun sha(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
 
 /** One message for the server. `sender` is a phone number (SMS/call) or the name the chat app shows. */
-fun item(type: String, channel: String, sender: String, app: String?, body: String, ext: String): JSONObject =
+fun item(type: String, channel: String, sender: String, app: String?, body: String, ext: String, name: String? = null): JSONObject =
   JSONObject().put("type", type).put("channel", channel).put("sender", sender.take(60)).put("body", body.take(4000))
-    .put("ext_id", ext.take(80)).put("at", System.currentTimeMillis()).apply { if (app != null) put("app", app.take(60)) }
+    .put("ext_id", ext.take(80)).put("at", System.currentTimeMillis()).apply {
+      if (app != null) put("app", app.take(60))
+      if (!name.isNullOrBlank()) put("name", name.take(120))
+    }
+
+/** The name saved for this number in the phone's contacts (needs the Contacts permission; null otherwise). */
+fun contactName(c: Context, number: String): String? {
+  if (androidx.core.content.ContextCompat.checkSelfPermission(c, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+  return try {
+    val uri = android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number))
+    c.contentResolver.query(uri, arrayOf(android.provider.ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+  } catch (_: Exception) { null }
+}

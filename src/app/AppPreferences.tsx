@@ -9,10 +9,10 @@ import * as Crypto from 'expo-crypto';
 import { pbkdf2 } from '../backup/crypto';
 
 type Language = 'en' | 'bn';
-type ThemeMode = 'light' | 'dark';
+type ThemeMode = 'light' | 'dark' | 'dim';
 // What the user picked. `system` follows the OS; `themeMode` above is always the resolved
 // light/dark value so every screen keeps consuming exactly what it did before.
-type ThemeSetting = 'light' | 'dark' | 'system';
+type ThemeSetting = 'light' | 'dark' | 'dim' | 'system';
 
 export type QuietHours = { start: number; end: number };
 export type TimeFormat = '12' | '24';
@@ -224,7 +224,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
         let loadedTimeZone: string = BANGLADESH_TIME_ZONE;
         for (const row of rows) {
           if (row.key === 'language' && (row.value === 'en' || row.value === 'bn')) setLanguageState(row.value);
-          if (row.key === 'themeMode' && (row.value === 'light' || row.value === 'dark' || row.value === 'system')) setThemeSettingState(row.value);
+          if (row.key === 'themeMode' && (row.value === 'light' || row.value === 'dark' || row.value === 'dim' || row.value === 'system')) setThemeSettingState(row.value);
           if (row.key === 'onboarded' && row.value === '1') setOnboarded(true);
           if (row.key === 'reduceMotion') setReduceMotionState(row.value === '1');
           if (row.key === 'textScale') { const v = Number(row.value); if ([0.9, 1, 1.1, 1.2].includes(v)) setTextScaleState(v); }
@@ -263,7 +263,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
   // flash from the `light` default being pushed to the OS on the first frame.
   useEffect(() => {
     if (!prefsLoaded) return;
-    Appearance.setColorScheme(themeSetting === 'system' ? 'unspecified' : themeSetting);
+    Appearance.setColorScheme(themeSetting === 'system' ? 'unspecified' : themeSetting === 'dim' ? 'dark' : themeSetting);
   }, [themeSetting, prefsLoaded]);
 
   // Keep the resolved scheme in step with the OS while on `system`.

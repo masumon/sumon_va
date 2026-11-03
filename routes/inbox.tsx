@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { AppButton } from '../src/ui/AppSurface';
 import { ChipGroup, Field, useKit } from '../src/ui/AppKit';
 import { va, type Contact, type View as InboxView } from '../src/va/api';
@@ -10,6 +10,10 @@ import { ContactRow } from '../src/va/ContactRow';
 
 const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'all', bn: 'সব', en: 'All' },
+  { key: 'family', bn: 'পরিবার', en: 'Family' },
+  { key: 'vip', bn: 'VIP', en: 'VIP' },
+  { key: 'work', bn: 'ব্যবসা', en: 'Business' },
+  { key: 'blocked', bn: 'ব্লক', en: 'Blocked' },
   { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
   { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
   { key: 'drafts', bn: 'খসড়া', en: 'Drafts' },
@@ -19,7 +23,12 @@ const VIEWS: { key: InboxView; bn: string; en: string }[] = [
 
 export default function InboxScreen() {
   const { bn } = useKit();
-  const [view, setView] = useState<InboxView>('waiting');
+  const params = useLocalSearchParams<{ view?: string }>();
+  const fromLink = VIEWS.find((v) => v.key === params.view)?.key as InboxView | undefined;
+  const [view, setView] = useState<InboxView>(fromLink ?? 'waiting');
+  // A new link (e.g. the bell → "urgent") switches the filter; adjusting state during render avoids a flash of the old list.
+  const [linkSeen, setLinkSeen] = useState(params.view);
+  if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) setView(fromLink); }
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);

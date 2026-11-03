@@ -36,3 +36,13 @@ export const MESSAGE_STATUS: Record<Message['status'], { bn: string; en: string 
 };
 
 export const displayName = (c: Pick<Contact, 'name' | 'phone'>) => c.name || c.phone.split(':').slice(-1)[0] || '—';
+
+/** The four looks of the app. Settings and the side menu both read this one list. */
+export const THEME_OPTIONS = [
+  { value: 'system', bn: 'ফোনের মতো', en: 'Auto' },
+  { value: 'light', bn: 'দিন', en: 'Day' },
+  { value: 'dark', bn: 'রাত', en: 'Night' },
+  { value: 'dim', bn: 'কম আলো', en: 'Low light' },
+] as const;
+export type ThemeChoice = (typeof THEME_OPTIONS)[number]['value'];
+export const LANGUAGE_OPTIONS = [{ value: 'bn', label: 'বাংলা' }, { value: 'en', label: 'English' }] as const;

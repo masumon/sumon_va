@@ -79,7 +79,7 @@ class SmsReceiver : BroadcastReceiver() {
         parts.groupBy { it.originatingAddress ?: "অজানা" }.forEach { (from, msgs) ->
           val body = msgs.joinToString("") { it.messageBody ?: "" }
           val at = msgs.first().timestampMillis
-          Outbox.add(context, item("msg", "sms", from, null, body, "s:" + sha("$from|$at|$body")))
+          Outbox.add(context, item("msg", "sms", from, null, body, "s:" + sha("$from|$at|$body"), contactName(context, from)))
         }
         Outbox.flush(context)
       } catch (_: Exception) {
@@ -104,7 +104,7 @@ class CallReceiver : BroadcastReceiver() {
         if (ringingSince != 0L && !answered) {
           val from = ringingNumber ?: "অজানা নম্বর"
           val since = ringingSince
-          Outbox.add(context, item("call", "sms", from, null, "", "c:" + sha("$from|$since")))
+          Outbox.add(context, item("call", "sms", from, null, "", "c:" + sha("$from|$since"), contactName(context, from)))
           Thread { Outbox.flush(context) }.start()
         }
         ringingSince = 0L; ringingNumber = null; answered = false
