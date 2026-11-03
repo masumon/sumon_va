@@ -6,9 +6,7 @@ import { Card, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { Page } from '../src/va/Page';
 import { pair } from '../modules/va-bridge';
-
-// The server this private app talks to. It is fixed on purpose: the app can never be pointed somewhere else.
-const SERVER = 'https://api.aboenterprise.com';
+import { SERVER } from '../src/va/config';
 
 export default function PairScreen() {
   const { bn } = useKit();
@@ -21,13 +19,13 @@ export default function PairScreen() {
     setBusy(true);
     try {
       const r = await pair(SERVER, code, name);
-      if (r.ok) { showSnackbar(bn ? 'ফোন জোড়া লেগেছে ✓' : 'Phone paired ✓', 'success'); router.replace('/setup' as never); }
+      if (r.ok) { showSnackbar(bn ? 'ফোন জোড়া লেগেছে ✓' : 'Phone paired ✓', 'success'); router.replace('/lock-setup' as never); }
       else showSnackbar(r.error ?? (bn ? 'জোড়া লাগেনি' : 'Pairing failed'), 'danger');
     } finally { setBusy(false); }
   };
 
   return (
-    <Page title={bn ? 'ফোন জোড়া লাগান' : 'Pair this phone'} subtitle={bn ? 'শুধু একবার করতে হবে' : 'Only once'} bottomPadding={48}>
+    <Page title={bn ? 'কোড দিয়ে জোড়া লাগান' : 'Pair with a code'} subtitle={bn ? 'অ্যাডমিন থেকে পাওয়া কোড' : 'A code from the admin'} back={bn ? 'লগইন' : 'Sign in'} bottomPadding={48}>
       <Card title={bn ? 'কীভাবে কোড পাবেন' : 'How to get the code'}>
         <Text style={{ lineHeight: 24 }}>
           {bn

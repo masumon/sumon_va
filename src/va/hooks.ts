@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { onInboxChanged } from '../../modules/va-bridge';
 
 /**
  * Loads once when a screen comes into view, then (optionally) keeps it fresh while it stays in view. One place for every screen.
@@ -27,7 +28,10 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
     void run();
     if (!everyMs) return undefined;
     const id = setInterval(() => { void run(true); }, everyMs);
-    return () => clearInterval(id);
+    // Real time: the phone service tells us the instant something changed, so the screen updates without waiting for the timer.
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const off = onInboxChanged(() => { if (pending) clearTimeout(pending); pending = setTimeout(() => { void run(true); }, 300); });
+    return () => { clearInterval(id); off(); if (pending) clearTimeout(pending); };
   }, [run, everyMs]));
   return { data, error, loading, reload: () => run(), setData };
 }

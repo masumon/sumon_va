@@ -21,11 +21,14 @@ import { LockGate } from '../src/ui/LockGate';
 import { PrimaryNav, primaryNavItems } from '../src/ui/PrimaryNav';
 import { getWindowSizeClass, layout } from '../src/theme';
 import { getStatus } from '../modules/va-bridge';
+import { Splash } from '../src/va/Splash';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // The bar's routes come from the bar itself, so a new tab can never exist in one list and not the other.
 const primaryRoutes: string[] = primaryNavItems.map((item) => item.href);
+// Screens that work before this phone is signed in.
+const openRoutes = ['/login', '/pair'];
 
 function AppNavigator() {
   const { colors, themeMode, prefsLoaded, reduceMotion, blockScreenshots } = useAppPreferences();
@@ -45,7 +48,7 @@ function AppNavigator() {
 
   // First run: nothing works until this phone is paired with the owner's account.
   useEffect(() => {
-    if (prefsLoaded && pathname !== '/pair' && !getStatus().paired) router.replace('/pair');
+    if (prefsLoaded && !openRoutes.includes(pathname) && !getStatus().paired) router.replace('/login');
   }, [pathname, prefsLoaded]);
 
   if (!prefsLoaded) return null;
@@ -76,6 +79,7 @@ export default function RootLayout() {
   const [fontTimedOut, setFontTimedOut] = useState(false);
   useEffect(() => { const t = setTimeout(() => setFontTimedOut(true), 4000); return () => clearTimeout(t); }, []);
   const canRender = fontsLoaded || Boolean(fontError) || fontTimedOut;
+  const [splashDone, setSplashDone] = useState(false);
   const hidden = useRef(false);
   useEffect(() => {
     if (canRender && !hidden.current) { hidden.current = true; void SplashScreen.hideAsync().catch(() => {}); }
@@ -86,6 +90,7 @@ export default function RootLayout() {
       <AppErrorBoundary>
         <AppProviders>
           <AppNavigator />
+          {splashDone ? null : <Splash onFinish={() => setSplashDone(true)} />}
         </AppProviders>
       </AppErrorBoundary>
     </SafeAreaProvider>

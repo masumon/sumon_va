@@ -22,6 +22,9 @@ type Native = {
   getStatus(): BridgeStatus;
   pair(base: string, code: string, name: string): Promise<{ ok: boolean; error?: string }>;
   unpair(): boolean;
+  loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
+  loginVerify(base: string, email: string, code: string, totp: string | null, name: string): Promise<{ ok: boolean; needTotp?: boolean; name?: string; error?: string }>;
+  addListener(event: 'inboxChanged', listener: () => void): { remove(): void };
   request(method: string, path: string, body: string | null): Promise<{ status: number; body: string }>;
   flush(): Promise<boolean>;
   startService(): boolean;
@@ -52,6 +55,22 @@ export function getStatus(): BridgeStatus {
 
 export const pair = (base: string, code: string, name: string) =>
   native ? native.pair(base, code, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
+
+export const loginRequest = (base: string, email: string) =>
+  native ? native.loginRequest(base, email) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
+
+export type LoginResult = { ok: boolean; needTotp?: boolean; name?: string; error?: string };
+
+export const loginVerify = (base: string, email: string, code: string, totp: string | null, name: string): Promise<LoginResult> =>
+  native ? native.loginVerify(base, email, code, totp, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
+
+/** Called the moment the server says something changed (a new message, a draft, an alert). Returns an unsubscribe function. */
+export function onInboxChanged(listener: () => void): () => void {
+  try {
+    const sub = native?.addListener('inboxChanged', listener);
+    return () => { try { sub?.remove(); } catch { /* already gone */ } };
+  } catch { return () => {}; }
+}
 
 export const unpair = () => { try { return native?.unpair() ?? false; } catch { return false; } };
 

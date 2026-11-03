@@ -26,8 +26,8 @@ export const fonts={regular:'NotoSansBengali_400Regular',medium:'NotoSansBengali
 // textMuted, accent, success and warning were each darkened just enough to clear the
 // WCAG AA 4.5:1 text-contrast floor against `background` (verified by computing real
 // relative-luminance contrast ratios, not eyeballed) — hue kept, lightness trimmed.
-export const lightColors={background:'#F1F4FA',surface:'#FBFCFF',surfaceMuted:'#E7ECF6',surfaceSunken:'#DCE3F1',primary:'#0C3C85',primaryPressed:'#08295C',primaryTint:'#E1E9FB',onPrimary:'#FFFFFF',accent:'#8E6724',textPrimary:'#131720',textSecondary:'#464E60',textMuted:'#676E7D',border:'#DBE1EF',borderStrong:'#C5CDE0',success:'#1C7E45',warning:'#92660F',danger:'#C13B2E',info:'#2A79BE',overlay:'rgba(16, 20, 30, 0.46)'} as const;
-export const darkColors={background:'#0A0E18',surface:'#161C2B',surfaceMuted:'#1F2637',surfaceSunken:'#10131E',primary:'#7AA2FF',primaryPressed:'#6389E6',primaryTint:'#172138',onPrimary:'#07122A',accent:'#D9B663',textPrimary:'#EFF2FA',textSecondary:'#B2BBCD',textMuted:'#8A93A7',border:'#2C3446',borderStrong:'#3F4A5F',success:'#46CE86',warning:'#E1A94E',danger:'#F0736A',info:'#5FB2E6',overlay:'rgba(0, 0, 0, 0.66)'} as const;
+export const lightColors={background:'#F1F4FA',surface:'#FBFCFF',surfaceMuted:'#E7ECF6',surfaceSunken:'#DCE3F1',primary:'#1E2B6B',primaryPressed:'#182357',primaryTint:'#E7EAF6',onPrimary:'#FFFFFF',accent:'#8E6724',textPrimary:'#131720',textSecondary:'#464E60',textMuted:'#676E7D',border:'#DBE1EF',borderStrong:'#C5CDE0',success:'#1C7E45',warning:'#92660F',danger:'#C13B2E',info:'#2A79BE',overlay:'rgba(16, 20, 30, 0.46)'} as const;
+export const darkColors={background:'#0A0E18',surface:'#161C2B',surfaceMuted:'#1F2637',surfaceSunken:'#10131E',primary:'#8EA0E6',primaryPressed:'#7A8CD0',primaryTint:'#1A2347',onPrimary:'#07122A',accent:'#D9B663',textPrimary:'#EFF2FA',textSecondary:'#B2BBCD',textMuted:'#8A93A7',border:'#2C3446',borderStrong:'#3F4A5F',success:'#46CE86',warning:'#E1A94E',danger:'#F0736A',info:'#5FB2E6',overlay:'rgba(0, 0, 0, 0.66)'} as const;
 export type ThemeColors=typeof lightColors|typeof darkColors;
 export function getThemeColors(mode:'light'|'dark'):ThemeColors{return mode==='dark'?darkColors:lightColors;}
 export const colors=lightColors;
@@ -129,7 +129,7 @@ export function getGlassTokens(mode:'light'|'dark'):GlassTokens{return mode==='d
 // (navy → royal → indigo → deep navy) rather than sitting flat: four near-identical blues
 // read as a rendering glitch, and the drift is what makes the card look lit. White text
 // stays AA-legible on every stop — the lightest, #3A4C9E, is ~5.6:1.
-export const gradients={brand:['#0C3C85','#2C6AD4'],heroBrand:['#0C3C85','#1A4FA6','#3A4C9E','#142F6B'],hero:['#F3F5FB','#E7EDF9'],sky:['#E1EEF9','#EBE9F5'],warmth:['#F3ECDA','#F5E9DC'],surfaceLight:['#FFFFFF','#F1F4FB'],surfaceDark:['#141A29','#0C1019']} as const;
+export const gradients={brand:['#1E2B6B','#35479B'],heroBrand:['#131C45','#1E2B6B','#35479B','#182357'],hero:['#F3F5FB','#E7EDF9'],sky:['#E1EEF9','#EBE9F5'],warmth:['#F3ECDA','#F5E9DC'],surfaceLight:['#FFFFFF','#F1F4FB'],surfaceDark:['#141A29','#0C1019']} as const;
 export type GradientName=keyof typeof gradients;
 
 // Domain → colour mappings, centralized so screens stop re-implementing them.

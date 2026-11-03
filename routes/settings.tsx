@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
@@ -10,6 +9,7 @@ import { va, type Limits } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
 import { unpair } from '../modules/va-bridge';
+import { APP_VERSION } from '../src/va/config';
 
 type Lang = 'bn' | 'en';
 type Theme = 'system' | 'light' | 'dark';
@@ -66,15 +66,19 @@ export default function SettingsScreen() {
         ) : <Text>{channels.error ?? '…'}</Text>}
       </Card>
 
+      <Card>
+        <AppButton variant="secondary" icon="information-outline" label={bn ? 'অ্যাপ সম্পর্কে ও ক্রেডিট' : 'About and credits'} onPress={() => router.push('/about' as never)} />
+      </Card>
+
       <Card title={bn ? 'এই ফোন' : 'This phone'}>
         <AppButton variant="danger" icon="link-off" label={bn ? 'এই ফোনের সংযোগ বিচ্ছিন্ন করুন' : 'Unpair this phone'} onPress={() => setConfirm(true)} />
-        <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {Constants.expoConfig?.version ?? ''}</Text>
+        <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {APP_VERSION}</Text>
       </Card>
 
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
         description={bn ? 'এই ফোন আর বার্তা পাঠাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
-        onConfirm={() => { setConfirm(false); unpair(); router.replace('/pair' as never); }} />
+        onConfirm={() => { setConfirm(false); unpair(); router.replace('/login' as never); }} />
     </Page>
   );
 }

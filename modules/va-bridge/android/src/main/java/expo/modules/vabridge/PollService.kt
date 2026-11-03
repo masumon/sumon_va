@@ -47,34 +47,45 @@ class PollService : Service() {
 
   private fun loop() {
     val ctx = applicationContext
+    var failures = 0
     while (running) {
       try {
-        if (Store.paired(ctx)) {
-          Outbox.flush(ctx)
-          pollOnce(ctx)
-        }
+        if (!Store.paired(ctx)) { Thread.sleep(5000); continue }
+        Outbox.flush(ctx)
+        failures = if (pollOnce(ctx)) 0 else failures + 1
+      } catch (_: InterruptedException) {
+        return
       } catch (e: Exception) {
+        failures++
         Store.note(ctx, "সিঙ্ক ব্যর্থ: ${e.javaClass.simpleName}")
       }
-      try { Thread.sleep(Store.pollSeconds(ctx) * 1000L) } catch (_: InterruptedException) { return }
+      // Normal case: the server already held the call for up to 25 s, so a short breath is enough. Trouble: back off, never hammer.
+      val pause = if (failures == 0) 800L else minOf(30_000L, 3_000L * failures)
+      try { Thread.sleep(pause) } catch (_: InterruptedException) { return }
     }
   }
 
-  private fun pollOnce(ctx: Context) {
-    val r = Http.call(ctx, "GET", "/device/poll")
-    if (r.code == 401) { Store.note(ctx, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার জোড়া লাগান"); return }
-    if (r.code !in 200..299) { Store.note(ctx, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); return }
+  /** One long-poll round. True when the server answered. The server holds the call until something arrives, so news is instant. */
+  private fun pollOnce(ctx: Context): Boolean {
+    val r = Http.call(ctx, "GET", "/device/poll?wait=25", readMs = 35000)
+    if (r.code == 401) { Store.note(ctx, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার লগইন করুন"); return false }
+    if (r.code !in 200..299) { Store.note(ctx, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); return false }
     Store.note(ctx, null)
-    val commands = JSONObject(r.body).optJSONArray("commands") ?: return
+    val json = JSONObject(r.body)
+    val commands = json.optJSONArray("commands")
     val done = JSONArray()
     val failed = JSONArray()
-    for (i in 0 until commands.length()) {
-      val c = commands.getJSONObject(i)
-      val id = c.getString("id")
-      val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
-      if (error == null) done.put(id) else failed.put(JSONObject().put("id", id).put("error", error))
+    if (commands != null) {
+      for (i in 0 until commands.length()) {
+        val c = commands.getJSONObject(i)
+        val id = c.getString("id")
+        val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
+        if (error == null) done.put(id) else failed.put(JSONObject().put("id", id).put("error", error))
+      }
+      if (done.length() + failed.length() > 0) Http.call(ctx, "POST", "/device/ack", JSONObject().put("done", done).put("failed", failed).toString())
     }
-    if (done.length() + failed.length() > 0) Http.call(ctx, "POST", "/device/ack", JSONObject().put("done", done).put("failed", failed).toString())
+    if (json.optBoolean("changed")) Bus.fire()
+    return true
   }
 
   /** Runs one command. Returns null on success, or a short reason the owner can read. */

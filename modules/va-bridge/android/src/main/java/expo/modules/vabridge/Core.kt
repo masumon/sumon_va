@@ -59,18 +59,24 @@ object Store {
   fun setPollSeconds(c: Context, s: Int) = prefs(c).edit().putInt("poll_s", s.coerceIn(10, 300)).apply()
 }
 
+/** Tells the open app screens "something changed, reload now" — the real-time link between the service and the screens. */
+object Bus {
+  @Volatile var listener: (() -> Unit)? = null
+  fun fire() { try { listener?.invoke() } catch (_: Exception) {} }
+}
+
 object Http {
   class Resp(val code: Int, val body: String)
 
   /** Calls `<base>/api/v1<path>` with the device token. https only. Never throws: failures come back as code 0. */
-  fun call(c: Context, method: String, path: String, body: String? = null, auth: Boolean = true): Resp {
-    val base = Store.baseUrl(c) ?: return Resp(0, "not paired")
+  fun call(c: Context, method: String, path: String, body: String? = null, auth: Boolean = true, baseOverride: String? = null, readMs: Int = 20000): Resp {
+    val base = baseOverride ?: Store.baseUrl(c) ?: return Resp(0, "not paired")
     if (!base.startsWith("https://")) return Resp(0, "https required")
     return try {
       val conn = (URL("$base/api/v1$path").openConnection() as HttpURLConnection).apply {
         requestMethod = method
         connectTimeout = 15000
-        readTimeout = 20000
+        readTimeout = readMs
         setRequestProperty("Accept", "application/json")
         if (auth) setRequestProperty("Authorization", "Bearer " + (Store.token(c) ?: ""))
         if (body != null) {
