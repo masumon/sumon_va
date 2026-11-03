@@ -88,6 +88,31 @@ class VaBridgeModule : Module() {
       }
     }
 
+    /** Sign in with the admin e-mail and password (+ authenticator code when the account uses one). The phone is remembered after this. */
+    AsyncFunction("loginPassword") { base: String, email: String, password: String, totp: String?, name: String ->
+      val c = ctx
+      val clean = base.trimEnd('/')
+      if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
+      val body = JSONObject().put("email", email.trim()).put("password", password).put("name", name.take(80)).put("app_version", "0.1.0")
+      if (!totp.isNullOrBlank()) body.put("totp_code", totp.trim())
+      val r = Http.call(c, "POST", "/device/login", body.toString(), auth = false, baseOverride = clean)
+      val detail = try { JSONObject(r.body).optString("detail") } catch (_: Exception) { "" }
+      when {
+        r.code in 200..299 -> {
+          val json = JSONObject(r.body)
+          val token = json.optString("token")
+          if (token.isEmpty()) return@AsyncFunction mapOf("ok" to false, "error" to "সার্ভার ভুল উত্তর দিয়েছে")
+          Store.setPaired(c, clean, token)
+          Store.setAccount(c, json.optString("name"), email.trim())
+          PollService.start(c)
+          mapOf("ok" to true, "name" to json.optString("name"))
+        }
+        r.code == 401 && detail == "totp_required" -> mapOf("ok" to false, "needTotp" to true)
+        r.code == 0 -> mapOf("ok" to false, "error" to "ইন্টারনেট নেই বা সার্ভারে পৌঁছানো যাচ্ছে না")
+        else -> mapOf("ok" to false, "error" to detail.ifEmpty { "লগইন হয়নি (${r.code})" })
+      }
+    }
+
     /** Step 1 of e-mail sign-in: the server mails a 6-digit code to the owner (the answer never reveals who is an admin). */
     AsyncFunction("loginRequest") { base: String, email: String ->
       if (!base.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")

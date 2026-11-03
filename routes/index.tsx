@@ -13,6 +13,7 @@ import { Page, Status } from '../src/va/Page';
 import { ContactRow } from '../src/va/ContactRow';
 import { StatTile, TileGrid } from '../src/va/StatTile';
 import { MODULES } from '../src/va/modules';
+import { PRESENCE } from '../src/va/labels';
 import { getStatus, testAlert } from '../modules/va-bridge';
 
 type Lens = 'personal' | 'business';
@@ -85,6 +86,10 @@ export default function DashboardScreen() {
         ) : null}
       </Hero>
       <ChipGroup<Lens> options={['personal', 'business']} value={lens} labelOf={(l) => (l === 'personal' ? (bn ? 'ব্যক্তিগত' : 'Personal') : (bn ? 'ব্যবসায়িক' : 'Business'))} onChange={(l) => { if (l) setLens(l); }} />
+
+      {o?.presence && o.presence.state !== 'unknown' ? (
+        <Text style={{ opacity: 0.7, fontSize: 12, textAlign: 'center' }}>{bn ? PRESENCE[o.presence.state].bn : PRESENCE[o.presence.state].en}</Text>
+      ) : null}
 
       {setupNeeded ? (
         <Card title={bn ? '⚠️ সেটআপ বাকি' : '⚠️ Setup unfinished'}>

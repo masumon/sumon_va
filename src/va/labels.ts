@@ -55,3 +55,12 @@ export const CATEGORY = {
   spam: { bn: 'প্রচার/স্প্যাম', en: 'Spam', icon: 'delete-empty-outline', tone: 'neutral', hintBn: 'বিজ্ঞাপন — চুপচাপ সরিয়ে রাখা হয়', hintEn: 'Ads — quietly set aside' },
 } as const;
 export const CATEGORY_KEYS = ['business', 'personal', 'social', 'spam'] as const;
+
+/** What the phone's screen, touch and motion say about you right now (used for the automatic status). */
+export const PRESENCE = {
+  active: { bn: '📱 আপনি এখন ফোন ব্যবহার করছেন', en: '📱 You are using the phone' },
+  idle: { bn: '🕒 ফোন কিছুক্ষণ ধরা হয়নি', en: '🕒 The phone has not been touched for a while' },
+  still: { bn: '😴 ফোন অনেকক্ষণ স্থির — বিশ্রামে আছেন ধরে নিচ্ছি', en: '😴 The phone has been still for long — assuming you rest' },
+  moving: { bn: '🚗 আপনি চলাচলে আছেন (লোকেশন সরছে)', en: '🚗 You are on the move (location is changing)' },
+  unknown: { bn: '', en: '' },
+} as const;

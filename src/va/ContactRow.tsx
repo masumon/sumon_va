@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge } from '../ui/AppSurface';
-import { AppIcon } from '../ui/AppIcon';
+import { BrandLogo, brandFor, brandName } from './BrandLogo';
 import { useAppPreferences } from '../app/AppPreferences';
 import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date-time';
 import { border, control, radius, spacing, type ThemeColors } from '../theme';
 import type { Contact } from './api';
-import { CATEGORY, CHANNEL, PRIORITY, displayName } from './labels';
+import { CATEGORY, PRIORITY, displayName } from './labels';
 import { sourceLabel } from './modules';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
@@ -15,7 +15,6 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   const { colors, language } = useAppPreferences();
   const bn = language === 'bn';
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const ch = CHANNEL[contact.channel] ?? CHANNEL.webhook;
   const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
   const urgent = contact.unread > 0 && contact.priority === 1;
   const when = contact.last_message_at
@@ -24,7 +23,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
-      <View style={styles.icon}><AppIcon name={ch.icon} size={22} color={colors.primary} /></View>
+      <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
       <View style={styles.main}>
         <View style={styles.top}>
           <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
@@ -35,9 +34,10 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
         <View style={styles.badges}>
           {contact.priority <= 2 || contact.unread > 0 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
           {contact.category ? <AppBadge label={bn ? CATEGORY[contact.category].bn : CATEGORY[contact.category].en} tone={CATEGORY[contact.category].tone} /> : null}
+          {(contact.tags ?? []).slice(0, 3).map((t) => <AppBadge key={t.label} label={`${t.important ? '★ ' : ''}${t.label}${t.value ? `: ${t.value}` : ''}`} tone={t.important ? 'danger' : 'primary'} />)}
           {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
           {contact.is_vip ? <AppBadge label="VIP" tone="primary" /> : null}
-          <AppBadge label={bn ? ch.bn : ch.en} tone="neutral" />
+          <AppBadge label={brandName(brandFor(contact.channel, contact.phone))} tone="neutral" />
           {contact.unread > 0 ? <AppBadge label={bn ? `${contact.unread}টি নতুন` : `${contact.unread} new`} tone="danger" /> : null}
         </View>
       </View>

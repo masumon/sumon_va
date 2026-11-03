@@ -124,3 +124,93 @@ class BootReceiver : BroadcastReceiver() {
     if (intent.action == Intent.ACTION_BOOT_COMPLETED && Store.paired(context)) PollService.start(context)
   }
 }
+
+/** The phone's own answer to "did the SMS go out / arrive": passes it to the server, which turns the tick in the app into ✓ / ✓✓ / failed. */
+class SmsStatusReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    val id = intent.getStringExtra("cmd") ?: return
+    val pending = goAsync()
+    val ok = resultCode == android.app.Activity.RESULT_OK
+    Thread {
+      try {
+        val body = when (intent.action) {
+          DELIVERED -> if (ok) org.json.JSONObject().put("delivered", org.json.JSONArray().put(id)) else null
+          else -> if (ok) null else org.json.JSONObject().put("failed", org.json.JSONArray().put(org.json.JSONObject().put("id", id).put("error", "মোবাইল নেটওয়ার্কে SMS যায়নি (কোড $resultCode) — ব্যালেন্স/সিগন্যাল দেখুন")))
+        }
+        if (body != null) Http.call(context, "POST", "/device/ack", body.toString())
+      } catch (_: Exception) {
+      } finally { pending.finish() }
+    }.start()
+  }
+
+  companion object {
+    const val SENT = "expo.modules.vabridge.SMS_SENT"
+    const val DELIVERED = "expo.modules.vabridge.SMS_DELIVERED"
+  }
+}
+
+/**
+ * Tells the server whether the owner is using the phone: screen on/off, last touch, significant motion (the low-power system
+ * sensor other apps use too) and — only if the owner allowed location — a coarse position. Sent about once a minute, and only
+ * when something changed.
+ */
+object Presence {
+  @Volatile private var screenOn = true
+  @Volatile private var touchedAt = System.currentTimeMillis()
+  @Volatile private var movedAt = 0L
+  @Volatile private var started = false
+  private var lastSent = 0L
+  private var lastKey = ""
+
+  fun start(ctx: Context) {
+    if (started) return
+    started = true
+    val app = ctx.applicationContext
+    val filter = android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_USER_PRESENT) }
+    app.registerReceiver(object : BroadcastReceiver() {
+      override fun onReceive(c: Context, i: Intent) {
+        when (i.action) {
+          Intent.ACTION_SCREEN_ON -> screenOn = true
+          Intent.ACTION_SCREEN_OFF -> screenOn = false
+          Intent.ACTION_USER_PRESENT -> { screenOn = true; touchedAt = System.currentTimeMillis() }
+        }
+        if (screenOn) touchedAt = System.currentTimeMillis()
+      }
+    }, filter)
+    try {
+      val sm = app.getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager
+      val sensor = sm.getDefaultSensor(android.hardware.Sensor.TYPE_SIGNIFICANT_MOTION)
+      if (sensor != null) {
+        val l = object : android.hardware.TriggerEventListener() {
+          override fun onTrigger(e: android.hardware.TriggerEvent?) { movedAt = System.currentTimeMillis(); sm.requestTriggerSensor(this, sensor) }  // one-shot: re-arm
+        }
+        sm.requestTriggerSensor(l, sensor)
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun position(ctx: Context): Pair<Double, Double>? {
+    val ok = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+      androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    if (!ok) return null
+    return try {
+      val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+      val loc = listOf("network", "passive", "gps").mapNotNull { try { lm.getLastKnownLocation(it) } catch (_: SecurityException) { null } }.maxByOrNull { it.time }
+      if (loc != null && System.currentTimeMillis() - loc.time < 30 * 60_000) Pair(loc.latitude, loc.longitude) else null
+    } catch (_: Exception) { null }
+  }
+
+  fun report(ctx: Context) {
+    val now = System.currentTimeMillis()
+    val touchedAgo = ((now - touchedAt) / 1000).coerceAtLeast(0)
+    val movedAgo = if (movedAt == 0L) null else ((now - movedAt) / 1000).coerceAtLeast(0)
+    val pos = position(ctx)
+    val key = "$screenOn|${touchedAgo / 300}|${(movedAgo ?: -1) / 300}|${pos?.first?.let { "%.2f".format(it) }}|${pos?.second?.let { "%.2f".format(it) }}"
+    if (now - lastSent < 60_000 || (key == lastKey && now - lastSent < 5 * 60_000)) return
+    lastSent = now; lastKey = key
+    val body = org.json.JSONObject().put("screen_on", screenOn).put("interacted_ago_s", touchedAgo)
+    if (movedAgo != null) body.put("moved_ago_s", movedAgo)
+    if (pos != null) body.put("lat", pos.first).put("lng", pos.second)
+    Http.call(ctx, "POST", "/device/presence", body.toString())
+  }
+}

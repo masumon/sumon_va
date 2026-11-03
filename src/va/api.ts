@@ -21,10 +21,11 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path
 export type Channel = 'whatsapp' | 'telegram' | 'sms' | 'notif' | 'email' | 'webhook';
 export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work' | 'business' | 'personal' | 'social' | 'spam';
 
+export type Tag = { label: string; value: string; important: boolean };
 export type Category = 'business' | 'personal' | 'social' | 'spam';
 
 export type Contact = {
-  id: string; channel: Channel; category: Category | null; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
+  id: string; channel: Channel; category: Category | null; tags: Tag[]; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
   is_vip: boolean; is_family: boolean; is_blocked: boolean; state: 'assistant' | 'owner' | 'done'; priority: number;
   need: string | null; summary: string | null; unread: number; last_message_at: string | null; preview: string;
 };
@@ -32,12 +33,13 @@ export type Contact = {
 export type Message = {
   id: string; direction: 'in' | 'out'; kind: string; body: string | null; transcript: string | null;
   status: 'received' | 'draft' | 'queued' | 'sent' | 'failed' | 'skipped' | 'discarded'; reason: string | null;
-  error: string | null; created_at: string | null; note: string | null; tag: string | null;
+  error: string | null; created_at: string | null; note: string | null; tag: string | null; delivery: string | null;
 };
 
 export type Overview = {
   enabled: boolean; mode: 'auto' | 'shadow'; waiting: number; urgent: number; drafts: number; queued: number; failed_24h: number;
   tasks_open: number; tasks_late: number;
+  presence?: { state: 'active' | 'idle' | 'still' | 'moving' | 'unknown'; seen_at: string | null };
 };
 
 export type Limits = { urgent_per_day: number; quiet_from: string; quiet_to: string; quiet_urgent_only: boolean };
@@ -90,6 +92,9 @@ export const va = {
   aiPrefs: (d: Partial<HubPrefs>) => call<HubPrefs>('PUT', '/admin/ai-hub/prefs', d),
   aiTestAll: () => call<HubConn[]>('POST', '/admin/ai-hub/test-all', {}),
   aiTry: (task: HubTask, text: string) => call<{ text: string; provider?: string; model?: string }>('POST', '/admin/ai-hub/try', { task, text }),
+  exportChat: (id: string) => call<{ filename: string; text: string; messages: number }>('GET', `/admin/wa/contacts/${id}/export`),
+  learnChat: (id: string, chat_text: string, owner_speaker?: string, consent_private = false) =>
+    call<{ need_owner?: boolean; speakers?: string[]; need_consent?: boolean; profile?: Record<string, unknown>; messages?: number }>('POST', `/admin/wa/contacts/${id}/learn`, { chat_text, owner_speaker, consent_private }),
   logout: () => call<unknown>('POST', '/device/logout', {}),
 
   overview: () => call<Overview>('GET', '/admin/wa/overview'),
@@ -97,7 +102,7 @@ export const va = {
     call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}&src=${encodeURIComponent(src.join(','))}`),
   business: () => call<{ pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
   contact: (id: string) => call<{ contact: Contact; messages: Message[]; notes: { id: string; text: string }[]; tasks: { id: string; title: string; is_done: boolean }[] }>('GET', `/admin/wa/contacts/${id}`),
-  patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state' | 'category'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
+  patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state' | 'category' | 'tags'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
   reply: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/reply`, { text }),
   suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
   approve: (mid: string, text?: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/approve`, text ? { text } : undefined),

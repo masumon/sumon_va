@@ -44,6 +44,13 @@
       </intent-filter>
     </receiver>
 
+    <receiver android:name="expo.modules.vabridge.SmsStatusReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="expo.modules.vabridge.SMS_SENT" />
+        <action android:name="expo.modules.vabridge.SMS_DELIVERED" />
+      </intent-filter>
+    </receiver>
+
     <receiver android:name="expo.modules.vabridge.BootReceiver" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED" />

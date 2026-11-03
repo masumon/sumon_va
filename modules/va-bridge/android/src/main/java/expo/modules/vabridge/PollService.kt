@@ -28,6 +28,7 @@ class PollService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     channels(this)
+    Presence.start(this)
     val note = Notification.Builder(this, CH_SERVICE).setContentTitle("সুমনের ভার্চুয়াল সহকারী চলছে")
       .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(android.R.drawable.stat_notify_sync).setOngoing(true).build()
     if (Build.VERSION.SDK_INT >= 29) startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(1, note)
@@ -52,6 +53,7 @@ class PollService : Service() {
       try {
         if (!Store.paired(ctx)) { Thread.sleep(5000); continue }
         Outbox.flush(ctx)
+        Presence.report(ctx)
         failures = if (pollOnce(ctx)) 0 else failures + 1
       } catch (_: InterruptedException) {
         return
@@ -102,7 +104,12 @@ class PollService : Service() {
       "alert" -> { showAlert(ctx, target, body, id); null }
       "sms" -> {
         val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()
-        sms.sendMultipartTextMessage(target, null, sms.divideMessage(body), null, null)
+        val parts = sms.divideMessage(body)
+        // Ask the phone for a real "sent" result and a real "delivered" report; SmsStatusReceiver tells the server what happened.
+        fun pi(action: String) = PendingIntent.getBroadcast(ctx, (id + action).hashCode(), Intent(action).setPackage(ctx.packageName).putExtra("cmd", id), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val sentIntents = ArrayList<PendingIntent>().apply { repeat(parts.size) { add(pi(SmsStatusReceiver.SENT)) } }
+        val deliveredIntents = ArrayList<PendingIntent>().apply { repeat(parts.size) { add(pi(SmsStatusReceiver.DELIVERED)) } }
+        sms.sendMultipartTextMessage(target, null, parts, sentIntents, deliveredIntents)
         null
       }
       "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "সেই চ্যাটের উত্তর-বক্স এখন নেই — অ্যাপটি খুলে নিজে উত্তর দিন"

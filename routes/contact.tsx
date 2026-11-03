@@ -9,9 +9,24 @@ import { formatBangladeshDateTime } from '../src/i18n/date-time';
 import { va, type Contact, type Message } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page, Status } from '../src/va/Page';
+import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
+import { TagEditor } from '../src/va/TagEditor';
+import { ChatTransfer } from '../src/va/ChatTransfer';
+import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
 
 const MODES: Contact['mode'][] = ['inherit', 'auto', 'draft', 'notify'];
+
+/** WhatsApp-style ticks for what we sent: clock = on its way, ✓ = left us, ✓✓ = reached their phone, blue ✓✓ = they read it, ! = failed. */
+function Ticks({ m }: { m: Message }) {
+  const { colors } = useKit();
+  if (m.status === 'failed') return <AppIcon name="alert-circle-outline" size={15} color={colors.danger} />;
+  if (m.status === 'queued' || m.status === 'sending' as string) return <AppIcon name="clock-outline" size={14} color={colors.textMuted} />;
+  if (m.delivery === 'read') return <AppIcon name="check-all" size={16} color="#34B7F1" />;
+  if (m.delivery === 'delivered') return <AppIcon name="check-all" size={16} color={colors.textMuted} />;
+  if (m.status === 'sent') return <AppIcon name="check" size={16} color={colors.textMuted} />;
+  return null;
+}
 
 function Bubble({ m }: { m: Message }) {
   const { colors, bn, language } = useKit();
@@ -24,8 +39,9 @@ function Bubble({ m }: { m: Message }) {
         <Text style={{ color: colors.textPrimary, lineHeight: 22 }}>{text}</Text>
       </View>
       <Text style={{ color: m.status === 'failed' ? colors.danger : colors.textMuted, fontSize: 11, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
-        {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}{mine ? ` · ${bn ? st.bn : st.en}` : ''}{m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
+        {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}{mine ? ` · ${bn ? (m.delivery === 'read' ? 'পড়েছেন' : m.delivery === 'delivered' ? 'পৌঁছেছে' : st.bn) : (m.delivery === 'read' ? 'Read' : m.delivery === 'delivered' ? 'Delivered' : st.en)}` : ''}{m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
       </Text>
+      {mine ? <View style={{ alignSelf: 'flex-end' }}><Ticks m={m} /></View> : null}
     </View>
   );
 }
@@ -55,6 +71,10 @@ export default function ContactScreen() {
       {c && pr ? (
         <>
           <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <BrandLogo brand={brandFor(c.channel, c.phone)} size={40} />
+              <Text style={{ flex: 1, fontWeight: '700' }}>{bn ? 'এসেছে: ' : 'From: '}{brandName(brandFor(c.channel, c.phone))} · {c.phone.split(':').slice(-1)[0]}</Text>
+            </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} />
               {c.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
@@ -85,6 +105,10 @@ export default function ContactScreen() {
                 onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} />
             </View>
           </Card>
+
+          <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
+
+          <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
 
           <Card title={bn ? 'এটা কী ধরনের মানুষ?' : 'What kind of person is this?'}>
             <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>

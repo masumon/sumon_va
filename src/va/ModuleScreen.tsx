@@ -10,6 +10,7 @@ import { getStatus, setPackages } from '../../modules/va-bridge';
 import { va, type Contact, type View as InboxView } from './api';
 import { useLoad } from './hooks';
 import { Hero, HeroStat } from './Hero';
+import { BrandLogo } from './BrandLogo';
 import { Page, Status } from './Page';
 import { ContactRow } from './ContactRow';
 import type { ModuleDef } from './modules';
@@ -58,7 +59,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
 
   return (
     <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
-      <Hero icon={mod.icon} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত — বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয় — নিচে দেখুন' : 'Not connected yet — see below')}>
+      <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত — বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয় — নিচে দেখুন' : 'Not connected yet — see below')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
           <HeroStat value={n(urgent.data?.total ?? 0)} label={bn ? 'জরুরি' : 'Urgent'} />

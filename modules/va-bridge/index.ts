@@ -30,6 +30,7 @@ type Native = {
   getStatus(): BridgeStatus;
   pair(base: string, code: string, name: string): Promise<{ ok: boolean; error?: string }>;
   unpair(): boolean;
+  loginPassword(base: string, email: string, password: string, totp: string | null, name: string): Promise<LoginResult>;
   loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
   loginVerify(base: string, email: string, code: string, totp: string | null, name: string): Promise<{ ok: boolean; needTotp?: boolean; name?: string; error?: string }>;
   addListener(event: 'inboxChanged', listener: () => void): { remove(): void };
@@ -66,6 +67,9 @@ export function getStatus(): BridgeStatus {
 
 export const pair = (base: string, code: string, name: string) =>
   native ? native.pair(base, code, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
+
+export const loginPassword = (base: string, email: string, password: string, totp: string | null, name: string): Promise<LoginResult> =>
+  native ? native.loginPassword(base, email, password, totp, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
 
 export const loginRequest = (base: string, email: string) =>
   native ? native.loginRequest(base, email) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });

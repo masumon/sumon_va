@@ -10,11 +10,12 @@ import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
 import { MODULES } from '../src/va/modules';
+import { BrandLogo, type BrandKey } from '../src/va/BrandLogo';
 import { getStatus } from '../modules/va-bridge';
 
 /** The modules overview: one card per way people reach you, with its own waiting/urgent counts. Tap to open that module. */
 export default function ModulesScreen() {
-  const { bn, accents, colors, language } = useKit();
+  const { bn, colors, language } = useKit();
   const n = (v: number) => formatBangladeshNumber(v, language);
   const overview = useLoad(() => va.overview(), 'overview', 20000);
   // One small request per module for its own counts (cheap: the server only counts).
@@ -37,12 +38,11 @@ export default function ModulesScreen() {
 
       {MODULES.map((m) => {
         const c = by.get(m.key);
-        const tone = accents[m.tone];
         const live = m.apps ? m.apps.some((a) => watched.has(a.pkg)) || m.sources.includes('whatsapp') : m.key === 'sms' ? getStatus().smsReceive : true;
         return (
           <Pressable key={m.key} accessibilityRole="button" onPress={() => router.push({ pathname: '/m/[key]', params: { key: m.key } } as never)}
             style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, pressed && { opacity: 0.92 }]}>
-            <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: tone.soft, alignItems: 'center', justifyContent: 'center' }}><AppIcon name={m.icon} size={26} color={tone.on} /></View>
+            <BrandLogo brand={m.brand} size={48} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontWeight: '700', fontSize: 16 }}>{bn ? m.bn : m.en}</Text>
               <Text numberOfLines={1} style={{ opacity: 0.65, fontSize: 12 }}>{bn ? m.hintBn : m.hintEn}</Text>

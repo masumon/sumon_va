@@ -170,7 +170,7 @@ export function ChipGroup<T extends string>({
 
 /** A labelled text input — the same shape on every form in the app. */
 export function Field({
-  label, value, onChangeText, placeholder, keyboardType, multiline, hint, autoFocus,
+  label, value, onChangeText, placeholder, keyboardType, multiline, hint, autoFocus, secure, autofill,
 }: {
   label: string;
   value: string;
@@ -180,8 +180,15 @@ export function Field({
   multiline?: boolean;
   hint?: string;
   autoFocus?: boolean;
+  /** Hide what is typed (passwords). */
+  secure?: boolean;
+  /** Lets the phone's password manager (Google) offer saved logins: 'email' | 'password' | 'otp'. */
+  autofill?: 'email' | 'password' | 'otp';
 }) {
   const { s, colors } = useKit();
+  const hints = autofill === 'email' ? { autoComplete: 'email' as const, textContentType: 'username' as const, importantForAutofill: 'yes' as const, autoCapitalize: 'none' as const, autoCorrect: false }
+    : autofill === 'password' ? { autoComplete: 'current-password' as const, textContentType: 'password' as const, importantForAutofill: 'yes' as const, autoCapitalize: 'none' as const, autoCorrect: false }
+    : autofill === 'otp' ? { autoComplete: 'one-time-code' as const, textContentType: 'oneTimeCode' as const, importantForAutofill: 'yes' as const } : {};
   return (
     <View>
       <Text style={s.label}>{label}</Text>
@@ -193,6 +200,8 @@ export function Field({
         keyboardType={keyboardType}
         multiline={multiline}
         autoFocus={autoFocus}
+        secureTextEntry={secure}
+        {...hints}
         accessibilityLabel={label}
         style={multiline ? s.textarea : s.input}
       />
