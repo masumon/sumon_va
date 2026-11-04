@@ -39,7 +39,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path
 }
 
 export type Channel = 'whatsapp' | 'telegram' | 'sms' | 'notif' | 'email' | 'webhook';
-export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work' | 'business' | 'personal' | 'social' | 'spam';
+export type View = 'all' | 'urgent' | 'waiting' | 'drafts' | 'failed' | 'owner' | 'done' | 'blocked' | 'family' | 'vip' | 'work' | 'business' | 'personal' | 'social' | 'spam';
 
 export type Tag = { label: string; value: string; important: boolean };
 export type Category = 'business' | 'personal' | 'social' | 'spam';

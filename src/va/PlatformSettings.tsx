@@ -5,8 +5,8 @@ import { va, errTone } from './api';
 import { useLoad } from './hooks';
 import { InfoHint } from './InfoHint';
 
-type Plat = { enabled: boolean; auto_for: 'all' | 'business' | 'known'; alerts: 'all' | 'urgent' | 'off'; hours_on: boolean; hours_from: string; hours_to: string };
-const DEFAULT: Plat = { enabled: true, auto_for: 'all', alerts: 'all', hours_on: false, hours_from: '09:00', hours_to: '21:00' };
+type Plat = { enabled: boolean; auto_for: 'all' | 'business' | 'known'; alerts: 'all' | 'urgent' | 'off'; hours_on: boolean; hours_from: string; hours_to: string; phone_auto: boolean };
+const DEFAULT: Plat = { enabled: true, auto_for: 'all', alerts: 'all', hours_on: false, hours_from: '09:00', hours_to: '21:00', phone_auto: false };
 const AUTO_FOR = ['all', 'business', 'known'] as const;
 const ALERTS = ['all', 'urgent', 'off'] as const;
 const FROM = ['07:00', '08:00', '09:00', '10:00'] as const;
@@ -16,7 +16,7 @@ const TO = ['18:00', '20:00', '21:00', '23:00'] as const;
  * This platform's own settings, the same card on every platform page: pause it, choose who may be answered by itself, set the
  * hours, and choose which of its messages may alert you. Family and personal people are never answered by the assistant on any platform.
  */
-export function PlatformSettings({ platform, canAuto }: { platform: string; canAuto: boolean }) {
+export function PlatformSettings({ platform, canAuto, phone = false }: { platform: string; canAuto: boolean; phone?: boolean }) {
   const { bn } = useKit();
   const { showSnackbar } = useAppFeedback();
   const cfg = useLoad(() => va.assistantConfig(), 'assistant-config');
@@ -29,6 +29,11 @@ export function PlatformSettings({ platform, canAuto }: { platform: string; canA
   return (
     <Card icon="tune-variant" title={bn ? 'এই প্ল্যাটফর্মের সেটিং' : 'Settings for this platform'}>
       <ToggleRow icon="power" label={bn ? 'চালু' : 'On'} value={p.enabled} onChange={(v) => void save({ enabled: v })} />
+      {phone ? (
+        <ToggleRow icon="robot-outline" label={bn ? 'ফোনের অ্যাপ দিয়ে নিজে উত্তর দেবে' : 'Reply by itself through the phone app'}
+          hint={bn ? 'চালু করলে সহকারী এই অ্যাপে নিজেই উত্তর পাঠাবে (নোটিফিকেশনের “উত্তর” বক্স দিয়ে, আপনার নিজের অ্যাকাউন্ট থেকে)। পরিবার আর ব্যক্তিগত মানুষকে কখনও নয়। সাথে ওপরের “নিজে নিজে উত্তর” চালু থাকতে হবে।' : 'When on, the assistant sends replies itself in this app (through the notification reply box, from your own account). Never to family or personal contacts. The main “Reply by itself” switch must be on too.'}
+          value={p.phone_auto} onChange={(v) => void save({ phone_auto: v })} />
+      ) : null}
       <InfoHint text={bn ? 'বন্ধ করলে এখানকার বার্তা জমা থাকবে, কিন্তু খসড়া বা জরুরি অ্যালার্ট আসবে না।' : 'Off: messages are kept, but no drafts and no alerts.'} />
       {canAuto ? (
         <>
@@ -43,9 +48,7 @@ export function PlatformSettings({ platform, canAuto }: { platform: string; canA
           ) : null}
           <InfoHint text={bn ? 'এখানে নিজে উত্তর দেওয়া মানে সহকারী নিজে পাঠাবে। পরিবার ও ব্যক্তিগত মানুষকে কোনো প্ল্যাটফর্মেই নিজে উত্তর দেবে না। সময়ের বাইরে শুধু খসড়া হবে, আপনি পাঠাবেন।' : 'Self-answering means the assistant sends it. Family and personal people are never answered on any platform. Outside the hours you only get drafts.'} />
         </>
-      ) : (
-        <InfoHint text={bn ? 'এই প্ল্যাটফর্মের বার্তা ফোনের নোটিফিকেশন থেকে পড়া হয়, তাই সহকারী নিজে উত্তর পাঠাতে পারে না। শুধু খসড়া দেয়, আপনি পাঠান।' : 'Messages here are read from the phone’s notifications, so the assistant cannot send replies itself. It writes drafts and you send them.'} />
-      )}
+      ) : null}
       <ChipGroup label={bn ? 'কোন বার্তায় অ্যালার্ট' : 'Which messages alert you'} options={ALERTS} value={p.alerts} onChange={(v) => v && void save({ alerts: v })}
         labelOf={(k) => (k === 'all' ? (bn ? 'সব' : 'All') : k === 'urgent' ? (bn ? 'শুধু জরুরি' : 'Urgent only') : (bn ? 'কোনোটাই না' : 'None'))} hint={bn ? 'পরিবারের বার্তার অ্যালার্ট সবসময় আসবে।' : 'Family alerts always come through.'} />
     </Card>

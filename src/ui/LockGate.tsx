@@ -56,6 +56,13 @@ export function LockGate({ children }: PropsWithChildren) {
     return () => sub.remove();
   }, []);
 
+  // The owner just set a PIN (lock turned on while using the app): he is obviously here, so do not ask for it at once.
+  const wasEnabled = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (wasEnabled.current === false && appLockEnabled) { setUnlocked(true); bioTried.current = true; }
+    wasEnabled.current = appLockEnabled;
+  }, [appLockEnabled]);
+
   // Not with the owner: the phone's own sensors say it has been still and untouched for a while (left on a desk), so the app locks
   // by itself and asks for the PIN again. The messages keep arriving in the background; only the screen is protected.
   useEffect(() => {

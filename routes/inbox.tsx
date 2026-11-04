@@ -20,6 +20,7 @@ const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
   { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
   { key: 'drafts', bn: 'খসড়া', en: 'Drafts' },
+  { key: 'failed', bn: 'পাঠানো যায়নি', en: 'Failed' },
   { key: 'owner', bn: 'আমি নিয়েছি', en: 'Mine' },
   { key: 'done', bn: 'শেষ', en: 'Done' },
 ];

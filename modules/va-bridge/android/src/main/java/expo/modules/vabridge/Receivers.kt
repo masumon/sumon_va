@@ -22,7 +22,11 @@ class VaNotificationListener : NotificationListenerService() {
   // The reply boxes live only in memory. When the phone restarts the app, rebuild them from the chats still in the shade,
   // so an approved reply can still go out instead of "no reply box".
   override fun onListenerConnected() { instance = this; rescan() }
-  override fun onListenerDisconnected() { if (instance === this) instance = null }
+  // Android sometimes unbinds the listener on its own; ask to be bound again at once instead of silently missing messages.
+  override fun onListenerDisconnected() {
+    if (instance === this) instance = null
+    try { NotificationListenerService.requestRebind(android.content.ComponentName(this, VaNotificationListener::class.java)) } catch (_: Exception) {}
+  }
 
   fun rescan() {
     try {
@@ -30,8 +34,8 @@ class VaNotificationListener : NotificationListenerService() {
       for (sbn in activeNotifications ?: return) {
         if (sbn.packageName !in Store.packages(ctx)) continue
         val n = sbn.notification ?: continue
-        val title = n.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        if (title.isNotEmpty()) rememberReplyBox(sbn.packageName, title, n)
+        val chat = chatOf(n.extras ?: continue).first
+        if (chat.isNotEmpty()) rememberReplyBox(sbn.packageName, chat, n)
       }
     } catch (_: Exception) {}
   }
@@ -47,17 +51,29 @@ class VaNotificationListener : NotificationListenerService() {
       val extras = n.extras ?: return
       if (extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0 || extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)) return
       if (n.category in NOT_MESSAGE_CATEGORIES) return
-      val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+      val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
       val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim().orEmpty()
-      if (title.isEmpty() || text.isEmpty() || SUMMARY.matches(text) || SYSTEM_TEXT.containsMatchIn(text)) return  // "3 new messages", "Preparing backup" are not messages
-      if (title.equals(appLabel(ctx, sbn.packageName), ignoreCase = true) && text.length < 40) return  // the app talking about itself
+      if (rawTitle.isEmpty() || text.isEmpty() || SUMMARY.matches(text) || SYSTEM_TEXT.containsMatchIn(text)) return  // "3 new messages", "Preparing backup" are not messages
+      if (MISSED_SUMMARY.containsMatchIn(rawTitle)) return  // "3 missed voice calls" is a count, not a person
+      if (rawTitle.equals(appLabel(ctx, sbn.packageName), ignoreCase = true) && text.length < 40) return  // the app talking about itself
 
-      val group = Build.VERSION.SDK_INT >= 28 && (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false) || !extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE).isNullOrBlank())
-      rememberReplyBox(sbn.packageName, title, n)
-      if (Outbox.duplicate("${sbn.packageName}|$title|$text")) return
-      val ext = "n:" + sha("${sbn.packageName}|$title|$text|${sbn.postTime / 60000}")
-      Outbox.add(ctx, item("msg", "notif", title, sbn.packageName, text, ext, null, group))
-      Thread { Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) } }.start()  // upload at once, even if the screen is off
+      val (chat, group) = chatOf(extras)
+      if (chat.isEmpty()) return
+      rememberReplyBox(sbn.packageName, chat, n)
+
+      // Several messages often arrive in ONE notification: read each of them, not only the last line.
+      val list = messagesOf(extras)
+      val items = if (list.isNotEmpty()) list else listOf(Triple(if (group) rawTitle.substringAfter(": ", "") else "", text, sbn.postTime))
+      var added = false
+      for ((who, body, at) in items) {
+        val line = if (group && who.isNotBlank() && !body.startsWith(who)) "$who: $body" else body
+        if (line.isBlank() || SYSTEM_TEXT.containsMatchIn(line)) continue
+        if (Outbox.duplicate("${sbn.packageName}|$chat|$line|${at / 60000}")) continue
+        val ext = "n:" + sha("${sbn.packageName}|$chat|$line|${at / 60000}")
+        Outbox.add(ctx, item("msg", "notif", chat, sbn.packageName, line, ext, null, group))
+        added = true
+      }
+      if (added) Thread { Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) } }.start()  // upload at once, even if the screen is off
     } catch (_: Exception) {
       // A broken notification must never crash the listener.
     }
@@ -68,6 +84,25 @@ class VaNotificationListener : NotificationListenerService() {
     ReplyBoxes.put("notif:${pkg.take(30)}:$sender", action.actionIntent, action.remoteInputs)
   }
 
+  /** (sender, text, time) of every message inside a chat notification, newest last; only today's, so old ones are not re-sent. */
+  private fun messagesOf(extras: Bundle): List<Triple<String, String, Long>> = try {
+    @Suppress("DEPRECATION") val arr = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: emptyArray()
+    val since = System.currentTimeMillis() - 24 * 3600_000L
+    Notification.MessagingStyle.Message.getMessagesFromBundleArray(arr)
+      .filter { it.timestamp >= since && !it.text.isNullOrBlank() }
+      .map { Triple(it.senderPerson?.name?.toString() ?: "", it.text.toString().trim(), it.timestamp) }
+      .takeLast(20)
+  } catch (_: Exception) { emptyList() }
+
+  /** One stable name per chat (and whether it is a group): "Team (2 messages): ~ Rahim" must stay "Team", or every new count becomes a new person. */
+  private fun chatOf(extras: Bundle): Pair<String, Boolean> {
+    val raw = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+    val convo = if (Build.VERSION.SDK_INT >= 28) extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim().orEmpty() else ""
+    val group = Build.VERSION.SDK_INT >= 28 && (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false) || convo.isNotBlank())
+    val name = (if (convo.isNotBlank()) convo else raw).replace(COUNT, "").trim().take(60)
+    return name to group
+  }
+
   private fun appLabel(ctx: Context, pkg: String): String = try { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { "" }
 
   companion object {
@@ -75,6 +110,8 @@ class VaNotificationListener : NotificationListenerService() {
     private val NOT_MESSAGE_CATEGORIES = setOf(Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
       Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM, Notification.CATEGORY_RECOMMENDATION, Notification.CATEGORY_PROMO, Notification.CATEGORY_NAVIGATION)
     private val SYSTEM_TEXT = Regex("(preparing|creating|restoring|uploading|backup|checking for new messages|waiting for network|connecting|syncing|end-to-end encrypted|\\d+%|ব্যাকআপ)", RegexOption.IGNORE_CASE)
+    private val MISSED_SUMMARY = Regex("^\\d+\\s+missed\\s+(voice\\s+|video\\s+)?calls?", RegexOption.IGNORE_CASE)
+    private val COUNT = Regex("\\s*\\(\\d+\\s+[^)]*\\)(:.*)?$")  // " (2 messages): ~ Rahim" -> ""
     private val SUMMARY = Regex("^\\d+\\s+(new\\s+)?(messages?|chats?|conversations?).*", RegexOption.IGNORE_CASE)
   }
 }

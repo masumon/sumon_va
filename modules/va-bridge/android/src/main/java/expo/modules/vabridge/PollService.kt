@@ -33,7 +33,13 @@ class PollService : Service() {
     Presence.start(this)
     val note = Notification.Builder(this, CH_SERVICE).setContentTitle("সুমনের ভার্চুয়াল সহকারী চলছে")
       .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(android.R.drawable.stat_notify_sync).setOngoing(true).build()
-    if (Build.VERSION.SDK_INT >= 29) startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(1, note)
+    // Android 15 stops a "data sync" service after 6 hours a day and never lets it start at boot: that is why sync used to die
+    // after a few hours and never came back after a restart. A messaging service has neither limit (Android 14+).
+    when {
+      Build.VERSION.SDK_INT >= 34 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+      Build.VERSION.SDK_INT >= 29 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+      else -> startForeground(1, note)
+    }
     if (!running) {
       running = true
       alive = true
@@ -42,6 +48,9 @@ class PollService : Service() {
     }
     return START_STICKY
   }
+
+  // Safety net: if the phone ever says "time is up" for this service, stop cleanly instead of being killed with an error.
+  override fun onTimeout(startId: Int, fgsType: Int) { stopSelf() }
 
   override fun onDestroy() {
     running = false

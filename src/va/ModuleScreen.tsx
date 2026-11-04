@@ -14,7 +14,6 @@ import { BrandLogo } from './BrandLogo';
 import { Page, Status } from './Page';
 import { ContactRow } from './ContactRow';
 import type { ModuleDef } from './modules';
-import { InfoHint } from './InfoHint';
 import { PlatformSettings } from './PlatformSettings';
 import { ConnectGuide } from './ConnectGuide';
 import { EmailFilterCard } from './EmailFilterCard';
@@ -81,7 +80,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       ) : null}
       {mod.key === 'email' ? <EmailFilterCard /> : null}
 
-      <PlatformSettings platform={mod.key} canAuto={mod.auto !== 'none' || mod.key === 'whatsapp'} />
+      <PlatformSettings platform={mod.key} canAuto={mod.auto !== 'none' || mod.key === 'whatsapp'} phone={!!mod.apps} />
 
       {mod.auto === 'telegram' && d ? (
         <Card icon="send-outline" title={bn ? 'Telegram বট' : 'Telegram bot'}>
@@ -96,12 +95,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
           {!getStatus().smsReceive ? <AppButton variant="secondary" label={bn ? 'SMS-এর অনুমতি দিন' : 'Allow SMS'} onPress={() => router.push('/setup' as never)} /> : null}
         </Card>
       ) : null}
-      {mod.auto === 'none' ? (
-        <Card icon="message-reply-text-outline" title={bn ? 'এখানে উত্তর দেওয়া' : 'Replies here'}>
-          <Text style={{ marginBottom: 6 }}>{bn ? 'শুধু খসড়া, আপনি চাপলে যায়' : 'Drafts only, sent when you press'}</Text>
-          <InfoHint text={bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই বার্তা যায়। এতে আপনার নম্বর ব্লক হওয়ার ভয় থাকে না।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'} />
-        </Card>
-      ) : null}
+      {/* Phone-app platforms: the "reply by itself" switch is in the platform settings card above (off by default). */}
       {mod.apps ? (
         <Card icon="apps" title={bn ? 'যে অ্যাপের বার্তা পড়া হবে' : 'Apps that are read'}>
           {mod.apps.map((a) => <ToggleRow key={a.pkg} label={bn ? a.bn : a.en} value={watched.has(a.pkg)} onChange={(v) => toggleApp(a.pkg, v)} />)}

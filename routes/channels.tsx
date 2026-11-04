@@ -24,7 +24,7 @@ export default function ModulesScreen() {
     const [w, u] = await Promise.all([va.contacts('waiting', '', 1, m.sources), va.contacts('urgent', '', 1, m.sources)]);
     const all = await va.contacts('all', '', 1, m.sources);
     return { key: m.key, waiting: w.total, urgent: u.total, total: all.total };
-  })), 'module-counts', 25000);
+  })), 'module-counts', 60000); // 30 small requests: once a minute is plenty (new messages also refresh it at once)
   const chans = useLoad(() => va.channels(), 'channels', 30000);
   const by = new Map((counts.data ?? []).map((c) => [c.key, c]));
 
@@ -50,7 +50,7 @@ export default function ModulesScreen() {
               <Text style={{ fontWeight: '700', fontSize: 16 }}>{bn ? m.bn : m.en}</Text>
               <Text numberOfLines={1} style={{ opacity: 0.65, fontSize: 12 }}>{bn ? m.hintBn : m.hintEn}</Text>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <AppBadge tone={vd === 'ok' ? 'success' : vd === 'partial' ? 'warning' : 'danger'} label={vd === 'ok' ? (bn ? 'সংযুক্ত ✓' : 'Connected ✓') : vd === 'partial' ? (bn ? 'প্রায় হয়ে গেছে' : 'Almost') : (bn ? 'সংযুক্ত নয়' : 'Not connected')} />
+                {!counts.data ? <AppBadge tone="neutral" label={bn ? 'দেখছি…' : 'Checking…'} /> : <AppBadge tone={vd === 'ok' ? 'success' : vd === 'partial' ? 'warning' : 'danger'} label={vd === 'ok' ? (bn ? 'সংযুক্ত ✓' : 'Connected ✓') : vd === 'partial' ? (bn ? 'প্রায় হয়ে গেছে' : 'Almost') : (bn ? 'সংযুক্ত নয়' : 'Not connected')} />}
                 {c && c.urgent ? <AppBadge tone="danger" label={bn ? `${n(c.urgent)} জরুরি` : `${c.urgent} urgent`} /> : null}
                 {c && c.waiting ? <AppBadge tone="warning" label={bn ? `${n(c.waiting)} বাকি` : `${c.waiting} waiting`} /> : null}
                 <AppBadge tone={m.auto === 'none' ? 'neutral' : 'primary'} label={m.auto === 'none' ? (bn ? 'শুধু খসড়া' : 'Drafts only') : (bn ? 'নিজে উত্তর দিতে পারে' : 'Can auto-reply')} />

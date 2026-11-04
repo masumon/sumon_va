@@ -68,9 +68,9 @@ export function computeChecks(m: ModuleDef, { bridge, channels, received, instal
   const here = apps.some((a) => installed(a.pkg));
   const watched = apps.some((a) => bridge.packages.includes(a.pkg));
   out.push({ key: 'installed', ok: here, bn: 'অ্যাপ এই ফোনে আছে', en: 'App is on this phone', hintBn: here ? 'পাওয়া গেছে' : 'ফোনে ইনস্টল করে লগইন করুন', hintEn: here ? 'Found' : 'Install it and sign in' });
-  out.push({ key: 'access', ok: bridge.notificationAccess, bn: 'চ্যাট অ্যাপের বার্তা পড়ার অনুমতি', en: 'Permission to read chat-app messages', hintBn: 'অনুমতির পাতা থেকে চালু করুন', hintEn: 'Switch it on in Permissions', fix: { route: '/setup', bn: 'চালু করুন', en: 'Switch on' } });
-  out.push({ key: 'watched', ok: watched, bn: 'এই অ্যাপের সুইচ চালু', en: 'This app’s switch is on', hintBn: 'নিচের তালিকায় অ্যাপের সুইচটা অন করুন', hintEn: 'Turn the app’s switch on below' });
-  out.push({ key: 'battery', ok: bridge.batteryExempt && bridge.serviceAlive, bn: 'ব্যাকগ্রাউন্ডে চলতে পারছে', en: 'Can run in the background', hintBn: 'ব্যাটারি “সীমাহীন” না করলে ফোন অ্যাপটাকে বন্ধ করে দেয়', hintEn: 'If battery is not “unrestricted” the phone puts it to sleep', fix: { route: '/setup', bn: 'ঠিক করুন', en: 'Fix' } });
+  out.push({ key: 'access', ok: bridge.notificationAccess, bn: 'চ্যাট অ্যাপের বার্তা পড়ার অনুমতি', en: 'Permission to read chat-app messages', hintBn: bridge.notificationAccess ? 'দেওয়া আছে' : 'অনুমতির পাতা থেকে চালু করুন', hintEn: bridge.notificationAccess ? 'Granted' : 'Switch it on in Permissions', fix: { route: '/setup', bn: 'চালু করুন', en: 'Switch on' } });
+  out.push({ key: 'watched', ok: watched, bn: 'এই অ্যাপের সুইচ চালু', en: 'This app’s switch is on', hintBn: watched ? 'চালু আছে' : 'নিচের তালিকায় অ্যাপের সুইচটা অন করুন', hintEn: watched ? 'On' : 'Turn the app’s switch on below' });
+  out.push({ key: 'battery', ok: bridge.batteryExempt && bridge.serviceAlive, bn: 'ব্যাকগ্রাউন্ডে চলতে পারছে', en: 'Can run in the background', hintBn: bridge.batteryExempt && bridge.serviceAlive ? 'চলছে, ব্যাটারি সীমাহীন' : 'ব্যাটারি “সীমাহীন” না করলে ফোন অ্যাপটাকে বন্ধ করে দেয়', hintEn: bridge.batteryExempt && bridge.serviceAlive ? 'Running, battery unrestricted' : 'If battery is not “unrestricted” the phone puts it to sleep', fix: { route: '/setup', bn: 'ঠিক করুন', en: 'Fix' } });
   out.push(got);
   return out;
 }

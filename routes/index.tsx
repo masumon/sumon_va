@@ -45,7 +45,9 @@ export default function DashboardScreen() {
   const auto = o ? o.mode === 'auto' && o.enabled : false;
   const setupNeeded = !bridge.notificationAccess || !bridge.smsReceive || !bridge.phoneState || !bridge.batteryExempt;
   const status = c?.statuses.find((s) => s.key === c.status.key);
-  const first = (bridge.accountName ?? '').split(' ')[0];
+  // The name the owner gave the assistant (Rules) comes first; the login account's name is only a fallback, and "Admin" is not a name.
+  const rawName = (c?.owner_name || bridge.accountName || '').trim();
+  const first = /^admin$/i.test(rawName) ? '' : rawName.split(' ')[0];
   const welcome = bn ? `${greeting(true)}${first ? `, ${first} ভাই` : ''}` : `${greeting(false)}${first ? `, ${first}` : ''}`;
   const summary = !o ? (bn ? 'আপনার বার্তাগুলো দেখে নিচ্ছি…' : 'Checking your messages…')
     : o.urgent > 0 ? (bn ? `${n(o.urgent)}টি জরুরি বার্তা আপনার অপেক্ষায় আছে` : `${o.urgent} urgent message${o.urgent > 1 ? 's' : ''} waiting for you`)
@@ -117,7 +119,7 @@ export default function DashboardScreen() {
           ) : null}
           <View style={{ marginTop: 8 }}>
             <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর দেবে' : 'Reply by itself'} hint={auto ? (bn ? 'চালু। পরিবারকে কখনও নয়।' : 'On — never to family.') : (bn ? 'বন্ধ। শুধু খসড়া করবে।' : 'Off — drafts only.')}
-              value={auto} onChange={(next) => { if (!busy) void run(() => va.killSwitch(!next), next ? (bn ? 'নিজে-নিজে উত্তর চালু' : 'Auto-reply on') : (bn ? 'সব নিজে-নিজে উত্তর বন্ধ' : 'All auto-replies off')); }} />
+              value={auto} onChange={(next) => { if (!busy) void run(async () => { if (next && o && !o.enabled) await va.saveAssistantConfig({ enabled: true }); await va.killSwitch(!next); }, next ? (bn ? 'নিজে-নিজে উত্তর চালু' : 'Auto-reply on') : (bn ? 'সব নিজে-নিজে উত্তর বন্ধ' : 'All auto-replies off')); }} />
           </View>
         </Card>
       ) : null}

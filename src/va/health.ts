@@ -72,7 +72,7 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
   }
 
   if (overview) {
-    if (overview.failed_24h > 0) out.push({ key: 'send-failed', severity: 'warn', bn: `${overview.failed_24h}টি উত্তর পাঠানো যায়নি`, en: `${overview.failed_24h} replies failed to send`, whyBn: 'গত ২৪ ঘণ্টায় এমন হয়েছে। কারণ প্রতিটি বার্তার নিচে লেখা আছে (যেমন ২৪ ঘণ্টা পার হয়ে গেছে, ফোন অফলাইন ছিল)।', whyEn: 'In the last 24 hours. The reason is written under each message.', fix: { route: '/inbox', bn: 'ইনবক্স দেখুন', en: 'Open inbox' } });
+    if (overview.failed_24h > 0) out.push({ key: 'send-failed', severity: 'warn', bn: `${overview.failed_24h}টি উত্তর পাঠানো যায়নি`, en: `${overview.failed_24h} replies failed to send`, whyBn: 'গত ২৪ ঘণ্টায় এমন হয়েছে। কোন কোন চ্যাটে হয়েছে, নিচের বোতামে দেখুন। কারণ প্রতিটি বার্তার নিচে লেখা আছে, আর সেখান থেকে আবার পাঠানো যায়।', whyEn: 'In the last 24 hours. The button shows which chats; the reason is under each message.', fix: { route: '/inbox?view=failed', bn: 'কোথায় হয়েছে দেখুন', en: 'Show where' } });
     if (!overview.enabled) out.push({ key: 'assistant-off', severity: 'info', bn: 'সহকারী বন্ধ আছে', en: 'The assistant is switched off', whyBn: 'এখন কোনো বার্তার খসড়া বা উত্তর তৈরি হচ্ছে না। আবার চালাতে “চালু করুন” চাপুন।', whyEn: 'No drafts or replies are being made.', fix: { route: '/rules', bn: 'চালু করুন', en: 'Switch on' } });
     if (overview.tasks_late > 0) out.push({ key: 'tasks-late', severity: 'info', bn: `${overview.tasks_late}টি কাজের সময় পেরিয়ে গেছে`, en: `${overview.tasks_late} tasks overdue`, whyBn: 'কাউকে কথা দিয়েছিলেন, কিন্তু সময় পেরিয়ে গেছে।', whyEn: 'You promised someone and the time has passed.', fix: { route: '/tasks', bn: 'কাজ দেখুন', en: 'Open tasks' } });
   }
