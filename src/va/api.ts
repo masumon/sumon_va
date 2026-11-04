@@ -87,6 +87,8 @@ export type HubSummary = {
 };
 
 export const va = {
+  loginPhone: () => call<{ set: boolean; masked: string }>('GET', '/admin/inbox/login-phone'),
+  setLoginPhone: (phone: string) => call<{ set: boolean; masked: string }>('PUT', '/admin/inbox/login-phone', { phone }),
   tasks: (show: 'open' | 'done' = 'open') => call<Task[]>('GET', `/admin/wa/tasks?show=${show}`),
   addTask: (title: string, due_at?: string, contact_id?: string) => call<unknown>('POST', '/admin/wa/tasks', { title, due_at, contact_id }),
   clearChat: (id: string) => call<{ removed: number }>('POST', `/admin/inbox/contacts/${id}/clear`, {}),

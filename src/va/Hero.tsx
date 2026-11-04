@@ -8,7 +8,7 @@ import { useAppPreferences } from '../app/AppPreferences';
 import { radius, spacing } from '../theme';
 
 /** The big card at the top of a screen: an icon, a headline, a line of context, and room for chips or numbers. One look for every screen. */
-export function Hero({ icon, title, subtitle, right, children }: { icon?: IconName; title: string; subtitle?: string; right?: ReactNode; children?: ReactNode }) {
+export function Hero({ icon, eyebrow, title, subtitle, right, children }: { icon?: IconName; eyebrow?: string; title: string; subtitle?: string; right?: ReactNode; children?: ReactNode }) {
   const { themeMode, colors } = useAppPreferences();
   // Day and night use the brand indigo; low light uses a warm near-black so nothing glares in a dark room.
   const grad: [string, string] = themeMode === 'dim' ? ['#2A2214', '#15130F'] : themeMode === 'dark' ? ['#24306F', '#131C45'] : ['#2B3A86', '#182357'];
@@ -19,6 +19,7 @@ export function Hero({ icon, title, subtitle, right, children }: { icon?: IconNa
       <View style={styles.top}>
         {icon ? <View style={styles.icon}><AppIcon name={icon} size={26} color={ink} /></View> : null}
         <View style={{ flex: 1 }}>
+          {eyebrow ? <Text style={[styles.eyebrow, { color: soft }]}>{eyebrow}</Text> : null}
           <Text style={[styles.title, { color: ink }]}>{title}</Text>
           {subtitle ? <Text style={[styles.sub, { color: soft }]}>{subtitle}</Text> : null}
         </View>
@@ -45,6 +46,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.xl, padding: spacing.md + 2 },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing.smd },
   icon: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  eyebrow: { fontSize: 12, marginBottom: 2, letterSpacing: 0.3 },
   title: { fontSize: 20, fontWeight: '800' },
   sub: { fontSize: 13, marginTop: 2 },
   stat: { flex: 1, minWidth: 72 },
