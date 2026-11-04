@@ -11,6 +11,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONObject
@@ -22,6 +23,7 @@ import org.json.JSONObject
  */
 class VaBridgeModule : Module() {
   private val ctx: Context get() = appContext.reactContext ?: throw IllegalStateException("no context")
+  private val io = java.util.concurrent.Executors.newFixedThreadPool(6)
 
   private fun granted(permission: String) = ContextCompat.checkSelfPermission(ctx, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -150,17 +152,23 @@ class VaBridgeModule : Module() {
     Function("unpair") { Store.clear(ctx); PollService.stop(ctx); true }
 
     /** Server call with the device token. Only the owner's inbox endpoints are reachable from the screens. */
-    AsyncFunction("request") { method: String, path: String, body: String? ->
+    // Every server call runs on its own worker thread. Before, all calls shared Expo's ONE async queue, so a single slow call
+    // (an AI test can take 90 s) made every other screen wait behind it: endless "loading", tests that never seemed to finish.
+    AsyncFunction("request") { method: String, path: String, body: String?, promise: Promise ->
       val m = method.uppercase()
       if (m !in setOf("GET", "POST", "PUT", "PATCH", "DELETE") || !(path.startsWith("/admin/wa/") || path.startsWith("/admin/inbox/") || path.startsWith("/admin/ai-hub") || path == "/device/logout") || path.contains("..")) {
-        return@AsyncFunction mapOf("status" to 0, "body" to "path not allowed")
+        promise.resolve(mapOf("status" to 0, "body" to "path not allowed"))
+        return@AsyncFunction
       }
-      // Testing an AI key asks an outside company and can take a while (and a sleeping free server needs ~30 s to wake): wait longer there.
-      val r = Http.call(ctx, m, path, body, readMs = if (path.startsWith("/admin/ai-hub")) 90000 else 20000)
-      mapOf("status" to r.code, "body" to r.body)
+      val c = ctx
+      io.execute {
+        // Testing an AI key asks an outside company and can take a while (and a sleeping free server needs ~30 s to wake): wait longer there.
+        val r = try { Http.call(c, m, path, body, readMs = if (path.startsWith("/admin/ai-hub")) 90000 else 20000) } catch (e: Exception) { Http.Resp(0, e.javaClass.simpleName) }
+        promise.resolve(mapOf("status" to r.code, "body" to r.body))
+      }
     }
 
-    AsyncFunction("flush") { Outbox.flush(ctx) }
+    AsyncFunction("flush") { promise: Promise -> val c = ctx; io.execute { promise.resolve(try { Outbox.flush(c) } catch (_: Exception) { false }) } }
     Function("startService") { if (Store.paired(ctx)) PollService.start(ctx); true }
     Function("stillFor") { Presence.start(ctx); Presence.stillForSeconds().toInt() }
     Function("stopService") { PollService.stop(ctx); true }

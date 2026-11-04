@@ -27,10 +27,14 @@ export function AutoSync() {
       useShell.getState().refresh();
       setTimeout(() => {
         const s = getStatus();
+        const t = Date.now();
+        // One failed try (the free server waking up, a network switch) fixes itself in seconds: only a lasting problem is shown.
+        const lasting = !!s.lastError && (!s.lastOk || t - s.lastOk > 90_000);
+        const fresh = !!s.lastOk && t - s.lastOk < 60_000;
         if (!s.serviceAlive) showSnackbar(bn ? 'সিঙ্ক চালু হয়নি। ফোন অ্যাপটা থামিয়ে রেখেছে। ওপরের লাল স্ট্রিপে চাপ দিয়ে ঠিক করুন।' : 'Sync did not start: the phone stopped the app. Tap the red strip above to fix it.', 'danger');
-        else if (s.lastError) showSnackbar(bn ? `সিঙ্কে সমস্যা: ${s.lastError}। “মাধ্যম” বা ওপরের স্ট্রিপ থেকে কারণ দেখুন।` : `Sync problem: ${s.lastError}. See the strip above for the reason.`, 'danger');
+        else if (lasting) showSnackbar(bn ? `সিঙ্কে সমস্যা: ${s.lastError}। “মাধ্যম” বা ওপরের স্ট্রিপ থেকে কারণ দেখুন।` : `Sync problem: ${s.lastError}. See the strip above for the reason.`, 'danger');
         else if (s.queued > 0) showSnackbar(bn ? `${s.queued}টি বার্তা পাঠানো বাকি। ইন্টারনেট এলে চলে যাবে।` : `${s.queued} messages will upload when the internet returns.`, 'info');
-        else showSnackbar(bn ? 'সিঙ্ক হয়েছে' : 'Synced', 'success');
+        else if (fresh) showSnackbar(bn ? 'সিঙ্ক হয়েছে' : 'Synced', 'success'); // never claim "synced" when it was not
       }, 2500);
     };
     sync();

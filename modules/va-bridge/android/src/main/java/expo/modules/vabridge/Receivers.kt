@@ -19,6 +19,23 @@ import android.telephony.TelephonyManager
  * it with one tap — the assistant never uses it on its own.
  */
 class VaNotificationListener : NotificationListenerService() {
+  // The reply boxes live only in memory. When the phone restarts the app, rebuild them from the chats still in the shade,
+  // so an approved reply can still go out instead of "no reply box".
+  override fun onListenerConnected() { instance = this; rescan() }
+  override fun onListenerDisconnected() { if (instance === this) instance = null }
+
+  fun rescan() {
+    try {
+      val ctx = applicationContext
+      for (sbn in activeNotifications ?: return) {
+        if (sbn.packageName !in Store.packages(ctx)) continue
+        val n = sbn.notification ?: continue
+        val title = n.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        if (title.isNotEmpty()) rememberReplyBox(sbn.packageName, title, n)
+      }
+    } catch (_: Exception) {}
+  }
+
   override fun onNotificationPosted(sbn: StatusBarNotification) {
     val ctx = applicationContext
     try {
@@ -40,7 +57,7 @@ class VaNotificationListener : NotificationListenerService() {
       if (Outbox.duplicate("${sbn.packageName}|$title|$text")) return
       val ext = "n:" + sha("${sbn.packageName}|$title|$text|${sbn.postTime / 60000}")
       Outbox.add(ctx, item("msg", "notif", title, sbn.packageName, text, ext, null, group))
-      Thread { Outbox.flush(ctx) }.start()
+      Thread { Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) } }.start()  // upload at once, even if the screen is off
     } catch (_: Exception) {
       // A broken notification must never crash the listener.
     }
@@ -54,6 +71,7 @@ class VaNotificationListener : NotificationListenerService() {
   private fun appLabel(ctx: Context, pkg: String): String = try { ctx.packageManager.getApplicationLabel(ctx.packageManager.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { "" }
 
   companion object {
+    @Volatile var instance: VaNotificationListener? = null
     private val NOT_MESSAGE_CATEGORIES = setOf(Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
       Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM, Notification.CATEGORY_RECOMMENDATION, Notification.CATEGORY_PROMO, Notification.CATEGORY_NAVIGATION)
     private val SYSTEM_TEXT = Regex("(preparing|creating|restoring|uploading|backup|checking for new messages|waiting for network|connecting|syncing|end-to-end encrypted|\\d+%|ব্যাকআপ)", RegexOption.IGNORE_CASE)
@@ -69,7 +87,14 @@ object ReplyBoxes {
   @Synchronized fun put(key: String, intent: PendingIntent, inputs: Array<RemoteInput>) { boxes[key] = Box(intent, inputs); if (boxes.size > 200) boxes.remove(boxes.keys.first()) }
 
   /** Sends text through the chat app's own reply box. False when that chat has no reply box right now. */
-  @Synchronized fun send(ctx: Context, key: String, text: String): Boolean {
+  fun send(ctx: Context, key: String, text: String): Boolean {
+    if (!has(key)) VaNotificationListener.instance?.rescan()  // not in memory: look at the chats in the shade once more
+    return sendNow(ctx, key, text)
+  }
+
+  @Synchronized private fun has(key: String) = boxes.containsKey(key)
+
+  @Synchronized private fun sendNow(ctx: Context, key: String, text: String): Boolean {
     val box = boxes[key] ?: return false
     return try {
       val data = Bundle()

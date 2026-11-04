@@ -37,8 +37,11 @@ object Store {
   fun baseUrl(c: Context) = prefs(c).getString("base", null)
   fun token(c: Context) = prefs(c).getString("token", null)
   fun paired(c: Context) = !baseUrl(c).isNullOrEmpty() && !token(c).isNullOrEmpty()
-  fun setPaired(c: Context, base: String, token: String) = prefs(c).edit().putString("base", base).putString("token", token).apply()
-  fun clear(c: Context) = prefs(c).edit().remove("token").remove("queue").remove("account_name").remove("account_email").apply()
+  // A new sign-in starts with a clean health record: an old "signed out / revoked" note must not scare the owner after logging in again.
+  fun setPaired(c: Context, base: String, token: String) = prefs(c).edit().putString("base", base).putString("token", token)
+    .remove("last_error").remove("last_401_notice").putLong("last_ok", System.currentTimeMillis()).apply()
+  fun clear(c: Context) = prefs(c).edit().remove("token").remove("queue").remove("account_name").remove("account_email")
+    .remove("last_error").remove("last_ok").remove("last_401_notice").apply()
   fun setAccount(c: Context, name: String?, email: String?) = prefs(c).edit().putString("account_name", name).putString("account_email", email).apply()
 
   fun note(c: Context, error: String?) {
@@ -143,6 +146,31 @@ object Outbox {
       r.code == 401 -> { Store.note(c, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার জোড়া লাগান"); false }
       else -> { Store.note(c, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); false }
     }
+  }
+}
+
+/**
+ * Commands the phone already carried out. The server repeats a command until it hears "done"; if that "done" got lost
+ * (bad network, or two sync threads for a moment after signing in again) the same reply/SMS must never go out twice.
+ */
+object DoneCommands {
+  private const val MAX = 300
+  @Synchronized fun has(c: Context, id: String): Boolean = list(c).contains(id)
+  @Synchronized fun add(c: Context, id: String) {
+    val l = list(c).apply { remove(id); add(id) }
+    while (l.size > MAX) l.removeAt(0)
+    Store.prefs(c).edit().putString("done_cmds", l.joinToString(",")).apply()
+  }
+  private fun list(c: Context): MutableList<String> = (Store.prefs(c).getString("done_cmds", "") ?: "").split(',').filter { it.isNotBlank() }.toMutableList()
+}
+
+/** Keeps the CPU awake for a short, capped time so a sync started while the screen is off really finishes. */
+object Awake {
+  fun <T> hold(c: Context, ms: Long, tag: String, block: () -> T): T {
+    val pm = c.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+    val wl = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "sumonva:$tag").apply { setReferenceCounted(false) }
+    try { wl.acquire(ms) } catch (_: Exception) {}
+    try { return block() } finally { try { if (wl.isHeld) wl.release() } catch (_: Exception) {} }
   }
 }
 

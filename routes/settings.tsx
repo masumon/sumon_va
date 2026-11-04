@@ -140,7 +140,7 @@ export default function SettingsScreen() {
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
         description={bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
-        onConfirm={() => { setConfirm(false); unpair(); router.replace('/login' as never); }} />
+        onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } unpair(); router.replace('/login' as never); }} />
     </Page>
   );
 }

@@ -70,8 +70,8 @@ class PollService : Service() {
       if (nudge) { nudge = false; failures = 0 }
       try {
         if (!Store.paired(ctx)) { Thread.sleep(5000); continue }
-        Outbox.flush(ctx)
-        Presence.report(ctx)
+        // Uploading and reporting run with the CPU held awake (capped), so they finish even with the screen off.
+        Awake.hold(ctx, 40_000, "upload") { Outbox.flush(ctx); Presence.report(ctx) }
         failures = if (pollOnce(ctx)) 0 else failures + 1
       } catch (_: InterruptedException) {
         return
@@ -81,7 +81,9 @@ class PollService : Service() {
       }
       // Normal case: the server already held the call for up to 25 s, so a short breath is enough. Trouble: back off, never hammer.
       val pause = if (failures == 0) 800L else minOf(30_000L, 3_000L * failures)
-      try { if (nudge) nudge = false else synchronized(wakeLock) { wakeLock.wait(pause) } } catch (_: InterruptedException) { return }
+      // Without a wake lock a sleeping phone freezes this short wait, and the next check only happens when something else
+      // wakes the phone: that is why messages arrived late with the screen off. The wait itself is short and capped.
+      try { Awake.hold(ctx, pause + 3_000L, "pause") { if (nudge) nudge = false else synchronized(wakeLock) { wakeLock.wait(pause) } } } catch (_: InterruptedException) { return }
     }
   }
 
@@ -97,9 +99,14 @@ class PollService : Service() {
       }
       return false
     }
-    if (r.code !in 200..299) { Store.note(ctx, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); return false }
+    if (r.code !in 200..299) { Store.note(ctx, if (r.code == 0) "ইন্টারনেট বা সার্ভারে পৌঁছানো যায়নি" else "সার্ভার সাড়া দেয়নি (${r.code})"); return false }
     Store.note(ctx, null)
-    val json = JSONObject(r.body)
+    // The answer is in: from here on (running commands, telling the server) keep the CPU awake until it is done.
+    return Awake.hold(ctx, 60_000, "commands") { handle(ctx, r.body) }
+  }
+
+  private fun handle(ctx: Context, body: String): Boolean {
+    val json = JSONObject(body)
     val commands = json.optJSONArray("commands")
     val done = JSONArray()
     val failed = JSONArray()
@@ -107,8 +114,9 @@ class PollService : Service() {
       for (i in 0 until commands.length()) {
         val c = commands.getJSONObject(i)
         val id = c.getString("id")
+        if (DoneCommands.has(ctx, id)) { done.put(id); continue }  // already carried out, only the "done" was lost: never send twice
         val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
-        if (error == null) done.put(id) else failed.put(JSONObject().put("id", id).put("error", error))
+        if (error == null) { DoneCommands.add(ctx, id); done.put(id) } else failed.put(JSONObject().put("id", id).put("error", error))
       }
       if (done.length() + failed.length() > 0) Http.call(ctx, "POST", "/device/ack", JSONObject().put("done", done).put("failed", failed).toString())
     }

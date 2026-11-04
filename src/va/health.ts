@@ -36,7 +36,7 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
 
   if (!bridge.serviceAlive) {
     out.push({ key: 'sync-stopped', severity: 'critical', bn: 'ব্যাকগ্রাউন্ড সিঙ্ক বন্ধ আছে', en: 'Background sync is stopped', whyBn: 'ফোন অ্যাপটাকে বন্ধ করে দিয়েছে। তাই নতুন বার্তা আসছে না, জরুরি অ্যালার্মও বাজবে না। “সিঙ্ক চালু করুন” চাপুন।', whyEn: 'The phone stopped the app. New messages and urgent alarms will not arrive.', fix: { action: 'restart-sync', bn: 'সিঙ্ক চালু করুন', en: 'Restart sync' } });
-  } else if (bridge.lastError && !revoked) {
+  } else if (bridge.lastError && !revoked && (!bridge.lastOk || now - bridge.lastOk > 90_000)) {  // one failed try is not a problem yet
     out.push({ key: 'sync-error', severity: 'warn', bn: 'সিঙ্কে সমস্যা', en: 'Sync problem', whyBn: bridge.lastError, whyEn: bridge.lastError, fix: { action: 'restart-sync', bn: 'সিঙ্ক আবার চালু', en: 'Restart sync' } });
   } else if (bridge.lastOk && now - bridge.lastOk > 2 * 60_000) {
     const mins = Math.round((now - bridge.lastOk) / 60_000);
