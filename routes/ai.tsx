@@ -5,7 +5,7 @@ import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, EmptyNote, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
-import { va, type HubConn } from '../src/va/api';
+import { va, VaError, type HubConn } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
@@ -31,16 +31,24 @@ export default function AiScreen() {
   const [drop, setDrop] = useState<HubConn | null>(null);
   const h = hub.data;
 
+  const [slow, setSlow] = useState(false);
   const act = async (id: string, fn: () => Promise<unknown>, ok?: string) => {
     setBusy(id);
+    // Testing an AI asks an outside company and can take a while: say so, instead of looking stuck or failed.
+    const timer = setTimeout(() => setSlow(true), 6000);
     try { await fn(); await hub.reload(); if (ok) showSnackbar(ok, 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
-    finally { setBusy(null); }
+    catch (e) {
+      // A slow answer is not a failure and no internet is not a server fault: each gets its own honest message.
+      const kind = e instanceof VaError ? e.kind : 'other';
+      showSnackbar(e instanceof Error ? e.message : '', kind === 'timeout' ? 'info' : 'danger');
+    }
+    finally { clearTimeout(timer); setSlow(false); setBusy(null); }
   };
 
   return (
     <Page title={bn ? 'AI সংযোগ' : 'AI connections'} subtitle={bn ? 'সব AI কী এক জায়গায়। আগে ফ্রি, পরে পেইড' : 'All AI keys in one place — free first, paid after'} onRefresh={hub.reload} refreshing={hub.loading && !!h}>
       <Status loading={hub.loading && !h} error={h ? null : hub.error} onRetry={hub.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
+      {busy && slow ? <Text style={{ opacity: 0.8, textAlign: 'center' }}>{bn ? 'সময় লাগছে, একটু অপেক্ষা করুন…' : 'Taking a while, please wait…'}</Text> : null}
       {h ? (
         <>
           <Hero icon="brain" title={h.working ? (bn ? `${h.working}টি AI চলছে ✓` : `${h.working} AI working ✓`) : (bn ? 'কোনো AI চলছে না' : 'No AI working')} subtitle={bn ? 'সহকারী, অনুবাদ ও লেখায় এগুলোই কাজ করে' : 'The assistant, translation and writing use these'}>

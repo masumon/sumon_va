@@ -27,6 +27,9 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
 
   if (revoked || (overviewError && overviewError.includes('বাতিল'))) {
     out.push({ key: 'revoked', severity: 'critical', bn: 'এই ফোনের লগইন শেষ হয়ে গেছে', en: 'This phone is signed out', whyBn: 'এই ফোনের অনুমতি বাতিল হয়েছে বা মেয়াদ শেষ। তাই নতুন বার্তা আসছে না। “আবার ঢুকুন” চেপে লগইন করুন।', whyEn: 'The phone’s access was revoked or expired. Messages are not arriving.', fix: { route: '/login', bn: 'আবার ঢুকুন', en: 'Sign in again' } });
+  } else if (overviewError && overviewError.includes('সময় লাগছে')) {
+    // Only slow, not down: a calm note, never a red alarm.
+    out.push({ key: 'slow', severity: 'info', bn: 'সার্ভার একটু ধীরে সাড়া দিচ্ছে', en: 'The server is answering slowly', whyBn: 'ফ্রি সার্ভার মাঝে মাঝে ঘুম থেকে উঠতে সময় নেয়। অপেক্ষা করলেই ঠিক হয়ে যায়।', whyEn: 'The free server sometimes needs a moment to wake. It sorts itself out.', fix: { action: 'retry', bn: 'আবার দেখুন', en: 'Check again' } });
   } else if (overviewError) {
     out.push({ key: 'offline', severity: 'critical', bn: 'সার্ভারের সাথে যোগ হচ্ছে না', en: 'Cannot reach the server', whyBn: `${overviewError}। হয় ইন্টারনেট বন্ধ, নয়তো সার্ভার ঘুমিয়ে আছে (ফ্রি সার্ভার মাঝে মাঝে ঘুমায়, আধ মিনিটের মধ্যে জেগে ওঠে)। ইন্টারনেট দেখে নিন, তারপর “আবার চেষ্টা” চাপুন।`, whyEn: `${overviewError} — the internet is off, or the (free) server is waking up; it takes about half a minute.`, fix: { action: 'retry', bn: 'আবার চেষ্টা', en: 'Try again' } });
   }
