@@ -28,7 +28,7 @@ export function TileGrid({ children }: { children: React.ReactNode }) {
 
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   cell: { flexBasis: '47%', flexGrow: 1 },
-  tile: { padding: spacing.md, minHeight: 84, borderRadius: radius.lg, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'space-between', gap: 6 },
+  tile: { padding: spacing.md, minHeight: 84, borderRadius: radius.card, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'space-between', gap: 6 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   value: { color: colors.textPrimary, fontSize: 26, fontWeight: '800' },
   label: { color: colors.textSecondary, fontSize: 13 },

@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import { useAppPreferences } from '../app/AppPreferences';
 import { AppIcon } from './AppIcon';
 import { tapSelect } from './haptics';
-import { border, elevation, getWindowSizeClass, icon as iconToken, layout, radius, spacing, typography, type AccentName } from '../theme';
+import { border, getWindowSizeClass, icon as iconToken, layout, radius, spacing, typography, type AccentName } from '../theme';
 
 /**
  * The bar's own contents, exported so nothing has to keep a second copy in step.
@@ -31,7 +31,7 @@ export function PrimaryNav() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { colors, accents, glass, language } = useAppPreferences();
+  const { colors, glass, language } = useAppPreferences();
   // The bar's height is fixed (layout.compactNavHeight is used by every page), so its labels
   // never grow past the normal size — bigger text would push the icons up (rc.20 audit).
   const navScale = Math.min(useContext(TextScaleContext), 1);
@@ -67,7 +67,6 @@ export function PrimaryNav() {
         {primaryNavItems.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const label = bn ? item.bn : item.en;
-          const tone = accents[item.tone];
           return (
             <Pressable
               key={item.href}
@@ -83,11 +82,11 @@ export function PrimaryNav() {
                   styles.iconWrap,
                   expanded && styles.iconWrapExpanded,
                   active
-                    ? { backgroundColor: tone.base, ...elevation.soft }
-                    : { backgroundColor: tone.soft },
+                    ? { backgroundColor: colors.primaryTint }
+                    : { backgroundColor: 'transparent' },
                 ]}
               >
-                <AppIcon name={active ? item.activeIcon : item.icon} size={iconToken.md} color={active ? colors.onPrimary : tone.base} />
+                <AppIcon name={active ? item.activeIcon : item.icon} size={iconToken.md} color={active ? colors.primary : colors.textMuted} />
               </View>
               <TextScaleContext.Provider value={navScale}>
               <Text
@@ -95,7 +94,7 @@ export function PrimaryNav() {
                 adjustsFontSizeToFit
                 minimumFontScale={0.85}
                 maxFontSizeMultiplier={1.3}
-                style={[styles.label, { color: active ? tone.base : colors.textMuted, fontFamily: active ? typography.label.fontFamily : typography.caption.fontFamily }]}
+                style={[styles.label, { color: active ? colors.primary : colors.textMuted, fontFamily: active ? typography.label.fontFamily : typography.caption.fontFamily }]}
               >
                 {label}
               </Text>

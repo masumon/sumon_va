@@ -72,7 +72,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
 }
 
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: radius.lg, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface },
+  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: radius.card, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface },
   urgent: { borderColor: colors.danger, borderWidth: border.medium },
   pressed: { opacity: 0.92 },
   finish: { width: 84, marginLeft: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },

@@ -23,7 +23,7 @@ import { AppIcon, type IconName } from './AppIcon';
 import { tapLight, tapSelect } from './haptics';
 import { useAppPreferences } from '../app/AppPreferences';
 import { common } from '../i18n/common';
-import { border, control, elevation, icon, layout, radius, spacing, typography, type AccentRole, type ThemeAccents, type ThemeColors } from '../theme';
+import { border, control, icon, layout, radius, spacing, typography, type AccentRole, type ThemeAccents, type ThemeColors } from '../theme';
 
 /**
  * Theme, shared styles and shared copy — memoised once per screen.
@@ -546,7 +546,7 @@ function makeKitStyles(colors: ThemeColors) {
     sub: { color: colors.textSecondary, ...typography.caption, marginTop: 2 },
     grow: { flex: 1, minWidth: 0 },
 
-    card: { borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, marginBottom: spacing.md, ...elevation.soft },
+    card: { borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface, padding: spacing.md, marginBottom: spacing.md },
     cardTitle: { color: colors.textMuted, ...typography.section, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm },
     sectionTitle: { color: colors.textMuted, ...typography.section, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.sm },
 
@@ -563,7 +563,7 @@ function makeKitStyles(colors: ThemeColors) {
 
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
     chipHit: { minHeight: layout.minTouchTarget, justifyContent: 'center' },
-    chip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: radius.pill, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+    chip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: radius.chip, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
     chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
     chipText: { flexShrink: 1, color: colors.textSecondary, ...typography.bodySmall, fontWeight: '700' },
     chipTextOn: { color: colors.onPrimary },
@@ -571,31 +571,31 @@ function makeKitStyles(colors: ThemeColors) {
     // The custom-entry affordance: a labelled row, not a chip pretending to be an option.
     addRow: { minHeight: layout.minTouchTarget, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
     addRowText: { flexShrink: 1, color: colors.primary, ...typography.caption, fontWeight: '800' },
-    iconBtn: { width: control.inputHeight, height: control.inputHeight, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+    iconBtn: { width: control.inputHeight, height: control.inputHeight, borderRadius: radius.button, alignItems: 'center', justifyContent: 'center' },
 
     fieldHint: { color: colors.textMuted, ...typography.caption, marginTop: spacing.xs },
-    textarea: { minHeight: 96, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, color: colors.textPrimary, padding: spacing.md, ...typography.body, textAlignVertical: 'top' },
+    textarea: { minHeight: 96, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface, color: colors.textPrimary, padding: spacing.md, ...typography.body, textAlignVertical: 'top' },
     formBar: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderTopWidth: border.thin, borderTopColor: colors.border, backgroundColor: colors.surface },
-    secondary: { minHeight: control.buttonHeight, paddingHorizontal: spacing.lg, borderRadius: radius.md, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    secondary: { minHeight: control.buttonHeight, paddingHorizontal: spacing.lg, borderRadius: radius.button, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     secondaryText: { flexShrink: 1, color: colors.textSecondary, ...typography.callout, fontWeight: '800' },
-    dangerBtn: { minHeight: control.buttonHeight, borderRadius: radius.md, borderWidth: border.thin, borderColor: colors.danger, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
+    dangerBtn: { minHeight: control.buttonHeight, borderRadius: radius.button, borderWidth: border.thin, borderColor: colors.danger, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
     dangerText: { flexShrink: 1, color: colors.danger, ...typography.callout, fontWeight: '800' },
 
-    input: { minHeight: control.inputHeight, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceMuted, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.input },
+    input: { minHeight: control.inputHeight, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surfaceMuted, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.input },
     label: { color: colors.textSecondary, ...typography.caption, fontWeight: '700', marginBottom: spacing.xxs, marginTop: spacing.sm },
     row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 
-    primary: { minHeight: control.buttonHeight, borderRadius: radius.md, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
+    primary: { minHeight: control.buttonHeight, borderRadius: radius.button, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
     primaryText: { flexShrink: 1, color: colors.onPrimary, ...typography.callout, fontWeight: '800' },
-    ghost: { minHeight: control.buttonHeight, borderRadius: radius.md, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
+    ghost: { minHeight: control.buttonHeight, borderRadius: radius.button, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingHorizontal: spacing.md },
     ghostText: { flexShrink: 1, color: colors.primary, ...typography.callout, fontWeight: '800' },
 
-    listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, marginBottom: spacing.xs, ...elevation.soft },
+    listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface, padding: spacing.md, marginBottom: spacing.xs },
     listTitle: { flexShrink: 1, color: colors.textPrimary, ...typography.bodySmall, fontWeight: '700' },
     listMeta: { color: colors.textSecondary, ...typography.caption, marginTop: 2 },
     listAmt: { color: colors.textPrimary, ...typography.bodySmall, fontWeight: '800', fontFamily: typography.numeric.fontFamily },
 
-    badge: { borderWidth: border.thin, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+    badge: { borderWidth: border.thin, borderRadius: radius.chip, paddingHorizontal: spacing.sm, paddingVertical: 2 },
     badgeText: { ...typography.caption, fontWeight: '800' },
 
     avatar: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
@@ -604,8 +604,8 @@ function makeKitStyles(colors: ThemeColors) {
     knob: { width: 22, height: 22, borderRadius: radius.pill },
     knobOn: { alignSelf: 'flex-end' },
 
-    emptyBox: { alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xl, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface },
-    emptyAction: { minHeight: layout.minTouchTarget, marginTop: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md, borderWidth: border.thin, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+    emptyBox: { alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xl, borderWidth: border.thin, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface },
+    emptyAction: { minHeight: layout.minTouchTarget, marginTop: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.button, borderWidth: border.thin, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
     emptyActionText: { color: colors.primary, ...typography.callout, fontWeight: '800', flexShrink: 1 },
     emptyHint: { color: colors.textSecondary, ...typography.caption, textAlign: 'center', paddingHorizontal: spacing.lg },
 

@@ -1,4 +1,4 @@
-// ── Sumon VA · design system · "Sapphire & Gold" ───────────────────────────────
+// ── Sumon VA · design system · "Intercom structure on Sapphire & Gold" (approved 2026-11-05, see DESIGN.md) ───────────────────────────────
 // Direction: premium, calm, Bengali-first. A deep royal-sapphire brand with an antique
 // gold secondary accent, set on cool paper in light and deep navy-black in dark.
 // Hairline structure; one soft shadow for floating surfaces; glass only on floating
@@ -26,7 +26,7 @@ export const fonts={regular:'NotoSansBengali_400Regular',medium:'NotoSansBengali
 // textMuted, accent, success and warning were each darkened just enough to clear the
 // WCAG AA 4.5:1 text-contrast floor against `background` (verified by computing real
 // relative-luminance contrast ratios, not eyeballed) — hue kept, lightness trimmed.
-export const lightColors={background:'#F1F4FA',surface:'#FBFCFF',surfaceMuted:'#E7ECF6',surfaceSunken:'#DCE3F1',primary:'#1E2B6B',primaryPressed:'#182357',primaryTint:'#E7EAF6',onPrimary:'#FFFFFF',accent:'#8E6724',textPrimary:'#131720',textSecondary:'#464E60',textMuted:'#676E7D',border:'#DBE1EF',borderStrong:'#C5CDE0',success:'#1C7E45',warning:'#92660F',danger:'#C13B2E',info:'#2A79BE',overlay:'rgba(16, 20, 30, 0.46)'} as const;
+export const lightColors={background:'#F5F1EC',surface:'#FFFFFF',surfaceMuted:'#EBE7E1',surfaceSunken:'#E2DDD5',primary:'#1E2B6B',primaryPressed:'#182357',primaryTint:'#E7EAF6',onPrimary:'#FFFFFF',accent:'#7A5614',textPrimary:'#131720',textSecondary:'#464E60',textMuted:'#5A5F6C',border:'#D3CEC6',borderStrong:'#BDB6AA',success:'#1C7E45',warning:'#92660F',danger:'#C13B2E',info:'#2A79BE',overlay:'rgba(16, 20, 30, 0.46)'} as const;
 export const darkColors={background:'#0B1030',surface:'#151C42',surfaceMuted:'#1E2755',surfaceSunken:'#0D1233',primary:'#8EA0E6',primaryPressed:'#7A8CD0',primaryTint:'#1F2A63',onPrimary:'#07122A',accent:'#D9B663',textPrimary:'#F2F4FF',textSecondary:'#C3CAEA',textMuted:'#9AA4CF',border:'#2A3470',borderStrong:'#3C4A8C',success:'#46CE86',warning:'#E1A94E',danger:'#F0736A',info:'#5FB2E6',overlay:'rgba(0, 0, 0, 0.66)'} as const;
 // Low-light ("dim") mode: near-black warm ground (saves OLED battery), soft warm text, almost no blue light — easy on tired eyes at night.
 export const dimColors={background:'#0B0A09',surface:'#15130F',surfaceMuted:'#1E1B16',surfaceSunken:'#0F0D0B',primary:'#D6A453',primaryPressed:'#BF8F44',primaryTint:'#2A2214',onPrimary:'#1A1204',accent:'#D6A453',textPrimary:'#DCD2C0',textSecondary:'#B3A898',textMuted:'#8A8172',border:'#2B2620',borderStrong:'#3A332A',success:'#86BC8E',warning:'#D9A64A',danger:'#E0796B',info:'#86A9C6',overlay:'rgba(0, 0, 0, 0.78)'} as const;
@@ -67,7 +67,7 @@ export const typography={
   numeric:{fontSize:15,lineHeight:20,fontFamily:fonts.numSemibold},
 } as const;
 
-export const radius={xs:6,sm:10,md:14,lg:18,xl:24,xxl:30,pill:999} as const;
+export const radius={xs:6,sm:10,md:14,lg:18,xl:24,xxl:30,pill:999,chip:8,button:10,card:12,dialog:18,sheet:20} as const;
 export const control={inputHeight:52,buttonHeight:48,rowMinHeight:64,iconSize:22,iconButtonSize:48,smallIconContainer:40,listIconContainer:44,searchHeight:54,textareaMinHeight:200,titleIconSize:48,previewCloseSize:48,chipHeight:36,heroBadge:96} as const;
 export const icon={xs:16,sm:18,md:22,lg:28,xl:36} as const;
 export const opacity={disabled:0.45,pressed:0.92,muted:0.64,overlay:0.36} as const;
@@ -118,14 +118,14 @@ export const accents=lightAccents;
 // `navSolid` is a near-opaque tinted surface for the Android bottom nav — it must never
 // vanish or read as stark white (translucent Views over scrolling content can do both
 // on aggressive OEMs). `navScrim` stays for the iOS BlurView's light tint.
-export type GlassTokens={ tint:'light'|'dark'; intensity:number; scrim:string; navScrim:string; navSolid:string; border:string; highlight:string };
+export type GlassTokens={ tint:'light'|'dark'; intensity:number; scrim:string; navScrim:string; navSolid:string; dialog:string; border:string; highlight:string };
 // Lower scrim so the blur is actually visible; a 1px top highlight sells the "glass" edge.
 // navScrim is lighter still — the bottom bar reads as genuinely translucent, with the
 // bumped BlurView intensity keeping labels legible over scrolling content.
 // The bottom nav is intentionally the most translucent surface — a low scrim with a
 // stronger blur so it reads as real glass while its solid-colour labels stay legible.
-export const lightGlass:GlassTokens={ tint:'light', intensity:24, scrim:'rgba(255,255,255,0.56)', navScrim:'rgba(246,248,253,0.44)', navSolid:'rgba(244,247,252,0.95)', border:'rgba(19,23,32,0.08)', highlight:'rgba(255,255,255,0.5)' };
-export const darkGlass:GlassTokens={ tint:'dark', intensity:28, scrim:'rgba(18,22,33,0.46)', navScrim:'rgba(14,17,26,0.44)', navSolid:'rgba(15,19,29,0.95)', border:'rgba(255,255,255,0.08)', highlight:'rgba(255,255,255,0.1)' };
+export const lightGlass:GlassTokens={ tint:'light', intensity:24, scrim:'rgba(255,255,255,0.56)', navScrim:'rgba(255,255,255,0.62)', navSolid:'rgba(255,255,255,0.96)', dialog:'rgba(255,255,255,0.80)', border:'rgba(19,23,32,0.08)', highlight:'rgba(255,255,255,0.5)' };
+export const darkGlass:GlassTokens={ tint:'dark', intensity:28, scrim:'rgba(18,22,33,0.46)', navScrim:'rgba(21,28,66,0.62)', navSolid:'rgba(15,19,29,0.95)', dialog:'rgba(21,28,66,0.80)', border:'rgba(255,255,255,0.08)', highlight:'rgba(255,255,255,0.1)' };
 export function getGlassTokens(mode:AppThemeMode):GlassTokens{return mode==='light'?lightGlass:darkGlass;}
 
 // Gradient stop pairs (from→to) — plain colour arrays; stop [0] is a safe solid fallback.
@@ -134,7 +134,7 @@ export function getGlassTokens(mode:AppThemeMode):GlassTokens{return mode==='lig
 // (navy → royal → indigo → deep navy) rather than sitting flat: four near-identical blues
 // read as a rendering glitch, and the drift is what makes the card look lit. White text
 // stays AA-legible on every stop — the lightest, #3A4C9E, is ~5.6:1.
-export const gradients={brand:['#1E2B6B','#35479B'],heroBrand:['#131C45','#1E2B6B','#35479B','#182357'],hero:['#F3F5FB','#E7EDF9'],sky:['#E1EEF9','#EBE9F5'],warmth:['#F3ECDA','#F5E9DC'],surfaceLight:['#FFFFFF','#F1F4FB'],surfaceDark:['#141A29','#0C1019']} as const;
+export const gradients={brand:['#1E2B6B','#35479B'],heroBrand:['#131C45','#1E2B6B','#35479B','#182357'],hero:['#F5F1EC','#EBE7E1'],sky:['#E1EEF9','#EBE9F5'],warmth:['#F3ECDA','#F5E9DC'],surfaceLight:['#FFFFFF','#F5F1EC'],surfaceDark:['#141A29','#0C1019']} as const;
 export type GradientName=keyof typeof gradients;
 
 // Domain → colour mappings, centralized so screens stop re-implementing them.
