@@ -21,3 +21,4 @@ local.properties
 *.xlsx
 *.db
 .gradle-build-cache/
+tools/ship.log
