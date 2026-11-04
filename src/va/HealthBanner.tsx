@@ -9,11 +9,15 @@ import { notify } from '../../modules/va-bridge';
 import { useHealth } from './useHealth';
 
 /** A strip under the header that appears the moment something is wrong, says what, and opens the Health screen. */
+const SYNC_KEYS = new Set(['sync-stopped', 'sync-error', 'sync-stale', 'slow', 'offline', 'queued']);
+
 export function HealthBanner() {
   const { colors, language } = useAppPreferences();
   const bn = language === 'bn';
   const pathname = usePathname();
-  const { issues } = useHealth();
+  const { issues: all } = useHealth();
+  // Sync and connection states live in the header light (green / red / spinning): no strip, no repeated notification for them.
+  const issues = all.filter((i) => !SYNC_KEYS.has(i.key));
   const problems = issues.filter((i) => i.severity !== 'info');
   const critical = problems.some((i) => i.severity === 'critical');
   const seen = useRef<Set<string> | null>(null);

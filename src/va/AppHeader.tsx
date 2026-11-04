@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { AppText as Text } from '../ui/AppText';
@@ -11,6 +11,7 @@ import { useLoad } from './hooks';
 import { titleFor } from './menu';
 import { useShell } from './shell';
 import { THEME_OPTIONS } from './labels';
+import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 
 /** The top bar on every signed-in screen: menu, logo and title, connection light, urgent bell, and your initial. */
@@ -21,13 +22,25 @@ export function AppHeader() {
   const open = useShell((s) => s.open);
   const refresh = useShell((s) => s.refresh);
   const [spin, setSpin] = useState(false);
-  const doRefresh = () => { refresh(); setSpin(true); setTimeout(() => setSpin(false), 900); };
+  const doRefresh = () => { refresh(); setSpin(true); setTimeout(() => setSpin(false), 1500); };
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const overview = useLoad(() => va.overview(), 'header-overview', 30000, { always: true });
-  const bridge = getStatus();
+  // The phone's sync state, re-read every few seconds (cheap: no server call).
+  const [snap, setSnap] = useState(() => ({ bridge: getStatus(), at: Date.now() }));
+  useEffect(() => { const id = setInterval(() => setSnap({ bridge: getStatus(), at: Date.now() }), 4000); return () => clearInterval(id); }, []);
+  const { bridge, at } = snap;
   const urgent = overview.data?.urgent ?? 0;
-  // green = the phone service is running and the last sync worked; amber = something needs a look; grey = no answer yet
-  const light = bridge.serviceAlive && !bridge.lastError ? colors.success : bridge.lastError ? colors.warning : colors.textMuted;
+  // One sync light instead of messages: green = running and in step with the server; red = not running or no contact for a
+  // while (one short failed try is not shown); it spins while the screens reload.
+  const syncOk = bridge.serviceAlive && (!bridge.lastError || (!!bridge.lastOk && at - bridge.lastOk < 90_000));
+  const syncing = spin || (overview.loading && !overview.data);
+  const light = syncOk ? colors.success : colors.danger;
+  const turn = useSharedValue(0);
+  useEffect(() => {
+    if (syncing) turn.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
+    else { cancelAnimation(turn); turn.value = 0; }
+  }, [syncing, turn]);
+  const spinStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
   const initial = (bridge.accountName || bridge.accountEmail || 'S').trim().charAt(0).toUpperCase();
 
   const { themeSetting, setThemeMode, setLanguage } = useAppPreferences();
@@ -52,8 +65,9 @@ export function AppHeader() {
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'AI সংযোগ' : 'AI connections'} onPress={() => router.push('/ai' as never)} style={styles.iconBtn} hitSlop={4}>
         <AppIcon name="brain" size={22} color={colors.textPrimary} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'রিফ্রেশ' : 'Refresh'} onPress={doRefresh} style={styles.iconBtn} hitSlop={4}>
-        <AppIcon name={spin ? 'timer-sand' : 'refresh'} size={22} color={colors.textPrimary} />
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? (syncOk ? 'সিঙ্ক চালু আছে, চাপলে এখনই নতুন করে আনবে' : 'সিঙ্ক চলছে না, চাপলে কারণ দেখাবে') : (syncOk ? 'Sync is on; tap to refresh now' : 'Sync is not running; tap for the reason')}
+        onPress={() => { if (syncOk) doRefresh(); else router.push('/health' as never); }} style={styles.iconBtn} hitSlop={4}>
+        <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : 'sync-alert'} size={23} color={light} /></Animated.View>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'জরুরি বার্তা' : 'Urgent messages'} onPress={() => router.push({ pathname: '/inbox', params: { view: 'urgent' } } as never)} style={styles.iconBtn} hitSlop={4}>
         <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={24} color={urgent ? colors.danger : colors.textPrimary} />
