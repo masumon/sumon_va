@@ -37,6 +37,8 @@ type Native = {
   unpair(): boolean;
   loginPassword(base: string, email: string, password: string, totp: string | null, name: string): Promise<LoginResult>;
   loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
+  installedApps(): { pkg: string; label: string }[];
+  openChat(pkg: string, name: string, text: string): { how: 'chat' | 'share' | 'app' | 'none'; hasNumber: boolean };
   loginTelegramRequest(base: string, name: string): Promise<{ ok: boolean; requestId?: string; code?: string; expiresIn?: number; error?: string }>;
   loginTelegramPoll(base: string, requestId: string): Promise<{ ok: boolean; status: 'pending' | 'approved' | 'denied' | 'expired' | 'used' | 'error'; name?: string }>;
   loginVerify(base: string, email: string, code: string, totp: string | null, name: string): Promise<{ ok: boolean; needTotp?: boolean; name?: string; error?: string }>;
@@ -139,3 +141,13 @@ export const openAppSettings = call('openAppSettings');
 export const openExactAlarmSettings = call('openExactAlarmSettings');
 export const openFullScreenSettings = call('openFullScreenSettings');
 export const flush = () => (native ? native.flush() : Promise.resolve(false));
+
+/** Open that person's chat in the chat app with the answer ready (and copied). The owner presses the app's own Send. */
+export const openChat = (pkg: string, name: string, text: string): { how: 'chat' | 'share' | 'app' | 'none'; hasNumber: boolean } => {
+  try { return native ? native.openChat(pkg, name, text) : { how: 'none', hasNumber: false }; } catch { return { how: 'none', hasNumber: false }; }
+};
+
+/** Every app on the phone that has an icon, A to Z. Used by "add a new app". */
+export const installedApps = (): { pkg: string; label: string }[] => {
+  try { return native ? native.installedApps() : []; } catch { return []; }
+};

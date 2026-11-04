@@ -12,13 +12,12 @@ import { border, radius, spacing, type ThemeColors } from '../theme';
 import { getStatus, unpair } from '../../modules/va-bridge';
 import { va } from './api';
 import { MENU } from './menu';
-import { THEME_OPTIONS } from './labels';
 import { useShell } from './shell';
 import { PoweredBy } from './BrandMark';
 
 /** The side menu: who is signed in, every part of the app, language and theme, and sign out. */
 export function Drawer() {
-  const { colors, language, themeSetting, setLanguage, setThemeMode, reduceMotion } = useAppPreferences();
+  const { colors, language, reduceMotion } = useAppPreferences();
   const bn = language === 'bn';
   const { drawer, close } = useShell();
   const pathname = usePathname();
@@ -80,22 +79,6 @@ export function Drawer() {
               })}
             </View>
           ))}
-          <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-            <Text style={styles.section}>{bn ? 'ভাষা' : 'Language'}</Text>
-            <View style={styles.row}>
-              {(['bn', 'en'] as const).map((l) => (
-                <Pressable key={l} onPress={() => void setLanguage(l)} style={[styles.pill, language === l && styles.pillOn]}><Text style={[styles.pillText, language === l && { color: colors.onPrimary }]}>{l === 'bn' ? 'বাংলা' : 'English'}</Text></Pressable>
-              ))}
-            </View>
-            <Text style={styles.section}>{bn ? 'রং' : 'Theme'}</Text>
-            <View style={styles.row}>
-              {THEME_OPTIONS.map((t) => (
-                <Pressable key={t.value} onPress={() => void setThemeMode(t.value)} style={[styles.pill, themeSetting === t.value && styles.pillOn]}>
-                  <Text style={[styles.pillText, themeSetting === t.value && { color: colors.onPrimary }]}>{bn ? t.bn : t.en}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
         </ScrollView>
         <View style={{ gap: spacing.sm }}>
           <AppButton variant="secondary" icon="logout" label={bn ? 'সাইন আউট' : 'Sign out'} onPress={() => setConfirm(true)} />

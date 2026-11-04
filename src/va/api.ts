@@ -107,6 +107,7 @@ export const va = {
   setLoginPhone: (phone: string) => call<{ set: boolean; masked: string }>('PUT', '/admin/inbox/login-phone', { phone }),
   tasks: (show: 'open' | 'done' = 'open') => call<Task[]>('GET', `/admin/wa/tasks?show=${show}`),
   addTask: (title: string, due_at?: string, contact_id?: string) => call<unknown>('POST', '/admin/wa/tasks', { title, due_at, contact_id }),
+  sentByHand: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/sent-by-hand`, { text }),
   clearChat: (id: string) => call<{ removed: number }>('POST', `/admin/inbox/contacts/${id}/clear`, {}),
   toggleTask: (id: string) => call<unknown>('POST', `/admin/wa/tasks/${id}/toggle`),
   removeTask: (id: string) => call<unknown>('DELETE', `/admin/wa/tasks/${id}`),

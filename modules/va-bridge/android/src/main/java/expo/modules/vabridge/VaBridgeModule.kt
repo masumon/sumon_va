@@ -184,6 +184,22 @@ class VaBridgeModule : Module() {
       } else mapOf("ok" to true, "status" to status)
     }
 
+    /** The apps on this phone that have an icon (so the owner can add any chat app as a new platform). */
+    Function("installedApps") {
+      val pm = ctx.packageManager
+      pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+        .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+        .filter { it.first != ctx.packageName }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+        .map { mapOf("pkg" to it.first, "label" to it.second) }
+    }
+
+    /** "Reply any time": open this person's chat (or the app's share screen) in the given chat app with the answer ready. Sends nothing itself. */
+    Function("openChat") { pkg: String, name: String, text: String ->
+      if (!Store.packages(ctx).contains(pkg) && pkg !in Store.DEFAULT_PACKAGES) return@Function mapOf("how" to "none", "hasNumber" to false)
+      val (how, hasNumber) = ChatOpener.open(ctx, pkg, name, text.take(4000))
+      mapOf("how" to how, "hasNumber" to hasNumber)
+    }
+
     Function("unpair") { Store.clear(ctx); PollService.stop(ctx); true }
 
     /** Server call with the device token. Only the owner's inbox endpoints are reachable from the screens. */

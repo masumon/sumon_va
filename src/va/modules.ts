@@ -22,7 +22,12 @@ export type ModuleDef = {
   via?: 'notif' | 'telegram' | 'sms';
   /** Phone apps whose notifications this module reads (shown as switches). */
   apps?: { pkg: string; bn: string; en: string }[];
+  /** An app the owner added himself (can be removed again). */
+  custom?: boolean;
 };
+
+/** What the server keeps for an app the owner added with the "add" button. */
+export type CustomApp = { key: string; name: string; packages: string[] };
 
 export const MODULES: ModuleDef[] = [
   {
@@ -53,7 +58,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'signal', brand: 'signal', icon: 'signal-variant', tone: 'blue', bn: 'Signal', en: 'Signal', hintBn: 'Signal-এর বার্তা', hintEn: 'Signal chats', sources: ['notif:org.thoughtcrime.securesms'], auto: 'none', apps: [{ pkg: 'org.thoughtcrime.securesms', bn: 'Signal', en: 'Signal' }] },
 ];
 
-export const moduleByKey = (key: string | undefined) => MODULES.find((m) => m.key === key);
+export const moduleByKey = (key: string | undefined) => allModules().find((m) => m.key === key);
 
 /** A readable label for where a conversation came from and under which number/name, e.g. "Messenger · রহিম" or "SMS · 01711…". */
 export function sourceLabel(phone: string, channel: string, bn: boolean): string {
@@ -63,9 +68,26 @@ export function sourceLabel(phone: string, channel: string, bn: boolean): string
   if (channel === 'whatsapp') return `Business WhatsApp (API) · +${num}`;
   if (channel === 'notif') {
     const pkg = phone.split(':')[1] ?? '';
-    const app = MODULES.flatMap((m) => m.apps ?? []).find((a) => a.pkg === pkg || pkg.startsWith(a.pkg.slice(0, 30)));
+    const app = allModules().flatMap((m) => m.apps ?? []).find((a) => a.pkg === pkg || pkg.startsWith(a.pkg.slice(0, 30)));
     const appName = app ? (bn ? app.bn : app.en) : (bn ? 'অ্যাপ' : 'app');
     return bn ? `ফোনের ${appName} · ${num}` : `${appName} on this phone · ${num}`;
   }
   return num;
 }
+
+// ── apps the owner adds himself ──────────────────────────────────────────────
+// They behave exactly like the built-in modules: same page, same settings card, same reply rules. The list comes from the
+// server (assistant settings), so it survives reinstalling the app and is the same on every signed-in phone.
+let customModules: ModuleDef[] = [];
+
+export function customToModule(c: CustomApp): ModuleDef {
+  return {
+    key: c.key, brand: 'phone', icon: 'cellphone-message', tone: 'blue', bn: c.name, en: c.name, custom: true,
+    hintBn: 'আপনার যোগ করা অ্যাপ', hintEn: 'An app you added',
+    sources: c.packages.map((p) => `notif:${p}`), auto: 'none', via: 'notif',
+    apps: c.packages.map((p) => ({ pkg: p, bn: c.name, en: c.name })),
+  };
+}
+
+export function setCustomModules(list: CustomApp[]): void { customModules = list.map(customToModule); }
+export const allModules = (): ModuleDef[] => [...MODULES, ...customModules];
