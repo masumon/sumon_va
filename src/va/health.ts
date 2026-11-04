@@ -49,7 +49,8 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
     out.push({ key: 'permissions', severity: 'critical', bn: `${missing.length}টি জরুরি অনুমতি বাকি`, en: `${missing.length} essential permissions missing`, whyBn: 'এগুলো দিন: ' + missing.map((m) => m.bn).join(', '), whyEn: missing.map((m) => m.en).join(', '), fix: { route: '/setup', bn: 'অনুমতি দিন', en: 'Grant permissions' } });
   }
 
-  if (hub) {
+  // When the phone cannot reach the server at all, the AI list is old news; blaming the AI would send the owner to the wrong place.
+  if (hub && !overviewError) {
     if (hub.connections.length === 0 || hub.working === 0) {
       out.push({ key: 'ai-down', severity: 'critical', bn: 'কোনো AI চলছে না', en: 'No AI is working', whyBn: `সহকারী বার্তা ভালো করে বুঝতে পারছে না, শুধু সাধারণ নিয়মে চলছে। তাই উত্তরের মান কমে যাবে। “AI ঠিক করুন” চেপে চাবি বা সংযোগ দেখুন।${hub.last_error?.text ? ' শেষ সমস্যা: ' + hub.last_error.text : ''}`, whyEn: `The assistant cannot understand messages and falls back to plain rules.${hub.last_error?.text ? ' Last problem: ' + hub.last_error.text : ''}`, fix: { route: '/ai', bn: 'AI ঠিক করুন', en: 'Fix AI' } });
     } else if (hub.connections.some((c) => c.enabled && (c.status === 'limit' || c.status === 'bad' || c.status === 'error'))) {
@@ -58,7 +59,7 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
     }
   }
 
-  if (channels) {
+  if (channels && !overviewError) {
     const tg = channels.telegram;
     if (channels.settings.telegram.enabled && !tg.configured) {
       out.push({ key: 'tg-missing', severity: 'warn', bn: 'Telegram চালু আছে, কিন্তু বট নেই', en: 'Telegram is on but no bot', whyBn: 'Render-এ TELEGRAM_BOT_TOKEN বসানো হয়নি। “দেখুন” চেপে ধাপগুলো অনুসরণ করুন।', whyEn: 'TELEGRAM_BOT_TOKEN is not set.', fix: { route: '/m/telegram', bn: 'দেখুন', en: 'Review' } });

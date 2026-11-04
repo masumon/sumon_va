@@ -1,5 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { AppIcon } from '../ui/AppIcon';
+import { useAppFeedback } from '../ui/AppFeedback';
+import { useShell } from './shell';
+import { va } from './api';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge } from '../ui/AppSurface';
 import { BrandLogo, brandFor, brandName } from './BrandLogo';
@@ -22,7 +27,24 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   const when = contact.last_message_at
     ? (formatBangladeshRelativeDate(contact.last_message_at, language) === (bn ? 'আজ' : 'Today') ? formatBangladeshTime(contact.last_message_at, language) : formatBangladeshRelativeDate(contact.last_message_at, language))
     : '';
+  const refreshAll = useShell((st) => st.refresh);
+  const { showSnackbar } = useAppFeedback();
+  const swipe = useRef<SwipeableMethods | null>(null);
+  const canFinish = contact.unread > 0 || contact.state !== 'done';
+  const finish = async () => {
+    swipe.current?.close();
+    try { await va.patchContact(contact.id, { state: 'done' }); refreshAll(); showSnackbar(bn ? 'শেষ হিসেবে রাখা হয়েছে' : 'Marked done', 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+  };
+  // Swipe the row to the left to reveal "শেষ"; a long press opens the full menu. Fewer buttons on screen, same power.
+  const finishPane = () => (
+    <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'শেষ' : 'Done'} onPress={() => { void finish(); }} style={styles.finish}>
+      <AppIcon name="check" size={22} color="#FFFFFF" />
+      <Text style={styles.finishText}>{bn ? 'শেষ' : 'Done'}</Text>
+    </Pressable>
+  );
   return (
+    <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} renderRightActions={finishPane}>
     <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
       <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
@@ -45,6 +67,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
         </View>
       </View>
     </Pressable>
+    </ReanimatedSwipeable>
   );
 }
 
@@ -52,6 +75,8 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: radius.lg, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface },
   urgent: { borderColor: colors.danger, borderWidth: border.medium },
   pressed: { opacity: 0.92 },
+  finish: { width: 84, marginLeft: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  finishText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   icon: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint },
   main: { flex: 1, gap: spacing.xs },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },

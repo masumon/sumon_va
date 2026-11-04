@@ -3,6 +3,7 @@ import { Stack, router, usePathname } from 'expo-router';
 import { KeyboardAvoidingView, StatusBar, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
 // One file per weight, from its own folder: the packages' index would pull every weight into the APK.
@@ -99,6 +100,7 @@ export default function RootLayout() {
   }, [canRender]);
   if (!canRender) return null;
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <AppErrorBoundary>
         <AppProviders>
@@ -108,5 +110,6 @@ export default function RootLayout() {
       {/* Outside the providers on purpose: nothing inside the app can keep the opening screen alive. */}
       {splashDone ? null : <Splash onFinish={finishSplash} />}
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

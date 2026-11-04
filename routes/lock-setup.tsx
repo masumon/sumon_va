@@ -30,7 +30,7 @@ export default function LockSetupScreen() {
   return (
     <Page title={bn ? 'অ্যাপে তালা দিন' : 'Protect the app'} subtitle={bn ? 'আপনার বার্তা শুধু আপনিই দেখতে পাবেন' : 'Only you can see your messages'} bottomPadding={40}>
       <Card title={bn ? 'PIN ঠিক করুন' : 'Set a PIN'}>
-        <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? '৪ থেকে ৮ সংখ্যার একটি PIN দিন। অ্যাপ খুলতে প্রতিবার এটা লাগবে।' : 'A 4–8 digit PIN, needed each time the app opens.'}</Text>
+        <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? '৬ সংখ্যার একটি PIN দিন (৪ থেকে ৮ সংখ্যাও চলবে)। অ্যাপ খুলতে প্রতিবার এটা লাগবে।' : 'A 4–8 digit PIN, needed each time the app opens.'}</Text>
         <Field label="PIN" value={pin} onChangeText={(v) => setPin(v.replace(/\D/g, '').slice(0, 8))} keyboardType="numeric" autoFocus />
         <Field label={bn ? 'আবার লিখুন' : 'Repeat'} value={again} onChangeText={(v) => setAgain(v.replace(/\D/g, '').slice(0, 8))} keyboardType="numeric" />
         {again.length > 0 && pin !== again ? <Text style={{ color: '#C13B2E', marginTop: 6 }}>{bn ? 'দুটো মিলছে না' : 'They do not match'}</Text> : null}

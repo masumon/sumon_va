@@ -107,7 +107,7 @@ export function LockGate({ children }: PropsWithChildren) {
   if (!appLockEnabled || !locked) return <>{children}</>;
 
   const styles = makeStyles(colors);
-  const dotCount = Math.max(4, Math.min(8, entry.length || 4));
+  const dotCount = Math.max(6, Math.min(8, entry.length));
   return (
     <View style={styles.wrap} accessibilityViewIsModal accessibilityLabel={bn ? 'অ্যাপ লক' : 'App locked'}>
       <Animated.View style={[styles.card, shakeStyle]}>
