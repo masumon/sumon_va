@@ -67,17 +67,21 @@ export type Limits = { urgent_per_day: number; quiet_from: string; quiet_to: str
 export type ChannelsInfo = {
   kill_switch_on: boolean; limits: Limits;
   channels: { key: Channel; label: string; can_auto: boolean; icon: string; messages: number }[];
-  settings: { telegram: { enabled: boolean; auto: boolean }; device: { enabled: boolean; auto_sms: boolean } };
+  settings: { telegram: { enabled: boolean; auto: boolean }; device: { enabled: boolean; auto_sms: boolean }; email?: { enabled: boolean } };
+  email?: { configured: boolean; inbound_configured?: boolean };
   telegram: { configured: boolean; owner_set: boolean; secret_set: boolean; bot?: string; url?: string; pending?: number; last_error?: string; error?: string };
   devices: { id: string; name: string; paired_at: string; last_seen_at: string | null; revoked: boolean }[];
 };
 
 export type Task = { id: string; title: string; due_at: string | null; is_done: boolean; source: string; contact_name?: string | null; contact_phone?: string | null };
 
-export type StatusDef = { key: string; label: string; say: string };
+export type StatusDef = { key: string; label: string; say: string; say_en?: string };
+export type ScheduleBlock = { days: number[]; from: string; to: string; status: string };
+export type SavedPlace = { key: string; label: string; say: string; lat: number; lng: number; radius_m: number };
 export type AssistantConfig = {
   enabled: boolean; mode: 'auto' | 'shadow'; assistant_name: string; owner_name: string; reply_by: string;
-  status: { key: string; until: string | null; custom: string }; statuses: StatusDef[];
+  status: { key: string; until: string | null; custom: string; source?: string }; statuses: StatusDef[];
+  schedule?: ScheduleBlock[]; places?: SavedPlace[]; status_now?: { key: string; source?: string; label?: string };
   categories: Record<Category, { auto?: boolean; silent?: boolean }>;
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
   notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };

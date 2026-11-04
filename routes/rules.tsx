@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
@@ -38,6 +39,10 @@ export default function RulesScreen() {
             <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর' : 'Reply by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে, আপনি ঠিক আছে বললে যাবে।' : 'Off = drafts, sent when you approve.'} value={c.mode === 'auto'} onChange={(v) => void save({ mode: v ? 'auto' : 'shadow' })} />
             <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বুঝে নেওয়া' : 'Understand with AI'} value={c.ai.enabled} onChange={(v) => void save({ ai: { enabled: v } })} />
             <ToggleRow icon="microphone-outline" label={bn ? 'ভয়েস মেসেজ লিখে ফেলা' : 'Transcribe voice notes'} value={c.ai.voice} onChange={(v) => void save({ ai: { voice: v } })} />
+          </Card>
+
+          <Card icon="calendar-clock" title={bn ? 'সময়সূচি, অবস্থা ও জায়গা' : 'Routine, status and places'}>
+            <AppButton variant="secondary" icon="calendar-clock" label={bn ? 'খুলুন' : 'Open'} onPress={() => router.push('/routine' as never)} />
           </Card>
 
           <Card icon="shape-outline" title={bn ? 'কোন ধরনের বার্তায় কী করবে' : 'What to do with each kind of message'}>

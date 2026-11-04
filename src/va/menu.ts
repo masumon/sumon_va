@@ -16,6 +16,7 @@ export const MENU: MenuSection[] = [
       { href: '/inbox', icon: 'inbox-outline', bn: 'ইনবক্স', en: 'Inbox', hintBn: 'সব মাধ্যমের সব বার্তা', hintEn: 'Every message, every channel' },
       { href: '/tasks', icon: 'checkbox-marked-circle-outline', bn: 'কাজের তালিকা', en: 'Tasks', hintBn: 'কার কাছে কী করতে হবে', hintEn: 'Who needs what from you' },
       { href: '/rules', icon: 'robot-outline', bn: 'সহকারীর অবস্থা ও নিয়ম', en: 'Assistant status & rules', hintBn: 'ঘুমে বা মিটিংয়ে আছি, উত্তরের নিয়ম', hintEn: 'Away status and reply rules' },
+      { href: '/routine', icon: 'calendar-clock', bn: 'সময়সূচি, অবস্থা ও জায়গা', en: 'Routine, status and places', hintBn: 'সহকারী আপনার সম্পর্কে কী বলবে', hintEn: 'What it may say about you' },
       { href: '/scripts', icon: 'text-box-edit-outline', bn: 'উত্তরের লেখা', en: 'Reply wording', hintBn: 'সহকারী যা লেখে তা বদলান', hintEn: 'Edit the sentences it says' },
       { href: '/simulate', icon: 'flask-outline', bn: 'পরীক্ষা', en: 'Test', hintBn: 'আসল বার্তা না পাঠিয়ে দেখুন সহকারী কী করত', hintEn: 'See what it would do, safely' },
       { href: '/report', icon: 'chart-box-outline', bn: 'রিপোর্ট', en: 'Report', hintBn: 'সহকারী কতটা কাজ করল, কত অনুমোদন হলো', hintEn: 'How much it did, approvals' },
