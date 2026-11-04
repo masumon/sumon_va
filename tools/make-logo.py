@@ -20,8 +20,8 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "logo"
-FONT = ROOT / "node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf"
-NAME_FONT = ROOT / "tools/fonts/Montserrat_600SemiBold.ttf"   # SIL Open Font License
+FONT = ROOT / "tools/fonts/PlayfairDisplay_900Black.ttf"   # the S (SIL Open Font License)
+NAME_FONT = ROOT / "tools/fonts/Cinzel_600SemiBold.ttf"   # the name (SIL Open Font License)
 CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 DEFS = ('<defs>'
@@ -35,8 +35,8 @@ DEFS = ('<defs>'
         '<filter id="soft" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="12"/></filter>'
         '</defs>')
 
-S_HEIGHT = 380
-DISC_R = 372
+S_HEIGHT = 300
+DISC_R = 400
 FONT_GLYPHS = None
 
 
@@ -57,7 +57,7 @@ def letter_s(height: float) -> str:
     x0, y0, x1, y1 = bp.bounds
     k = height / (y1 - y0)
     ox = 512 - (x0 + x1) / 2 * k
-    oy = 520 + (y0 + y1) / 2 * k       # the font's y axis points up, SVG's down
+    oy = 476 + (y0 + y1) / 2 * k       # the font's y axis points up, SVG's down
     pen = SVGPathPen(glyphs)
     glyphs[name].draw(TransformPen(pen, (k, 0, 0, -k, ox, oy)))
     return pen.getCommands()
@@ -82,19 +82,22 @@ def text_path(text: str, size: float, tracking: float, cx: float, baseline: floa
 
 
 S_PATH = letter_s(S_HEIGHT)
-BADGE = (512 + DISC_R * 0.7071, 512 - DISC_R * 0.7071)   # the notification badge sits on the ring, at one o'clock
+BADGE = (664, 326)   # the notification badge, clear of the letter's top-right corner
 
 
 def emblem() -> str:
-    """A round emblem: a disc with a fine gold ring, the gold S inside, and the red notification badge set into the ring."""
+    """Everything sits inside one round emblem: a disc with a fine gold-to-green ring, the gold S with a green badge at its top
+    right, and the owner's name small beneath the letter."""
     bx, by = BADGE
+    name = text_path("MUMAIN AHMED", 40, 15, 512, 716)
     return (f'<circle cx="512" cy="512" r="{DISC_R}" fill="url(#disc)"/>'
             f'<circle cx="512" cy="512" r="{DISC_R - 22}" fill="none" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="3"/>'
             f'<circle cx="512" cy="512" r="{DISC_R}" fill="none" stroke="url(#ring)" stroke-width="12"/>'
-            f'<path d="{S_PATH}" fill="#050819" fill-opacity="0.55" transform="translate(8 16)" filter="url(#soft)"/>'
+            f'<path d="{S_PATH}" fill="#050819" fill-opacity="0.55" transform="translate(6 12)" filter="url(#soft)"/>'
             f'<path d="{S_PATH}" fill="url(#gold)"/><path d="{S_PATH}" fill="url(#edge)" fill-opacity="0.28"/>'
-            f'<circle cx="{bx:.0f}" cy="{by:.0f}" r="66" fill="#0A1440"/><circle cx="{bx:.0f}" cy="{by:.0f}" r="46" fill="url(#red)"/>'
-            f'<ellipse cx="{bx - 12:.0f}" cy="{by - 17:.0f}" rx="17" ry="10" fill="#FFFFFF" fill-opacity="0.34"/>')
+            f'<circle cx="{bx}" cy="{by}" r="46" fill="#0A1440"/><circle cx="{bx}" cy="{by}" r="32" fill="url(#red)"/>'
+            f'<ellipse cx="{bx - 8}" cy="{by - 12}" rx="12" ry="7" fill="#FFFFFF" fill-opacity="0.34"/>'
+            f'<path d="{name}" fill="url(#gold)"/><rect x="467" y="744" width="90" height="4" rx="2" fill="url(#ring)"/>')
 
 
 def svg(body: str, bg: bool, h: int = 1024) -> str:
@@ -111,19 +114,16 @@ def mono(scale: float) -> str:
 
 
 def lockup() -> str:
-    """Emblem with the owner's name small beneath it, like a signature slogan."""
-    name = text_path("MUMAIN AHMED", 58, 22, 512, 1064)
-    rule = '<rect x="452" y="1104" width="120" height="4" rx="2" fill="url(#gold)"/>'
-    return f'<g transform="translate(0 -20)">{emblem()}</g><path d="{name}" fill="url(#gold)"/>{rule}'
+    return emblem()
 
 
 VARIANTS = {
     "logo-icon": svg(emblem(), True),                                    # the full app icon (round emblem on the square)
     "logo-mark": svg(emblem(), False),                                   # transparent background, for the splash and anywhere on dark
-    "logo-adaptive": svg(f'<g {tf(0.80)}>{emblem()}</g>', False),        # Android adaptive foreground (safe zone)
+    "logo-adaptive": svg(f'<g {tf(0.84)}>{emblem()}</g>', False),        # Android adaptive foreground (safe zone)
     "logo-mono": svg(mono(1.0), False),                                  # Android themed icon
     "logo-notification": svg(mono(1.25), False),                         # status-bar icon (white only)
-    "logo-lockup": svg(lockup(), True, 1180),                            # emblem + MUMAIN AHMED, for documents and signboards
+    "logo-lockup": svg(lockup(), True, 1024),                            # emblem + MUMAIN AHMED, for documents and signboards
 }
 
 
@@ -155,7 +155,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for name, text in VARIANTS.items():
         (OUT / f"{name}.svg").write_text(text, encoding="utf-8")
-        render(OUT / f"{name}.svg", OUT / f"{name}.png", 1024, transparent=name != "logo-icon", height=1180 if name == "logo-lockup" else 1024)
+        render(OUT / f"{name}.svg", OUT / f"{name}.png", 1024, transparent=name != "logo-icon", height=1024)
     Image.open(OUT / "logo-icon.png").convert("RGB").save(OUT / "logo-icon.jpg", quality=95)
     sheet_pdf(OUT / "logo-sheet.pdf")
     print("logo files written to", OUT)
