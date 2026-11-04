@@ -1,5 +1,7 @@
 # CLAUDE.md — sumon-va
 
+> **READ FIRST: `docs/HANDOFF.md`** — current status, owner rules, what is verified, and the ordered TODO. Do not start work before reading it. Update it at the end of every work session.
+
 ## What this project is
 "সুমনের ভার্চুয়াল সহকারী": a single-owner Android app (Expo 57, React Native 0.86.2, expo-router, zustand, Kotlin module `modules/va-bridge`). It relays chat-app notifications/SMS/calls to the ABO server and shows an inbox and assistant console. All business data lives on the server; the phone keeps only an encrypted token, an offline queue, and app preferences. Owner writes Bangla and is non-technical.
 
