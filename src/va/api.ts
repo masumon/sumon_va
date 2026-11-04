@@ -52,7 +52,7 @@ export type Contact = {
 
 export type Message = {
   id: string; direction: 'in' | 'out'; kind: string; body: string | null; transcript: string | null;
-  status: 'received' | 'draft' | 'queued' | 'sent' | 'failed' | 'skipped' | 'discarded'; reason: string | null;
+  status: 'received' | 'draft' | 'queued' | 'sending' | 'sent' | 'failed' | 'skipped' | 'discarded'; reason: string | null;
   error: string | null; created_at: string | null; note: string | null; tag: string | null; delivery: string | null;
 };
 

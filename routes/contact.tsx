@@ -22,7 +22,7 @@ const MODES: Contact['mode'][] = ['inherit', 'auto', 'draft', 'notify'];
 function Ticks({ m }: { m: Message }) {
   const { colors } = useKit();
   if (m.status === 'failed') return <AppIcon name="alert-circle-outline" size={15} color={colors.danger} />;
-  if (m.status === 'queued' || m.status === 'sending' as string) return <AppIcon name="clock-outline" size={14} color={colors.textMuted} />;
+  if (m.status === 'queued' || m.status === 'sending') return <AppIcon name="clock-outline" size={14} color={colors.textMuted} />;
   if (m.delivery === 'read') return <AppIcon name="check-all" size={16} color="#34B7F1" />;
   if (m.delivery === 'delivered') return <AppIcon name="check-all" size={16} color={colors.textMuted} />;
   if (m.status === 'sent') return <AppIcon name="check" size={16} color={colors.textMuted} />;
@@ -32,7 +32,8 @@ function Ticks({ m }: { m: Message }) {
 function Bubble({ m }: { m: Message }) {
   const { colors, bn, language } = useKit();
   const mine = m.direction === 'out';
-  const st = MESSAGE_STATUS[m.status];
+  // A status this app version does not know yet must never crash the chat: show the plain code instead.
+  const st = MESSAGE_STATUS[m.status] ?? { bn: String(m.status ?? ''), en: String(m.status ?? '') };
   const text = m.transcript || m.body || (bn ? '(লেখা নেই)' : '(no text)');
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
@@ -67,7 +68,7 @@ export default function ContactScreen() {
   const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
 
   return (
-    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel].bn : CHANNEL[c.channel].en) : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
+    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
       <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {c && pr ? (
         <>

@@ -29,6 +29,7 @@ export const MESSAGE_STATUS: Record<Message['status'], { bn: string; en: string 
   received: { bn: 'এসেছে', en: 'Received' },
   draft: { bn: 'খসড়া, আপনার অনুমোদনের অপেক্ষায়', en: 'Draft — waiting for your approval' },
   queued: { bn: 'পাঠানোর অপেক্ষায়', en: 'Queued' },
+  sending: { bn: 'ফোন থেকে যাচ্ছে', en: 'Sending from the phone' },
   sent: { bn: 'পাঠানো হয়েছে', en: 'Sent' },
   failed: { bn: 'পাঠানো যায়নি', en: 'Failed' },
   skipped: { bn: 'বাদ দেওয়া হয়েছে', en: 'Skipped' },
