@@ -22,3 +22,9 @@ local.properties
 *.db
 .gradle-build-cache/
 tools/ship.log
+
+# Impeccable: engine binary (re-installable) and ephemeral working files
+.claude/skills/impeccable/scripts/bin/
+.impeccable/live/
+.impeccable/critique/
+.impeccable/cache/
