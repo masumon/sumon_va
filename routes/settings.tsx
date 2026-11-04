@@ -9,6 +9,7 @@ import { useAppPreferences } from '../src/app/AppPreferences';
 import { va, type Limits } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
+import { InfoHint } from '../src/va/InfoHint';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
 import { getStatus, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
 import { APP_VERSION } from '../src/va/config';
@@ -20,6 +21,33 @@ const FROM = ['21:00', '22:00', '23:00', '00:00'] as const;
 const TO = ['05:00', '06:00', '07:00', '08:00'] as const;
 
 const LEVELS = ['0', '1', '2', '3'] as const;
+
+/** Sign in with a phone number as well as the e-mail: the number is saved on the server and only replaces the username. */
+function LoginPhone() {
+  const { bn } = useKit();
+  const { showSnackbar } = useAppFeedback();
+  const cur = useLoad(() => va.loginPhone(), 'login-phone');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try { await va.setLoginPhone(phone); setPhone(''); await cur.reload(); showSnackbar(bn ? 'ফোন নম্বর সংরক্ষণ হয়েছে' : 'Phone number saved', 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    finally { setBusy(false); }
+  };
+  const ok = phone.replace(/\D/g, '').length >= 10;
+  return (
+    <Card icon="phone-outline" title={bn ? 'ফোন নম্বর দিয়ে ঢোকা' : 'Sign in with phone number'}>
+      <InfoHint text={
+        cur.data?.set
+          ? (bn ? `এখন সেট আছে: ${cur.data.masked}। লগইনের সময় ইমেইলের জায়গায় এই নম্বর লিখলেও চলবে। পাসওয়ার্ড তবুও লাগবে।` : `Currently set: ${cur.data.masked}. You can type this number instead of the e-mail when signing in. The password is still needed.`)
+          : (bn ? 'নম্বর সেট করলে লগইনের সময় ইমেইলের জায়গায় নম্বর লিখলেও চলবে। পাসওয়ার্ড তবুও লাগবে।' : 'Set a number to use it instead of the e-mail when signing in. The password is still needed.')} />
+      {cur.data?.set ? <Text style={{ marginBottom: 6, fontWeight: '700' }}>{bn ? `সেট আছে: ${cur.data.masked}` : `Set: ${cur.data.masked}`}</Text> : null}
+      <Field label={bn ? 'মোবাইল নম্বর' : 'Mobile number'} value={phone} onChangeText={(v) => setPhone(v.replace(/[^0-9+]/g, '').slice(0, 15))} keyboardType="numeric" placeholder="01XXXXXXXXX" />
+      <AppButton label={bn ? 'সংরক্ষণ করুন' : 'Save'} icon="content-save-outline" loading={busy} disabled={!ok} onPress={() => void save()} />
+    </Card>
+  );
+}
 
 /** How hard each kind of alert shakes and rings. Test buttons let you feel it before you choose. */
 function AlertStrength() {
@@ -33,8 +61,8 @@ function AlertStrength() {
     { key: 'alertNormal', bn: 'সাধারণ নতুন বার্তা', en: 'Ordinary new messages' },
   ];
   return (
-    <Card title={bn ? 'কম্পন ও আওয়াজের মাত্রা' : 'Vibration and sound strength'}>
-      <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'কোন ধরনের বার্তায় ফোন কতটা কাঁপবে আর বাজবে, তা ঠিক করুন। “পরীক্ষা” চেপে এখনই দেখে নিন।' : 'Choose how much the phone shakes and rings for each kind of message. Press “Test” to feel it now.'}</Text>
+    <Card icon="vibrate" title={bn ? 'কম্পন ও আওয়াজের মাত্রা' : 'Vibration and sound strength'}>
+      <InfoHint text={bn ? 'কোন ধরনের বার্তায় ফোন কতটা কাঁপবে আর বাজবে, তা ঠিক করুন। “পরীক্ষা” চেপে এখনই দেখে নিন।' : 'Choose how much the phone shakes and rings for each kind of message. Press “Test” to feel it now.'} />
       {rows.map((r) => (
         <View key={r.key} style={{ marginBottom: 8 }}>
           <ChipGroup<(typeof LEVELS)[number]> label={bn ? r.bn : r.en} options={LEVELS} value={String(s[r.key]) as (typeof LEVELS)[number]} labelOf={label}
@@ -64,18 +92,18 @@ export default function SettingsScreen() {
 
   return (
     <Page title={bn ? 'সেটিংস' : 'Settings'} subtitle={bn ? 'চেহারা, নিরাপত্তা ও সীমা' : 'Look, security and limits'}>
-      <Card title={bn ? 'ভাষা' : 'Language'}>
+      <Card icon="translate" title={bn ? 'ভাষা' : 'Language'}>
         <ChipGroup<Lang> options={['bn', 'en']} value={p.language} labelOf={(l) => (l === 'bn' ? 'বাংলা' : 'English')} onChange={(l) => { if (l) void p.setLanguage(l); }} />
       </Card>
 
-      <Card title={bn ? 'চেহারা' : 'Appearance'}>
+      <Card icon="palette-outline" title={bn ? 'চেহারা' : 'Appearance'}>
         <ChipGroup<ThemeChoice> label={bn ? 'রং' : 'Theme'} options={THEME_OPTIONS.map((t) => t.value)} value={p.themeSetting} labelOf={(v) => { const t = THEME_OPTIONS.find((x) => x.value === v); return t ? (bn ? t.bn : t.en) : v; }} onChange={(t) => { if (t) void p.setThemeMode(t); }} />
         <ChipGroup<(typeof SIZES)[number]> label={bn ? 'লেখার মাপ' : 'Text size'} options={SIZES} value={String(p.textScale) as (typeof SIZES)[number]}
           labelOf={(s) => (s === '0.9' ? (bn ? 'ছোট' : 'Small') : s === '1' ? (bn ? 'স্বাভাবিক' : 'Normal') : s === '1.1' ? (bn ? 'বড়' : 'Large') : (bn ? 'আরও বড়' : 'Larger'))} onChange={(s) => { if (s) void p.setTextScale(Number(s)); }} />
         <ToggleRow icon="motion-pause-outline" label={bn ? 'কম অ্যানিমেশন' : 'Reduce motion'} value={p.reduceMotion} onChange={(v) => void p.setReduceMotion(v)} />
       </Card>
 
-      <Card title={bn ? 'নিরাপত্তা' : 'Security'}>
+      <Card icon="shield-lock-outline" title={bn ? 'নিরাপত্তা' : 'Security'}>
         <ToggleRow icon="cellphone-lock" label={bn ? 'স্ক্রিনশট ও রিসেন্ট অ্যাপে লুকান' : 'Hide from screenshots and recents'} hint={bn ? 'স্ক্রিনশটে বা রিসেন্ট অ্যাপের তালিকায় আপনার চ্যাট দেখা যাবে না।' : 'Nobody can capture your chats.'}
           value={p.blockScreenshots} onChange={(v) => void p.setBlockScreenshots(v)} />
         <Text style={{ marginTop: 12, fontWeight: '700' }}>{p.appLockEnabled ? (bn ? 'অ্যাপ-লক চালু (PIN ও আঙুলের ছাপ)' : 'App lock on (PIN and fingerprint)') : (bn ? 'অ্যাপ-লক বন্ধ' : 'App lock off')}</Text>
@@ -87,7 +115,9 @@ export default function SettingsScreen() {
 
       <AlertStrength />
 
-      <Card title={bn ? 'জরুরি অ্যালার্টের সীমা' : 'Urgent alert limits'}>
+      <LoginPhone />
+
+      <Card icon="bell-alert-outline" title={bn ? 'জরুরি অ্যালার্টের সীমা' : 'Urgent alert limits'}>
         {limits ? (
           <>
             <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts a day'} options={CAPS} value={String(limits.urgent_per_day) as (typeof CAPS)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ urgent_per_day: Number(c) }); }} />
@@ -102,7 +132,7 @@ export default function SettingsScreen() {
         <AppButton variant="secondary" icon="information-outline" label={bn ? 'অ্যাপ সম্পর্কে ও ক্রেডিট' : 'About and credits'} onPress={() => router.push('/about' as never)} />
       </Card>
 
-      <Card title={bn ? 'এই ফোন' : 'This phone'}>
+      <Card icon="cellphone" title={bn ? 'এই ফোন' : 'This phone'}>
         <AppButton variant="danger" icon="link-off" label={bn ? 'এই ফোনের সংযোগ বিচ্ছিন্ন করুন' : 'Unpair this phone'} onPress={() => setConfirm(true)} />
         <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {APP_VERSION}</Text>
       </Card>

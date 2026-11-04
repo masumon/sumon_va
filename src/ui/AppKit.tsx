@@ -14,6 +14,7 @@
 // first to look finished. Moving them here is what makes that finish available to
 // everything else.
 
+import { SoftIcon } from '../va/SoftIcon';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
@@ -300,11 +301,16 @@ export function Stat({ label, value, hint, tone }: { label: string; value: strin
   );
 }
 
-export function Card({ title, children, style }: { title?: string; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function Card({ title, icon, children, style }: { title?: string; icon?: IconName; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { s } = useKit();
   return (
     <View style={[s.card, style]}>
-      {title ? <Text numberOfLines={2} style={s.cardTitle}>{title}</Text> : null}
+      {title && icon ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <SoftIcon name={icon} size={32} />
+          <Text numberOfLines={2} style={[s.cardTitle, { flex: 1 }]}>{title}</Text>
+        </View>
+      ) : title ? <Text numberOfLines={2} style={s.cardTitle}>{title}</Text> : null}
       {children}
     </View>
   );

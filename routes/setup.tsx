@@ -8,6 +8,7 @@ import { Card, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
 import { Page } from '../src/va/Page';
+import { InfoHint } from '../src/va/InfoHint';
 import { useLoad } from '../src/va/hooks';
 import { GROUPS, PERMISSIONS, reasonFor, requestRuntime, type Outcome, type PermDef } from '../src/va/permissions';
 import { getStatus, openAppSettings, startService, testAlert } from '../modules/va-bridge';
@@ -65,7 +66,7 @@ export default function SetupScreen() {
         <View key={g.key} style={{ gap: 10 }}>
           <View style={{ marginTop: 6 }}>
             <Text style={{ fontWeight: '800', fontSize: 16 }}>{bn ? g.bn : g.en}</Text>
-            <Text style={{ opacity: 0.65, fontSize: 12 }}>{bn ? g.hintBn : g.hintEn}</Text>
+            {(bn ? g.hintBn : g.hintEn).length > 90 ? <InfoHint text={bn ? g.hintBn : g.hintEn} /> : <Text style={{ opacity: 0.65, fontSize: 12 }}>{bn ? g.hintBn : g.hintEn}</Text>}
           </View>
           {PERMISSIONS.filter((p) => p.group === g.key).map((def) => {
             const ok = def.ok(s);
@@ -76,7 +77,7 @@ export default function SetupScreen() {
                   <AppIcon name={ok ? 'check-circle' : def.grade === 'optional' ? 'minus-circle-outline' : 'close-circle'} size={26} color={ok ? colors.success : def.grade === 'optional' ? colors.textMuted : colors.danger} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '700' }}>{bn ? def.bn : def.en}</Text>
-                    <Text style={{ opacity: 0.7, fontSize: 13, lineHeight: 19 }}>{bn ? def.whyBn : def.whyEn}</Text>
+                    {(bn ? def.whyBn : def.whyEn).length > 90 ? <InfoHint text={bn ? def.whyBn : def.whyEn} /> : <Text style={{ opacity: 0.7, fontSize: 13, lineHeight: 19 }}>{bn ? def.whyBn : def.whyEn}</Text>}
                   </View>
                   <AppBadge tone={ok ? 'success' : def.grade === 'optional' ? 'neutral' : 'danger'} label={ok ? (bn ? 'চালু ✓' : 'On ✓') : def.grade === 'optional' ? (bn ? 'ঐচ্ছিক' : 'Optional') : (bn ? 'বাকি' : 'Missing')} />
                 </View>
@@ -98,7 +99,7 @@ export default function SetupScreen() {
         </View>
       ))}
 
-      <Card title={bn ? 'সংযোগের অবস্থা' : 'Connection health'}>
+      <Card icon="connection" title={bn ? 'সংযোগের অবস্থা' : 'Connection health'}>
         <Text>{bn ? 'ব্যাকগ্রাউন্ড সিঙ্ক: ' : 'Background sync: '}{s.serviceAlive ? (bn ? 'চালু ✓' : 'running ✓') : (bn ? 'বন্ধ' : 'stopped')}</Text>
         <Text>{bn ? 'শেষবার সংযোগ হয়েছে: ' : 'Last successful sync: '}{s.lastOk ? formatBangladeshDateTime(new Date(s.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
         <Text>{bn ? 'পাঠাতে বাকি (অফলাইন): ' : 'Waiting to upload (offline): '}{s.queued}</Text>

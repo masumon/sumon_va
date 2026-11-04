@@ -71,7 +71,7 @@ export default function DashboardScreen() {
     <Page title={bn ? 'ড্যাশবোর্ড' : 'Dashboard'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} onRefresh={reloadAll} refreshing={overview.loading && !!o}>
       <Status loading={overview.loading && !o} error={o ? null : overview.error} onRetry={overview.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
 
-      <Hero title={welcome} subtitle={summary}>
+      <Hero eyebrow={bn ? 'সুমনের ভার্চুয়াল জগতে স্বাগতম' : 'Welcome to Sumon’s virtual world'} title={welcome} subtitle={summary}>
         {o ? (
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {lens === 'personal' ? (
@@ -97,14 +97,14 @@ export default function DashboardScreen() {
       ) : null}
 
       {setupNeeded ? (
-        <Card title={bn ? '⚠ সেটআপ বাকি' : '⚠ Setup unfinished'}>
+        <Card icon="alert-outline" title={bn ? 'সেটআপ বাকি' : 'Setup unfinished'}>
           <Text style={{ marginBottom: 8 }}>{bn ? 'কিছু অনুমতি দেওয়া হয়নি, তাই সব বার্তা আসছে না।' : 'Some permissions are missing, so not every message is caught.'}</Text>
           <AppButton label={bn ? 'অনুমতি ঠিক করুন' : 'Fix permissions'} icon="shield-check-outline" onPress={() => go('/setup')} />
         </Card>
       ) : null}
 
       {o ? (
-        <Card title={bn ? 'আমার অবস্থা' : 'Right now I am…'}>
+        <Card icon="account-clock-outline" title={bn ? 'আমার অবস্থা' : 'Right now I am…'}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <AppBadge tone={status && status.key !== 'free' ? 'warning' : 'success'} label={status?.label ?? (bn ? 'ফ্রি আছি' : 'Free')} />
             <Text style={{ flex: 1, opacity: 0.7, fontSize: 13 }}>{bn ? 'সহকারী মানুষকে এটাই বলে।' : 'This is what the assistant tells people.'}</Text>

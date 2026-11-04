@@ -14,6 +14,7 @@ import { BrandLogo } from './BrandLogo';
 import { Page, Status } from './Page';
 import { ContactRow } from './ContactRow';
 import type { ModuleDef } from './modules';
+import { InfoHint } from './InfoHint';
 import { ConnectGuide } from './ConnectGuide';
 import { EmailFilterCard } from './EmailFilterCard';
 
@@ -74,25 +75,26 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       {mod.key === 'email' ? <EmailFilterCard /> : null}
 
       {mod.auto === 'telegram' && d ? (
-        <Card title={bn ? 'Telegram বট' : 'Telegram bot'}>
+        <Card icon="send-outline" title={bn ? 'Telegram বট' : 'Telegram bot'}>
           <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও সংযুক্ত নয়। অ্যাডমিনের “মাধ্যম ও ফোন” ট্যাবে ধাপগুলো দেওয়া আছে।' : 'Bot is not connected yet — steps are in the admin “Channels & phone” tab.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
           <ToggleRow icon="send" label={bn ? 'Telegram চালু' : 'Telegram on'} value={d.settings.telegram.enabled} onChange={(v) => void save({ channels: { telegram: { enabled: v } } })} />
           <ToggleRow icon="robot-outline" label={bn ? 'বট নিজে উত্তর দেবে' : 'Bot replies by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে। পরিবারের কাউকে কখনও নিজে উত্তর দেবে না।' : 'Off = drafts only. Never family.'} value={d.settings.telegram.auto} onChange={(v) => void save({ channels: { telegram: { auto: v } } })} />
         </Card>
       ) : null}
       {mod.auto === 'sms' && d ? (
-        <Card title={bn ? 'SMS ও কল' : 'SMS and calls'}>
+        <Card icon="message-text-outline" title={bn ? 'SMS ও কল' : 'SMS and calls'}>
           <ToggleRow icon="message-text-outline" label={bn ? 'SMS-এ নিজে উত্তর দেবে' : 'Reply to SMS by itself'} hint={bn ? 'যেমন মিসড কলে “পরে কল করছি”। পরিবারের কাউকে কখনও নিজে উত্তর দেবে না।' : 'E.g. “I’ll call back”. Never family.'} value={d.settings.device.auto_sms} onChange={(v) => void save({ channels: { device: { auto_sms: v } } })} />
           {!getStatus().smsReceive ? <AppButton variant="secondary" label={bn ? 'SMS-এর অনুমতি দিন' : 'Allow SMS'} onPress={() => router.push('/setup' as never)} /> : null}
         </Card>
       ) : null}
       {mod.auto === 'none' ? (
-        <Card title={bn ? 'এখানে উত্তর দেওয়া' : 'Replies here'}>
-          <Text style={{ opacity: 0.8, lineHeight: 22 }}>{bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই বার্তা যায়। এতে আপনার নম্বর ব্লক হওয়ার ভয় থাকে না।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'}</Text>
+        <Card icon="message-reply-text-outline" title={bn ? 'এখানে উত্তর দেওয়া' : 'Replies here'}>
+          <Text style={{ marginBottom: 6 }}>{bn ? 'শুধু খসড়া, আপনি চাপলে যায়' : 'Drafts only, sent when you press'}</Text>
+          <InfoHint text={bn ? 'সহকারী এখানে নিজে কিছু পাঠায় না, শুধু খসড়া বানায়। আপনি “এটাই পাঠান” চাপলে তবেই বার্তা যায়। এতে আপনার নম্বর ব্লক হওয়ার ভয় থাকে না।' : 'The assistant never sends by itself here. It writes a draft and it goes only when you press “Send this”. That keeps your number safe.'} />
         </Card>
       ) : null}
       {mod.apps ? (
-        <Card title={bn ? 'যে অ্যাপের বার্তা পড়া হবে' : 'Apps that are read'}>
+        <Card icon="apps" title={bn ? 'যে অ্যাপের বার্তা পড়া হবে' : 'Apps that are read'}>
           {mod.apps.map((a) => <ToggleRow key={a.pkg} label={bn ? a.bn : a.en} value={watched.has(a.pkg)} onChange={(v) => toggleApp(a.pkg, v)} />)}
           {!getStatus().notificationAccess ? <AppButton variant="secondary" label={bn ? 'বার্তা পড়ার অনুমতি দিন' : 'Allow reading messages'} onPress={() => router.push('/setup' as never)} /> : null}
         </Card>

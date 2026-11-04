@@ -7,6 +7,7 @@ import { AppButton } from '../src/ui/AppSurface';
 import { Card, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { Page } from '../src/va/Page';
+import { InfoHint } from '../src/va/InfoHint';
 import { BrandMark, PoweredBy } from '../src/va/BrandMark';
 import { loginPassword, loginRequest, loginVerify } from '../modules/va-bridge';
 import { SERVER } from '../src/va/config';
@@ -66,14 +67,16 @@ export default function LoginScreen() {
     } finally { setBusy(false); }
   };
 
-  const emailOk = /.+@.+\..+/.test(email.trim());
+  const isEmail = /.+@.+\..+/.test(email.trim());
+  const isPhone = !isEmail && email.replace(/\D/g, '').length >= 10;
+  const emailOk = isEmail;
   return (
     <Page title={bn ? 'স্বাগতম' : 'Welcome'} subtitle={bn ? 'অ্যাডমিনের ইমেইল ও পাসওয়ার্ড দিয়ে ঢুকুন' : 'Sign in with your admin e-mail and password'} bottomPadding={40}>
       <View style={{ alignItems: 'center', marginVertical: 8 }}><BrandMark size={88} /></View>
 
       {step !== 'mailcode' ? (
         <Card>
-          <Field label={bn ? 'ইমেইল' : 'E-mail'} value={email} onChangeText={setEmail} placeholder="you@example.com" autofill="email" />
+          <Field label={bn ? 'ইমেইল বা ফোন নম্বর' : 'E-mail or phone number'} value={email} onChangeText={setEmail} placeholder="you@example.com / 01XXXXXXXXX" autofill="email" />
           <Field label={bn ? 'পাসওয়ার্ড' : 'Password'} value={password} onChangeText={setPassword} secure autofill="password" />
           {step === 'totp' ? (
             <>
@@ -81,7 +84,7 @@ export default function LoginScreen() {
               <Field label={bn ? 'অথেনটিকেটর কোড' : 'Authenticator code'} value={totp} onChangeText={(v) => setTotp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="numeric" autofill="otp" autoFocus />
             </>
           ) : (
-            <Text style={{ opacity: 0.7, fontSize: 13, marginTop: 6 }}>{bn ? 'একবার ঢুকলে এই ফোন মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। Google পাসওয়ার্ড ম্যানেজার থাকলে সেটাই পাসওয়ার্ড বসিয়ে দেবে।' : 'Once signed in, this phone is remembered. Next time only your PIN or fingerprint is needed. Your password manager (Google) can fill this in.'}</Text>
+            <View style={{ marginTop: 8 }}><InfoHint text={bn ? 'একবার ঢুকলে এই ফোন মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। Google পাসওয়ার্ড ম্যানেজার থাকলে সেটাই পাসওয়ার্ড বসিয়ে দেবে।' : 'Once signed in, this phone is remembered. Next time only your PIN or fingerprint is needed. Your password manager (Google) can fill this in.'} /></View>
           )}
         </Card>
       ) : (
@@ -98,7 +101,7 @@ export default function LoginScreen() {
         </View>
       ) : (
         <View style={{ gap: 10 }}>
-          <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" loading={busy} disabled={!emailOk || !password || (step === 'totp' && totp.length !== 6)} onPress={() => void signIn()} />
+          <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" loading={busy} disabled={!(isEmail || isPhone) || !password || (step === 'totp' && totp.length !== 6)} onPress={() => void signIn()} />
           <AppButton variant="ghost" label={bn ? 'পাসওয়ার্ড ভুলে গেছি, ইমেইলে কোড পাঠান' : 'Forgot password — e-mail me a code'} disabled={!emailOk || busy} onPress={() => void sendMail()} />
           <AppButton variant="ghost" label={bn ? 'অ্যাডমিনের দেওয়া জোড়া লাগানোর কোড আছে?' : 'Have a pairing code from the admin?'} onPress={() => router.push('/pair' as never)} />
         </View>

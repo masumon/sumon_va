@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '../ui/AppText';
-import { AppIcon } from '../ui/AppIcon';
+import { SoftIcon } from './SoftIcon';
 import type { IconName } from '../ui/AppKit';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type AccentRole, type ThemeColors } from '../theme';
@@ -13,7 +13,7 @@ export function StatTile({ label, value, icon, tone, onPress }: { label: string;
   const body = (
     <View style={[styles.tile, tone && { backgroundColor: tone.soft, borderColor: tone.border }]}>
       <View style={styles.top}>
-        <AppIcon name={icon} size={20} color={tone ? tone.on : colors.primary} />
+        <SoftIcon name={icon} size={32} color={tone ? tone.on : colors.primary} />
         <Text style={[styles.value, tone && { color: tone.on }]}>{value}</Text>
       </View>
       <Text numberOfLines={2} style={[styles.label, tone && { color: tone.on }]}>{label}</Text>
