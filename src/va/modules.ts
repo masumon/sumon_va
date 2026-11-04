@@ -60,11 +60,12 @@ export function sourceLabel(phone: string, channel: string, bn: boolean): string
   const num = phone.split(':').slice(-1)[0] ?? phone;
   if (channel === 'sms') return `SMS · ${num}`;
   if (channel === 'telegram') return `Telegram · ${num}`;
-  if (channel === 'whatsapp') return `WhatsApp · +${num}`;
+  if (channel === 'whatsapp') return `Business WhatsApp (API) · +${num}`;
   if (channel === 'notif') {
     const pkg = phone.split(':')[1] ?? '';
     const app = MODULES.flatMap((m) => m.apps ?? []).find((a) => a.pkg === pkg || pkg.startsWith(a.pkg.slice(0, 30)));
-    return `${app ? (bn ? app.bn : app.en) : (bn ? 'ফোনের অ্যাপ' : 'Phone app')} · ${num}`;
+    const appName = app ? (bn ? app.bn : app.en) : (bn ? 'অ্যাপ' : 'app');
+    return bn ? `ফোনের ${appName} · ${num}` : `${appName} on this phone · ${num}`;
   }
   return num;
 }
