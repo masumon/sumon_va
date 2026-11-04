@@ -21,7 +21,13 @@ import android.telephony.TelephonyManager
 class VaNotificationListener : NotificationListenerService() {
   // The reply boxes live only in memory. When the phone restarts the app, rebuild them from the chats still in the shade,
   // so an approved reply can still go out instead of "no reply box".
-  override fun onListenerConnected() { instance = this; rescan() }
+  override fun onListenerConnected() { instance = this; ensureSync(); rescan() }
+
+  // vivo (and other brands) silently drop BOOT_COMPLETED for apps without "auto-start", so after a restart sync never began
+  // until the app was opened. The system itself binds this listener at boot, so it starts the sync service instead.
+  private fun ensureSync() {
+    try { if (Store.paired(applicationContext) && !PollService.alive) PollService.start(applicationContext) } catch (_: Exception) {}
+  }
   // Android sometimes unbinds the listener on its own; ask to be bound again at once instead of silently missing messages.
   override fun onListenerDisconnected() {
     if (instance === this) instance = null
@@ -44,6 +50,7 @@ class VaNotificationListener : NotificationListenerService() {
     val ctx = applicationContext
     try {
       if (!Store.paired(ctx) || sbn.packageName == ctx.packageName || sbn.packageName !in Store.packages(ctx)) return
+      ensureSync()  // the phone killed the sync service? a new chat message brings it back
       val n = sbn.notification ?: return
       if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
       // Not a message: a running/ongoing notification (backups, calls in progress, music, downloads) or one with a progress bar.
