@@ -72,7 +72,7 @@ export function getDesignTokens(id: DesignId, mode: Mode): DesignTokens {
       shadow: dim ? null : sh(dark ? '#000000' : '#4F46E5', dark ? 0.35 : 0.12, 16, 6, 3),
       heroShadow: dim ? null : sh('#4F46E5', 0.35, 18, 8, 6),
       heroGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#7C3AED'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#4F46E5', '#7C3AED'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#7C3AED'],
-      barFill: dim ? colors.surface : dark ? 'rgba(21,27,52,0.84)' : 'rgba(255,255,255,0.80)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.95)',
+      barFill: dim ? colors.surface : dark ? 'rgba(21,27,52,0.95)' : 'rgba(255,255,255,0.95)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.95)',
     };
   }
   if (id === 'prime') {
@@ -87,7 +87,7 @@ export function getDesignTokens(id: DesignId, mode: Mode): DesignTokens {
       shadow: dim ? null : sh('#000000', dark ? 0.45 : 0.10, 16, 6, 3),
       heroShadow: dim ? null : sh('#6366F1', 0.45, 20, 8, 6),
       heroGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#0891B2'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#6366F1', '#06B6D4'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#0891B2'],
-      barFill: dim ? colors.surface : dark ? 'rgba(16,22,45,0.86)' : 'rgba(255,255,255,0.84)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.95)',
+      barFill: dim ? colors.surface : dark ? 'rgba(16,22,45,0.95)' : 'rgba(255,255,255,0.95)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.95)',
     };
   }
   return {
