@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +31,14 @@ export function Drawer() {
   const x = useSharedValue(-panel);
   const [confirm, setConfirm] = useState(false);
   const bridge = getStatus();
+
+  // The menu always starts shut and shuts whenever the screen changes or the app comes back (owner bug, 2026-11-05).
+  useEffect(() => { close(); }, [pathname, close]);
+  useEffect(() => {
+    close();
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') close(); });
+    return () => sub.remove();
+  }, [close]);
 
   useEffect(() => {
     x.value = withTiming(drawer ? 0 : -panel, { duration: reduceMotion ? 0 : 220, easing: Easing.out(Easing.cubic) });
