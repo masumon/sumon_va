@@ -9,13 +9,13 @@ import { radius, spacing } from '../theme';
 
 /** The big card at the top of a screen: an icon, a headline, a line of context, and room for chips or numbers. One look for every screen. */
 export function Hero({ icon, eyebrow, title, subtitle, right, children }: { icon?: IconName; eyebrow?: string; title: string; subtitle?: string; right?: ReactNode; children?: ReactNode }) {
-  const { themeMode, colors } = useAppPreferences();
-  // Day and night use the brand indigo; low light uses a warm near-black so nothing glares in a dark room.
-  const grad: [string, string] = themeMode === 'dim' ? ['#2A2214', '#15130F'] : themeMode === 'dark' ? ['#24306F', '#131C45'] : ['#2B3A86', '#182357'];
+  const { themeMode, colors, design } = useAppPreferences();
+  // Each design theme has its own gradient; low light uses a warm near-black so nothing glares in a dark room.
+  const grad: [string, string] = design.heroGrad;
   const ink = themeMode === 'dim' ? colors.textPrimary : '#FFFFFF';
   const soft = themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.78)';
   return (
-    <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+    <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, { borderRadius: design.radiusHero }, design.heroShadow ?? undefined]}>
       <View style={styles.top}>
         {icon ? <View style={styles.icon}><AppIcon name={icon} size={26} color={ink} /></View> : null}
         <View style={{ flex: 1 }}>

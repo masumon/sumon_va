@@ -5,6 +5,7 @@ import { AppState } from '../ui/AppSurface';
 import { ScreenHeader } from '../ui/AppKit';
 import { useAppPreferences } from '../app/AppPreferences';
 import { layout, spacing, type ThemeColors } from '../theme';
+import { AppBackdrop } from '../ui/AppBackdrop';
 
 /**
  * The one page frame every screen of the app uses: background, width, spacing, header, pull-to-refresh and the room the
@@ -16,11 +17,14 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
   const { colors } = useAppPreferences();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]} showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}>
-      <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
-      <View style={styles.body}>{children}</View>
-    </ScrollView>
+    <View style={styles.container}>
+      <AppBackdrop />
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]} showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}>
+        <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
+        <View style={styles.body}>{children}</View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -41,6 +45,7 @@ export function Hint({ children }: { children: ReactNode }) {
 
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1, backgroundColor: 'transparent' },
   content: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   body: { gap: spacing.md, marginTop: spacing.md },
 });
