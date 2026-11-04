@@ -11,6 +11,7 @@ import { BrandLogo, brandFor, brandName } from './BrandLogo';
 import { useAppPreferences } from '../app/AppPreferences';
 import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date-time';
 import { border, control, radius, spacing, type ThemeColors } from '../theme';
+import type { DesignTokens } from '../theme/designs';
 import type { Contact } from './api';
 import { CATEGORY, PRIORITY, displayName } from './labels';
 import { ChatMenuButton } from './ChatMenu';
@@ -18,9 +19,9 @@ import { sourceLabel } from './modules';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
 export function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
-  const { colors, language } = useAppPreferences();
+  const { colors, language, design } = useAppPreferences();
   const bn = language === 'bn';
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const [menu, setMenu] = useState(false);
   const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
   const urgent = contact.unread > 0 && contact.priority === 1;
@@ -71,11 +72,11 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   );
 }
 
-const makeStyles = (colors: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: radius.card, borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surface },
+const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
+  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: design.radiusCard, borderWidth: border.thin, borderColor: design.cardBorder, backgroundColor: design.cardFill, ...(design.shadow ?? {}) },
   urgent: { borderColor: colors.danger, borderWidth: border.medium },
   pressed: { opacity: 0.92 },
-  finish: { width: 84, marginLeft: spacing.xs, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  finish: { width: 84, marginLeft: spacing.xs, borderRadius: design.radiusCard, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },
   finishText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   icon: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint },
   main: { flex: 1, gap: spacing.xs },

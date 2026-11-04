@@ -5,6 +5,7 @@ import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
+import type { DesignTokens } from '../theme/designs';
 import { getStatus } from '../../modules/va-bridge';
 import { va } from './api';
 import { useLoad } from './hooks';
@@ -16,14 +17,14 @@ import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, wi
 
 /** The top bar on every signed-in screen: menu, logo and title, connection light, urgent bell, and your initial. */
 export function AppHeader() {
-  const { colors, language } = useAppPreferences();
+  const { colors, language, design } = useAppPreferences();
   const bn = language === 'bn';
   const pathname = usePathname();
   const open = useShell((s) => s.open);
   const refresh = useShell((s) => s.refresh);
   const [spin, setSpin] = useState(false);
   const doRefresh = () => { refresh(); setSpin(true); setTimeout(() => setSpin(false), 1500); };
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const overview = useLoad(() => va.overview(), 'header-overview', 30000, { always: true });
   // The phone's sync state, re-read every few seconds (cheap: no server call).
   const [snap, setSnap] = useState(() => ({ bridge: getStatus(), at: Date.now() }));
@@ -81,9 +82,9 @@ export function AppHeader() {
   );
 }
 
-const makeStyles = (colors: ThemeColors) => StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: spacing.sm, height: 56, backgroundColor: colors.surface, borderBottomWidth: border.thin, borderBottomColor: colors.border },
-  iconBtn: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
+const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: spacing.sm, height: 56, marginHorizontal: 10, marginTop: 6, marginBottom: 6, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
+  iconBtn: { width: 36, height: 36, marginHorizontal: 1, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   langBtn: { minWidth: 34, height: 28, paddingHorizontal: 6, borderRadius: 8, borderWidth: border.thin, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
   langText: { color: colors.textPrimary, fontWeight: '700', fontSize: 12 },
   title: { flex: 1, color: colors.textPrimary, fontSize: 17, fontWeight: '700' },

@@ -4,6 +4,7 @@ import { AppText as Text, TextScaleContext } from './AppText';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppPreferences } from '../app/AppPreferences';
 import { AppIcon } from './AppIcon';
@@ -31,7 +32,7 @@ export function PrimaryNav() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { colors, glass, language } = useAppPreferences();
+  const { colors, glass, language, design } = useAppPreferences();
   // The bar's height is fixed (layout.compactNavHeight is used by every page), so its labels
   // never grow past the normal size — bigger text would push the icons up (rc.20 audit).
   const navScale = Math.min(useContext(TextScaleContext), 1);
@@ -49,12 +50,13 @@ export function PrimaryNav() {
     medium && styles.barMedium,
     expanded && styles.barExpanded,
     {
-      backgroundColor: isIOS ? glass.navScrim : glass.navSolid,
-      borderColor: glass.border,
-      borderTopColor: glass.highlight,
-      height: expanded ? undefined : layout.compactNavHeight + insets.bottom,
-      paddingBottom: expanded ? spacing.lg : insets.bottom,
+      backgroundColor: expanded ? (isIOS ? glass.navScrim : glass.navSolid) : design.barFill,
+      borderColor: expanded ? glass.border : design.barBorder,
+      borderTopColor: expanded ? glass.highlight : design.barBorder,
+      height: expanded ? undefined : layout.compactNavHeight - 8,
+      paddingBottom: expanded ? spacing.lg : 0,
     },
+    !expanded && { marginHorizontal: 12, marginBottom: insets.bottom + 8, borderWidth: border.thin, borderRadius: design.radiusBar, paddingTop: 0, ...(design.shadow ?? {}) },
   ];
   const Bar = isIOS ? BlurView : View;
 
@@ -81,12 +83,11 @@ export function PrimaryNav() {
                 style={[
                   styles.iconWrap,
                   expanded && styles.iconWrapExpanded,
-                  active
-                    ? { backgroundColor: colors.primaryTint }
-                    : { backgroundColor: 'transparent' },
+                  { backgroundColor: 'transparent', overflow: 'hidden' },
                 ]}
               >
-                <AppIcon name={active ? item.activeIcon : item.icon} size={iconToken.md} color={active ? colors.primary : colors.textMuted} />
+                {active ? <LinearGradient pointerEvents="none" colors={design.ctaGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
+                <AppIcon name={active ? item.activeIcon : item.icon} size={iconToken.md} color={active ? colors.onPrimary : colors.textMuted} />
               </View>
               <TextScaleContext.Provider value={navScale}>
               <Text
