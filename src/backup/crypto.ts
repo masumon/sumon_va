@@ -124,7 +124,7 @@ export async function encryptArchive(plaintext: Uint8Array, passphrase: string, 
 }
 
 export async function decryptArchive(payload: Uint8Array, passphrase: string): Promise<Uint8Array> {
-  if (!isEncryptedArchive(payload)) throw new Error('Not an encrypted Apon backup');
+  if (!isEncryptedArchive(payload)) throw new Error('Not an encrypted backup');
   const authenticated = MAGIC.every((b, i) => payload[i] === b);
   let o = MAGIC.length;
   const iterations = ((payload[o]! << 24) | (payload[o + 1]! << 16) | (payload[o + 2]! << 8) | payload[o + 3]!) >>> 0;

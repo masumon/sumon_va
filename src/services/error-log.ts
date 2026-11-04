@@ -48,7 +48,7 @@ export function logAppError(where: string, error: unknown, fallback: string): st
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
   recent.unshift({ at: new Date().toISOString(), where, message: raw });
   if (recent.length > KEEP) recent.length = KEEP;
-  console.error(`[apon:${where}]`, detail);
+  console.error(`[sumon-va:${where}]`, detail);
   return message;
 }
 

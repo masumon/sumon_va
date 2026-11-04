@@ -126,9 +126,13 @@ class VaNotificationListener : NotificationListenerService() {
 object ReplyBoxes {
   private class Box(val intent: PendingIntent, val inputs: Array<RemoteInput>)
 
-  private val boxes = HashMap<String, Box>()
+  private val boxes = LinkedHashMap<String, Box>()  // oldest first, so the 200-box limit drops the oldest chat
 
-  @Synchronized fun put(key: String, intent: PendingIntent, inputs: Array<RemoteInput>) { boxes[key] = Box(intent, inputs); if (boxes.size > 200) boxes.remove(boxes.keys.first()) }
+  // The server knows a chat as "notif:<app>:<name>" cut to 80 characters (and trimmed); the phone must use exactly the same key,
+  // or a long chat name never finds its reply box again.
+  private fun norm(key: String) = key.trim().take(80).trim()
+
+  @Synchronized fun put(key: String, intent: PendingIntent, inputs: Array<RemoteInput>) { val k = norm(key); boxes.remove(k); boxes[k] = Box(intent, inputs); if (boxes.size > 200) boxes.remove(boxes.keys.first()) }
 
   /** Sends text through the chat app's own reply box. False when that chat has no reply box right now. */
   fun send(ctx: Context, key: String, text: String): Boolean {
@@ -136,10 +140,10 @@ object ReplyBoxes {
     return sendNow(ctx, key, text)
   }
 
-  @Synchronized private fun has(key: String) = boxes.containsKey(key)
+  @Synchronized private fun has(key: String) = boxes.containsKey(norm(key))
 
   @Synchronized private fun sendNow(ctx: Context, key: String, text: String): Boolean {
-    val box = boxes[key] ?: return false
+    val box = boxes[norm(key)] ?: return false
     return try {
       val data = Bundle()
       for (input in box.inputs) data.putCharSequence(input.resultKey, text)

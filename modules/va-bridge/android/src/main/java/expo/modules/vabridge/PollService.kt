@@ -147,7 +147,7 @@ class PollService : Service() {
         sms.sendMultipartTextMessage(target, null, parts, sentIntents, deliveredIntents)
         null
       }
-      "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "সেই চ্যাটের উত্তর-বক্স এখন নেই — অ্যাপটি খুলে নিজে উত্তর দিন"
+      "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "এই চ্যাটের নোটিফিকেশন আর ফোনে নেই, তাই উত্তর-বক্স পাওয়া যায়নি। Android শুধু নোটিফিকেশন থাকা অবস্থায় উত্তর পাঠাতে দেয়: ওই মানুষ আবার লিখলে “আবার পাঠান” চাপুন, নয়তো অ্যাপটি খুলে নিজে উত্তর দিন"
       else -> "অজানা নির্দেশ"
     }
   } catch (e: SecurityException) {

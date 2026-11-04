@@ -1,4 +1,4 @@
-// ── Apon · design system v5 · "Sapphire & Gold" ───────────────────────────────
+// ── Sumon VA · design system · "Sapphire & Gold" ───────────────────────────────
 // Direction: premium, calm, Bengali-first. A deep royal-sapphire brand with an antique
 // gold secondary accent, set on cool paper in light and deep navy-black in dark.
 // Hairline structure; one soft shadow for floating surfaces; glass only on floating

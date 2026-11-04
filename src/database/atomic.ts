@@ -87,7 +87,7 @@ export async function atomic<T>(db: SQLiteDatabase, body: () => Promise<T>): Pro
 async function savepoint<T>(db: SQLiteDatabase, body: () => Promise<T>): Promise<T> {
   // Unique per call, because the release below names the savepoint it is ending. Reusing
   // a name would release the wrong one when two levels happen to share it.
-  const name = `apon_sp_${(counter = (counter + 1) % Number.MAX_SAFE_INTEGER)}`;
+  const name = `va_sp_${(counter = (counter + 1) % Number.MAX_SAFE_INTEGER)}`;
   await db.execAsync(`SAVEPOINT ${name}`);
   let result: T;
   try {

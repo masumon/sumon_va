@@ -45,7 +45,7 @@ export type Tag = { label: string; value: string; important: boolean };
 export type Category = 'business' | 'personal' | 'social' | 'spam';
 
 export type Contact = {
-  id: string; channel: Channel; category: Category | null; tags: Tag[]; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify';
+  id: string; channel: Channel; category: Category | null; tags: Tag[]; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify' | 'telegram';
   is_vip: boolean; is_family: boolean; is_blocked: boolean; state: 'assistant' | 'owner' | 'done'; priority: number;
   need: string | null; summary: string | null; unread: number; last_message_at: string | null; preview: string;
 };

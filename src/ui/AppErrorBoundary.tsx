@@ -35,14 +35,14 @@ function deviceIsBangla(): boolean {
 const COPY = {
   bn: {
     title: 'একটি সমস্যা হয়েছে',
-    body: 'স্ক্রিনটিতে একটি ত্রুটি হয়েছে। আপনার কাজ ও মেমোরি এই ফোনে নিরাপদে আছে — কিছু হারায়নি।',
+    body: 'স্ক্রিনটিতে একটি ত্রুটি হয়েছে। আপনার বার্তা সার্ভারে নিরাপদে আছে, কিছু হারায়নি। ব্যাকগ্রাউন্ড সিঙ্কও চলছে।',
     retry: 'আবার চেষ্টা করুন',
     copy: 'ত্রুটির বিবরণ কপি করুন',
     save: 'ফাইলে রিপোর্ট সেভ করুন',
   },
   en: {
     title: 'Something went wrong',
-    body: 'The screen hit an error. Your tasks and memories are safe on this device — nothing was lost.',
+    body: 'The screen hit an error. Your messages are safe on the server, nothing was lost, and background sync keeps running.',
     retry: 'Try again',
     copy: 'Copy error details',
     save: 'Save report to a file',
@@ -68,7 +68,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   private dump = () => {
     const { error, info } = this.state;
     return [
-      `Apon — error report`,
+      `সুমনের ভার্চুয়াল সহকারী — error report`,
       new Date().toISOString(),
       '',
       String(error?.stack ?? error?.message ?? error),
@@ -84,10 +84,10 @@ export class AppErrorBoundary extends Component<Props, State> {
   private save = () => {
     void (async () => {
       try {
-        const file = new File(Paths.cache, `apon-error-${Date.now()}.txt`);
+        const file = new File(Paths.cache, `sumon-va-error-${Date.now()}.txt`);
         file.create({ overwrite: true });
         file.write(this.dump());
-        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: 'Apon error report' });
+        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: 'Sumon VA error report' });
       } catch { /* best-effort — Copy details is the fallback */ }
     })();
   };

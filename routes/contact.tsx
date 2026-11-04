@@ -16,7 +16,7 @@ import { ChatMenuButton } from '../src/va/ChatMenu';
 import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
 
-const MODES: Contact['mode'][] = ['inherit', 'auto', 'draft', 'notify'];
+const MODES: Contact['mode'][] = ['inherit', 'auto', 'telegram', 'draft', 'notify'];
 
 /** WhatsApp-style ticks for what we sent: clock = on its way, ✓ = left us, ✓✓ = reached their phone, blue ✓✓ = they read it, ! = failed. */
 function Ticks({ m }: { m: Message }) {
@@ -123,7 +123,8 @@ export default function ContactScreen() {
               value={c.is_family} onChange={(v) => void act(() => va.patchContact(c.id, { is_family: v }))} />
             <ToggleRow icon="star-outline" label="VIP" value={c.is_vip} onChange={(v) => void act(() => va.patchContact(c.id, { is_vip: v }))} />
             <ToggleRow icon="block-helper" label={bn ? 'ব্লক' : 'Block'} value={c.is_blocked} onChange={(v) => void act(() => va.patchContact(c.id, { is_blocked: v }))} />
-            <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m].bn : MODE[m].en)}
+            <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m]?.bn : MODE[m]?.en) ?? m}
+              hint={bn ? '“নিজে উত্তর”: সহকারী এই মানুষকে নিজেই উত্তর দেবে। “Telegram-এ অনুমোদন”: প্রতিটি বার্তা খসড়াসহ আপনার Telegram বটে যাবে, সেখানে “পাঠান” চাপুন বা Reply-তে নিজে লিখুন। “শুধু খসড়া”: আপনি অ্যাপে দেখে পাঠাবেন। পরিবার ও ব্যক্তিগত মানুষকে কখনও নিজে উত্তর যায় না।' : '“Auto-reply”: the assistant answers this person itself. “Approve in Telegram”: each message comes to your Telegram bot with a draft; tap Send or reply there. “Drafts only”: you send from the app. Family and personal people never get auto-replies.'}
               onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
               {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি দেখছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}

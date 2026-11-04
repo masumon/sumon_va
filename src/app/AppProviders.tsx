@@ -4,8 +4,6 @@ import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
 import { migrateDatabase } from '../database/migrations';
 import { serializeDatabaseCalls } from '../services/db-serializer';
 import { onDeadHandle, pinDatabase, SEPARATE_CONNECTION, setLiveDatabase } from '../services/db-connection';
-import { initializeNotifications } from '../services/notification.service';
-import { SchedulerBootstrap } from './SchedulerBootstrap';
 import { AppPreferencesProvider } from './AppPreferences';
 import { AppFeedbackProvider } from '../ui/AppFeedback';
 
@@ -57,10 +55,10 @@ function DatabaseGate({ children }: PropsWithChildren) {
     setLiveDatabase(db);
   }, []);
   if (fatal) throw fatal;
-  return <SQLiteProvider key={`${attempt}-${revived}`} databaseName="offline-memory.db" options={SEPARATE_CONNECTION} onInit={onDatabaseInit} onError={onError}>{children}</SQLiteProvider>;
+  return <SQLiteProvider key={`${attempt}-${revived}`} databaseName="sumon-va.db" options={SEPARATE_CONNECTION} onInit={onDatabaseInit} onError={onError}>{children}</SQLiteProvider>;
 }
 
+// Only the settings database, the preferences and the snackbar: alerts and sync live in the native va-bridge service.
 export function AppProviders({ children }: PropsWithChildren) {
-  useEffect(() => { void initializeNotifications().catch(() => {}); }, []);
-  return <DatabaseGate><AppPreferencesProvider><AppFeedbackProvider><SchedulerBootstrap />{children}</AppFeedbackProvider></AppPreferencesProvider></DatabaseGate>;
+  return <DatabaseGate><AppPreferencesProvider><AppFeedbackProvider>{children}</AppFeedbackProvider></AppPreferencesProvider></DatabaseGate>;
 }

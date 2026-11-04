@@ -52,7 +52,7 @@ export function computeChecks(m: ModuleDef, { bridge, channels, received, instal
     out.push({ key: 'token', ok: !!tg?.configured, bn: 'বটের টোকেন বসানো', en: 'Bot token set', hintBn: tg?.configured ? `@${tg.bot ?? ''}` : 'Render-এ TELEGRAM_BOT_TOKEN বসাতে হবে', hintEn: tg?.configured ? `@${tg.bot ?? ''}` : 'Set TELEGRAM_BOT_TOKEN in Render' });
     out.push({ key: 'webhook', ok: !!tg?.url, bn: 'ওয়েবহুক যুক্ত', en: 'Webhook connected', hintBn: tg?.url ? 'Telegram আমাদের সার্ভারে বার্তা পাঠাচ্ছে' : 'অ্যাডমিনের “মাধ্যম ও ফোন” অংশে গিয়ে “সংযোগ করুন” চাপুন', hintEn: tg?.url ? 'Telegram sends messages to our server' : 'Admin → Channels & phone → “Connect”' });
     out.push({ key: 'owner', ok: !!tg?.owner_set, bn: 'আপনার Telegram আইডি বসানো', en: 'Your Telegram id set', hintBn: tg?.owner_set ? 'নির্দেশ শুধু আপনার আইডি থেকে মানা হবে' : 'বটকে /id লিখে যে সংখ্যা পাবেন, সেটা TELEGRAM_OWNER_ID-তে বসান', hintEn: tg?.owner_set ? 'Commands work only from your id' : 'Write /id to the bot and set TELEGRAM_OWNER_ID' });
-    out.push({ key: 'on', ok: !!channels?.settings.telegram.enabled, bn: 'Telegram চালু (সুইচ)', en: 'Telegram switched on', hintBn: 'নিচের সুইচটা অন করুন', hintEn: 'Turn the switch below on' });
+    out.push({ key: 'on', ok: !!channels?.settings.telegram.enabled, bn: 'Telegram চালু (সুইচ)', en: 'Telegram switched on', hintBn: channels?.settings.telegram.enabled ? 'চালু আছে' : 'নিচের সুইচটা অন করুন', hintEn: channels?.settings.telegram.enabled ? 'On' : 'Turn the switch below on' });
     out.push(got);
     return out;
   }

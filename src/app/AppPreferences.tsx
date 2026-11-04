@@ -161,7 +161,7 @@ function deviceLanguage(): Language {
     const tagged = String(tag).toLowerCase();
     if (tagged.startsWith('bn')) return 'bn';
     // A Bangladeshi phone set to English is the common case, not a request for an English
-    // app — Apon is written for people who read Bengali, and the onboarding offers the
+    // app — this app is written for people who read Bengali, and the onboarding offers the
     // switch on its last page for anyone this guesses wrong about.
     if (tagged.includes('-bd') || tagged.endsWith('bd')) return 'bn';
     return 'en';

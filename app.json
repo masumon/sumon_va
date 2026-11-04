@@ -60,75 +60,11 @@
           "backgroundColor": "#0C3C85"
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "color": "#0C3C85",
-          "defaultChannel": "task-reminders",
-          "icon": "./assets/notification-icon.png"
-        }
-      ],
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "Apon uses the microphone only while you hold the mic button, so you can speak a task or memory instead of typing.",
-          "speechRecognitionPermission": "Speech is turned into text on this device to capture what you say. Nothing is sent to a server.",
-          "androidSpeechServicePackages": [
-            "com.google.android.googlequicksearchbox"
-          ]
-        }
-      ],
       "expo-asset",
-      [
-        "expo-share-intent",
-        {
-          "androidIntentFilters": [
-            "text/*"
-          ]
-        }
-      ],
-      [
-        "react-native-android-widget",
-        {
-          "widgets": [
-            {
-              "name": "QuickAdd",
-              "label": "আপন",
-              "description": "দ্রুত একটি কাজ বা স্মৃতি যোগ করুন",
-              "minWidth": "140dp",
-              "minHeight": "100dp",
-              "targetCellWidth": 2,
-              "targetCellHeight": 2,
-              "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 0
-            }
-          ]
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Apon attaches a photo you choose to a record you are saving.",
-          "cameraPermission": "Apon lets you photograph a receipt and save it onto the record. Photos stay on this phone."
-        }
-      ],
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Apon attaches where you are to a memory only at the moment you tap to add it."
-        }
-      ],
-      [
-        "expo-contacts",
-        {
-          "contactsPermission": "Apon reads only the one contact you pick, to fill in their name, number, email and address."
-        }
-      ],
-      "expo-background-task",
-      [
-        "llama.rn",
-        {
-          "enableOpenCLAndHexagon": false
         }
       ]
     ],

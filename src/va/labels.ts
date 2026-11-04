@@ -23,6 +23,7 @@ export const MODE: Record<Contact['mode'], { bn: string; en: string }> = {
   auto: { bn: 'নিজে উত্তর', en: 'Auto-reply' },
   draft: { bn: 'শুধু খসড়া', en: 'Drafts only' },
   notify: { bn: 'শুধু জানাবে', en: 'Notify only' },
+  telegram: { bn: 'Telegram-এ অনুমোদন', en: 'Approve in Telegram' },
 };
 
 export const MESSAGE_STATUS: Record<Message['status'], { bn: string; en: string }> = {

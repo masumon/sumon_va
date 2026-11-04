@@ -17,18 +17,7 @@ import { border, elevation, getWindowSizeClass, icon as iconToken, layout, radiu
  * was added here and not there, tapping it made the navigation disappear. One list, read
  * by both.
  */
-// Debt and a generic "More" used to hold two of the six slots here. Debt is still one
-// tap away — every module including it already shows on the More screen's own "your
-// parts" grid, which is why removing it from this bar loses no reachability, only a
-// permanent slot for something not everyone opens daily. "More" is replaced outright
-// rather than folded elsewhere: Health and the Assistant already get their own featured
-// cards on Home, so promoting them here matches weight the app already gives them
-// instead of introducing a new hierarchy. The full catch-all list (search, calendar,
-// tags, backup, settings, and Debt) stays reachable from Home's own "more" card.
-//
-// 1.0 (the user's request): "আরও" takes আপন's slot, so Debt, Backup and Settings are one
-// tap from every main page, and আপন became a floating button (FloatingApon) that is on
-// every one of those pages instead of only its own tab.
+// The five bottom tabs of the assistant app. The side menu (Drawer) carries everything else.
 export const primaryNavItems = [
   { href: '/', icon: 'view-dashboard-outline' as const, activeIcon: 'view-dashboard' as const, tone: 'green' as AccentName, en: 'Home', bn: 'হোম' },
   { href: '/inbox', icon: 'inbox-outline' as const, activeIcon: 'inbox' as const, tone: 'blue' as AccentName, en: 'Inbox', bn: 'ইনবক্স' },

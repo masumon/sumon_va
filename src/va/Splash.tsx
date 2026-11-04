@@ -16,7 +16,7 @@ export function Splash({ onFinish }: { onFinish: () => void }) {
   useEffect(() => {
     scale.value = withTiming(1, { duration: 650, easing: Easing.out(Easing.cubic) });
     lift.value = withDelay(350, withTiming(1, { duration: 500 }));
-    const t = setTimeout(onFinish, reduce ? 700 : 1700);
+    const t = setTimeout(onFinish, reduce ? 400 : 900);  // short: the app is ready behind it, a long splash only feels slow
     return () => clearTimeout(t);
   }, [onFinish, reduce, scale, lift]);
   const markStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }], opacity: 0.2 + 0.8 * scale.value }));

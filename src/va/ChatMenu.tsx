@@ -90,7 +90,7 @@ export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownCh
             {sub ? <Pressable onPress={() => setSub(null)} hitSlop={8}><AppIcon name="arrow-left" size={22} color={colors.textPrimary} /></Pressable> : <Pressable onPress={close} hitSlop={8}><AppIcon name="close" size={22} color={colors.textPrimary} /></Pressable>}
           </View>
           <ScrollView style={{ maxHeight: 520 }}>
-            {sub === 'mode' ? (['inherit', 'auto', 'draft', 'notify'] as const).map((m) => choice(bn ? MODE[m].bn : MODE[m].en, c.mode === m, () => { void patch({ mode: m }); close(); }))
+            {sub === 'mode' ? (['inherit', 'auto', 'telegram', 'draft', 'notify'] as const).map((m) => choice(bn ? MODE[m].bn : MODE[m].en, c.mode === m, () => { void patch({ mode: m }); close(); }))
               : sub === 'category' ? (CATEGORY_KEYS as readonly Category[]).map((k) => choice(`${bn ? CATEGORY[k].bn : CATEGORY[k].en}: ${bn ? CATEGORY[k].hintBn : CATEGORY[k].hintEn}`, c.category === k, () => { void patch({ category: k }); close(); }))
               : items.map(render)}
           </ScrollView>
