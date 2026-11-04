@@ -19,7 +19,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
-        "backgroundColor": "#0E9F72"
+        "backgroundColor": "#131C45"
       }
     },
     "web": {
