@@ -15,11 +15,14 @@ import { useShell } from './shell';
 type Item = { key: string; icon: IconName; bn: string; en: string; hintBn?: string; hintEn?: string; on?: boolean; danger?: boolean; run: () => void | Promise<unknown> };
 
 /** The ⋮ button for one chat. Everything you can do with this person lives here, exactly like WhatsApp's chat menu. */
-export function ChatMenuButton({ contact, onChanged, size = 22 }: { contact: Contact; onChanged?: () => void; size?: number }) {
+export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownChange }: { contact: Contact; onChanged?: () => void; size?: number; shown?: boolean; onShownChange?: (v: boolean) => void }) {
   const refreshAll = useShell((st) => st.refresh);
   const { colors, language } = useAppPreferences();
   const bn = language === 'bn';
-  const [open, setOpen] = useState(false);
+  // The menu can also be opened from outside (a long press on the chat row), so it may be controlled.
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = shown ?? localOpen;
+  const setOpen = (v: boolean) => { setLocalOpen(v); onShownChange?.(v); };
   const [sub, setSub] = useState<'mode' | 'category' | null>(null);
   const [confirm, setConfirm] = useState(false);
   const { showSnackbar } = useAppFeedback();

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge } from '../ui/AppSurface';
@@ -16,20 +16,21 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   const { colors, language } = useAppPreferences();
   const bn = language === 'bn';
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [menu, setMenu] = useState(false);
   const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
   const urgent = contact.unread > 0 && contact.priority === 1;
   const when = contact.last_message_at
     ? (formatBangladeshRelativeDate(contact.last_message_at, language) === (bn ? 'আজ' : 'Today') ? formatBangladeshTime(contact.last_message_at, language) : formatBangladeshRelativeDate(contact.last_message_at, language))
     : '';
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress}
+    <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
       <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
       <View style={styles.main}>
         <View style={styles.top}>
           <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
           <Text style={styles.when}>{when}</Text>
-          <ChatMenuButton contact={contact} size={20} />
+          <ChatMenuButton contact={contact} size={20} shown={menu} onShownChange={setMenu} />
         </View>
         <Text numberOfLines={1} style={styles.source}>{sourceLabel(contact.phone, contact.channel, bn)}</Text>
         <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>

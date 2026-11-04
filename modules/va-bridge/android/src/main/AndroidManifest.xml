@@ -19,6 +19,7 @@
     <package android:name="com.instagram.android" /><package android:name="org.telegram.messenger" /><package android:name="org.thunderdog.challegram" />
     <package android:name="com.imo.android.imoim" /><package android:name="com.imo.android.imous" /><package android:name="com.viber.voip" />
     <package android:name="jp.naver.line.android" /><package android:name="com.tencent.mm" /><package android:name="org.thoughtcrime.securesms" /><package android:name="com.google.android.gm" />
+    <package android:name="com.linkedin.android" /><package android:name="com.zhiliaoapp.musically" /><package android:name="com.ss.android.ugc.trill" /><package android:name="com.facebook.katana" /><package android:name="com.facebook.lite" />
   </queries>
 
   <application>

@@ -25,6 +25,7 @@ import { Splash } from '../src/va/Splash';
 import { AppHeader } from '../src/va/AppHeader';
 import { Drawer } from '../src/va/Drawer';
 import { HealthBanner } from '../src/va/HealthBanner';
+import { AutoSync } from '../src/va/AutoSync';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -62,6 +63,7 @@ function AppNavigator() {
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       {signedIn ? <AppHeader /> : null}
       {signedIn ? <HealthBanner /> : null}
+      {signedIn ? <AutoSync /> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <Stack
           screenOptions={{

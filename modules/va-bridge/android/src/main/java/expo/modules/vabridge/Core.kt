@@ -52,6 +52,7 @@ object Store {
     "com.whatsapp", "com.whatsapp.w4b", "com.facebook.orca", "com.facebook.mlite", "com.instagram.android",
     "org.telegram.messenger", "org.thunderdog.challegram", "com.imo.android.imoim", "com.viber.voip",
     "org.thoughtcrime.securesms", "jp.naver.line.android", "com.tencent.mm", "com.imo.android.imous", "com.google.android.gm",
+    "com.linkedin.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.facebook.katana", "com.facebook.lite",
   )
 
   fun packages(c: Context): Set<String> = prefs(c).getStringSet("packages", null) ?: DEFAULT_PACKAGES

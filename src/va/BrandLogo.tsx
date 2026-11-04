@@ -10,7 +10,7 @@ import type { Channel } from './api';
  * Drawn from the icon set and a few small vector shapes (Telegram plane, imo, LINE) — to use a platform's exact official
  * artwork instead, add its SVG path to `CUSTOM` below; nothing else needs to change.
  */
-export type BrandKey = 'whatsapp' | 'whatsapp-business' | 'messenger' | 'instagram' | 'telegram' | 'sms' | 'email' | 'gmail' | 'imo' | 'viber' | 'signal' | 'line' | 'wechat' | 'webhook' | 'phone';
+export type BrandKey = 'whatsapp' | 'whatsapp-business' | 'messenger' | 'instagram' | 'telegram' | 'sms' | 'email' | 'gmail' | 'imo' | 'viber' | 'signal' | 'line' | 'wechat' | 'webhook' | 'phone' | 'linkedin' | 'tiktok' | 'facebook';
 
 type Brand = { bg: string; glyph?: IconName; text?: string; svg?: string; name: string };
 
@@ -32,11 +32,14 @@ const BRANDS: Record<BrandKey, Brand> = {
   wechat: { bg: '#07C160', glyph: 'wechat' as IconName, name: 'WeChat' },
   webhook: { bg: '#7A5AF8', glyph: 'webhook' as IconName, name: 'Webhook' },
   phone: { bg: '#5C6BC0', glyph: 'cellphone-message', name: 'Phone app' },
+  linkedin: { bg: '#0A66C2', glyph: 'linkedin' as IconName, name: 'LinkedIn' },
+  tiktok: { bg: '#111111', glyph: 'music-note' as IconName, name: 'TikTok' },
+  facebook: { bg: '#1877F2', glyph: 'facebook' as IconName, name: 'Facebook' },
 };
 
 const PACKAGES: [string, BrandKey][] = [
   ['com.whatsapp.w4b', 'whatsapp-business'], ['com.whatsapp', 'whatsapp'], ['com.facebook.orca', 'messenger'], ['com.facebook.mlite', 'messenger'],
-  ['com.instagram', 'instagram'], ['org.telegram', 'telegram'], ['org.thunderdog', 'telegram'], ['com.imo', 'imo'], ['com.viber', 'viber'],
+  ['com.instagram', 'instagram'], ['org.telegram', 'telegram'], ['org.thunderdog', 'telegram'], ['com.linkedin', 'linkedin'], ['com.zhiliaoapp', 'tiktok'], ['com.ss.android.ugc', 'tiktok'], ['com.facebook.katana', 'facebook'], ['com.facebook.lite', 'facebook'], ['com.imo', 'imo'],['com.viber', 'viber'],
   ['org.thoughtcrime', 'signal'], ['jp.naver.line', 'line'], ['com.tencent.mm', 'wechat'], ['com.google.android.gm', 'gmail'],
 ];
 
