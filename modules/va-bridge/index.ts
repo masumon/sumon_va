@@ -100,12 +100,13 @@ export function onInboxChanged(listener: () => void): () => void {
 export const unpair = () => { try { return native?.unpair() ?? false; } catch { return false; } };
 
 /** Server call through the native side: the device token never reaches JavaScript. */
-export async function request<T = unknown>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<{ status: number; data: T | null }> {
-  if (!native) return { status: 0, data: null };
+export async function request<T = unknown>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<{ status: number; data: T | null; reason?: string }> {
+  if (!native) return { status: 0, data: null, reason: 'NoBridge' };
   const r = await native.request(method, path, body === undefined ? null : JSON.stringify(body));
   let data: T | null = null;
   try { data = r.body ? (JSON.parse(r.body) as T) : null; } catch { data = null; }
-  return { status: r.status, data };
+  // On a network failure (status 0) the native side puts the kind of failure in the body, e.g. SocketTimeoutException.
+  return { status: r.status, data, reason: r.status === 0 ? r.body : undefined };
 }
 
 const call = <K extends keyof Native>(name: K) => (...args: Parameters<Native[K]>) => {

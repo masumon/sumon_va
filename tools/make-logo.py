@@ -1,8 +1,8 @@
 """Writes the app's logo as SVG (the source of truth) and renders PNG / JPG / PDF with headless Chrome. Run: python tools/make-logo.py
 
-The mark: a speech bubble (a conversation) holding one continuous S built from two equal arcs (Sumon, and "everything in one
-place"), with a single coral dot on the bubble's edge (what needs you). Only circles and arcs, so it stays crisp from a 24 px
-notification icon to a signboard. Colours follow the ABO Enterprise palette: deep indigo, bronze-gold, one accent.
+The mark: one continuous thread shaped like an S (Sumon), two equal arcs, with a node at each end and a coral node at the centre:
+every channel joins into a single line and the assistant holds it. A faint halo ring says it keeps watch. Only circles and arcs, so it
+stays crisp from a 24 px notification icon to a signboard. Colours follow the ABO Enterprise palette: deep indigo, bronze-gold, one accent.
 """
 from __future__ import annotations
 
@@ -18,32 +18,38 @@ CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 DEFS = ('<defs>'
         '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26357F"/><stop offset="1" stop-color="#0B1030"/></linearGradient>'
-        '<linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="420" y1="300" x2="610" y2="720"><stop offset="0" stop-color="#F8D06C"/><stop offset="1" stop-color="#B0760A"/></linearGradient>'
+        '<linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="400" y1="270" x2="624" y2="760"><stop offset="0" stop-color="#F8D06C"/><stop offset="1" stop-color="#B0760A"/></linearGradient>'
         '</defs>')
-BUBBLE = '<circle cx="512" cy="500" r="300"/><path d="M318 716 Q304 800 232 840 Q356 846 452 790 Z"/>'
-S_PATH = 'M604 410 A92 92 0 1 0 512 502 A92 92 0 1 1 420 594'
+R = 118
+CX, TOP, BOT = 512, 394, 630            # two equal circles stacked: the S is their joined arcs
+S_PATH = f'M{CX + R} {TOP} A{R} {R} 0 1 0 {CX} {TOP + R} A{R} {R} 0 1 1 {CX - R} {BOT}'
+ENDS = [(CX + R, TOP), (CX - R, BOT)]
 
 
 def svg(body: str, bg: bool) -> str:
     rect = '<rect width="1024" height="1024" fill="url(#bg)"/>' if bg else ""
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">{DEFS}{rect}{body}</svg>\n'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">{DEFS}{rect}{body}</svg>' + "\n"
 
 
-def mark(scale: float = 1.0, dot_ring: str = "#0B1030") -> str:
+def mark(scale: float = 1.0) -> str:
+    """One thread (the S) with a node at each end and one at the centre: every channel joins into a single line, and the
+    centre is the assistant holding it. A faint halo ring says it is always watching over it."""
     t = f'transform="translate(512 512) scale({scale}) translate(-512 -512)"'
-    return (f'<g {t}><g fill="#FFFFFF" opacity="0.10">{BUBBLE}</g>'
-            f'<path d="{S_PATH}" fill="none" stroke="url(#gold)" stroke-width="62" stroke-linecap="round"/>'
-            f'<circle cx="736" cy="290" r="64" fill="{dot_ring}"/><circle cx="736" cy="290" r="44" fill="#F0523A"/></g>')
+    nodes = "".join(f'<circle cx="{x}" cy="{y}" r="58" fill="url(#gold)"/><circle cx="{x}" cy="{y}" r="22" fill="#0B1030"/>' for x, y in ENDS)
+    return (f'<g {t}><circle cx="512" cy="512" r="372" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="10"/>'
+            f'<path d="{S_PATH}" fill="none" stroke="url(#gold)" stroke-width="50" stroke-linecap="round"/>{nodes}'
+            f'<circle cx="512" cy="512" r="34" fill="#F0523A"/></g>')
 
 
 def mono(scale: float) -> str:
     t = f'transform="translate(512 512) scale({scale}) translate(-512 -512)"'
-    return f'<g {t}><path d="{S_PATH}" fill="none" stroke="#FFFFFF" stroke-width="70" stroke-linecap="round"/></g>'
+    nodes = "".join(f'<circle cx="{x}" cy="{y}" r="62" fill="#FFFFFF"/>' for x, y in ENDS)
+    return f'<g {t}><path d="{S_PATH}" fill="none" stroke="#FFFFFF" stroke-width="60" stroke-linecap="round"/>{nodes}</g>'
 
 
 VARIANTS = {
     "logo-icon": svg(mark(1.0), True),                 # full app icon
-    "logo-mark": svg(mark(1.0, "#0B1030"), False),     # transparent, for the splash and anywhere on dark
+    "logo-mark": svg(mark(1.0), False),     # transparent, for the splash and anywhere on dark
     "logo-adaptive": svg(mark(0.86), False),           # Android adaptive foreground (safe zone)
     "logo-mono": svg(mono(1.0), False),                # Android themed icon
     "logo-notification": svg(mono(1.25), False),       # status-bar icon (white only)

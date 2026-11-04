@@ -7,9 +7,20 @@ export class VaError extends Error {
 
 type Envelope<T> = { data: T; message?: string };
 
+/** Says what really went wrong instead of a vague "no connection": timeout, no internet, or a secure-connection failure. */
+function networkReason(reason?: string): string {
+  if (!reason) return 'সার্ভারের সাথে সংযোগ হয়নি';
+  if (reason.includes('Timeout')) return 'সার্ভার সময়মতো উত্তর দেয়নি। ফ্রি সার্ভার ঘুম থেকে উঠতে বা AI পরীক্ষায় একটু বেশি সময় নেয়। আধ মিনিট পরে আবার চেষ্টা করুন';
+  if (reason.includes('UnknownHost') || reason.includes('ConnectException') || reason.includes('NoRoute') || reason.includes('Network')) return 'ফোনে ইন্টারনেট নেই বা দুর্বল। ইন্টারনেট চালু করে আবার চেষ্টা করুন';
+  if (reason.includes('SSL') || reason.includes('Certificate')) return 'নিরাপদ সংযোগ হয়নি। ফোনের তারিখ ও সময় ঠিক আছে কি না দেখুন';
+  if (reason === 'not paired') return 'এই ফোন এখনও জোড়া লাগানো নেই। আবার ঢুকুন';
+  if (reason === 'path not allowed') return 'এই কাজটা অ্যাপ থেকে করা যায় না';
+  return `সার্ভারের সাথে সংযোগ হয়নি (${reason})`;
+}
+
 async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
-  if (r.status === 0) throw new VaError(0, 'ইন্টারনেট বা সার্ভারের সাথে সংযোগ নেই');
+  if (r.status === 0) throw new VaError(0, networkReason(r.reason));
   if (r.status === 401) throw new VaError(401, 'এই ফোনের অনুমতি বাতিল হয়েছে বা মেয়াদ শেষ। আবার জোড়া লাগান');
   if (r.status < 200 || r.status >= 300) {
     const detail = (r.data as { detail?: unknown } | null)?.detail;

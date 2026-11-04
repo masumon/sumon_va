@@ -155,7 +155,8 @@ class VaBridgeModule : Module() {
       if (m !in setOf("GET", "POST", "PUT", "PATCH", "DELETE") || !(path.startsWith("/admin/wa/") || path.startsWith("/admin/inbox/") || path.startsWith("/admin/ai-hub") || path == "/device/logout") || path.contains("..")) {
         return@AsyncFunction mapOf("status" to 0, "body" to "path not allowed")
       }
-      val r = Http.call(ctx, m, path, body)
+      // Testing an AI key asks an outside company and can take a while (and a sleeping free server needs ~30 s to wake): wait longer there.
+      val r = Http.call(ctx, m, path, body, readMs = if (path.startsWith("/admin/ai-hub")) 90000 else 20000)
       mapOf("status" to r.code, "body" to r.body)
     }
 
