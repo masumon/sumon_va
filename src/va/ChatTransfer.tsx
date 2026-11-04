@@ -1,4 +1,3 @@
-import { errTone } from './api';
 import { useState } from 'react';
 import { View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -8,7 +7,7 @@ import { AppText as Text } from '../ui/AppText';
 import { AppButton } from '../ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
-import { va } from './api';
+import { errTone, va } from './api';
 
 /**
  * Import a saved chat (WhatsApp "Export chat" .txt) so the assistant learns who this person is and how to talk to them, and
