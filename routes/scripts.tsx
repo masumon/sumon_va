@@ -4,7 +4,7 @@ import { AppText as Text, AppTextInput } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
-import { va } from '../src/va/api';
+import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
@@ -43,7 +43,7 @@ export default function ScriptsScreen() {
       setEdits({});
       await cfg.reload();
       showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success');
-    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
 
   return (

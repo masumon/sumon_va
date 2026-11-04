@@ -6,7 +6,7 @@ import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
-import { va, type Contact, type Message } from '../src/va/api';
+import { va, type Contact, type Message, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page, Status } from '../src/va/Page';
 import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
@@ -58,7 +58,7 @@ export default function ContactScreen() {
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
     try { await fn(); await detail.reload(); if (ok) showSnackbar(ok, 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
 

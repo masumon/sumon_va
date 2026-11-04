@@ -4,7 +4,7 @@ import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture
 import { AppIcon } from '../ui/AppIcon';
 import { useAppFeedback } from '../ui/AppFeedback';
 import { useShell } from './shell';
-import { va } from './api';
+import { va, errTone } from './api';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge } from '../ui/AppSurface';
 import { BrandLogo, brandFor, brandName } from './BrandLogo';
@@ -34,7 +34,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   const finish = async () => {
     swipe.current?.close();
     try { await va.patchContact(contact.id, { state: 'done' }); refreshAll(); showSnackbar(bn ? 'শেষ হিসেবে রাখা হয়েছে' : 'Marked done', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   // Swipe the row to the left to reveal "শেষ"; a long press opens the full menu. Fewer buttons on screen, same power.
   const finishPane = () => (

@@ -7,7 +7,7 @@ import type { IconName } from '../ui/AppKit';
 import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing } from '../theme';
-import { va, type Category, type Contact } from './api';
+import { va, type Category, type Contact, errTone } from './api';
 import { CATEGORY, CATEGORY_KEYS, MODE, displayName } from './labels';
 import { BrandLogo, brandFor, brandName } from './BrandLogo';
 import { useShell } from './shell';
@@ -30,7 +30,7 @@ export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownCh
 
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
     try { await fn(); (onChanged ?? refreshAll)(); if (ok) showSnackbar(ok, 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   const patch = (p: Parameters<typeof va.patchContact>[1], ok?: string) => act(() => va.patchContact(c.id, p), ok);
   const go = (path: string) => { setOpen(false); router.push({ pathname: path, params: { id: c.id } } as never); };

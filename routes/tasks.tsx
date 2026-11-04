@@ -6,7 +6,7 @@ import { AppIcon } from '../src/ui/AppIcon';
 import { Card, ChipGroup, EmptyNote, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
-import { va } from '../src/va/api';
+import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
@@ -28,7 +28,7 @@ export default function TasksScreen() {
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     try { await fn(); await Promise.all([list.reload(), open.reload()]); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
 

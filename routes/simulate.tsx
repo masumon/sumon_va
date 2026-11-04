@@ -4,7 +4,7 @@ import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
-import { va } from '../src/va/api';
+import { va, errTone } from '../src/va/api';
 import { Hero } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
 import { PRIORITY } from '../src/va/labels';
@@ -25,7 +25,7 @@ export default function SimulateScreen() {
   const run = async () => {
     setBusy(true);
     try { setR(await va.simulate(text.trim(), name.trim(), ai)); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
 

@@ -7,7 +7,7 @@ import { Card, ChipGroup, EmptyNote, Field, ToggleRow, useKit } from '../ui/AppK
 import { useAppFeedback } from '../ui/AppFeedback';
 import { formatBangladeshNumber } from '../i18n/date-time';
 import { getStatus, setPackages } from '../../modules/va-bridge';
-import { va, type Contact, type View as InboxView } from './api';
+import { va, type Contact, type View as InboxView, errTone } from './api';
 import { useLoad } from './hooks';
 import { Hero, HeroStat } from './Hero';
 import { BrandLogo } from './BrandLogo';
@@ -49,7 +49,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
 
   const save = async (patch: Record<string, unknown>) => {
     try { await va.saveConfig(patch); await info.reload(); showSnackbar(bn ? 'সেভ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   const toggleApp = (pkg: string, on: boolean) => {
     const next = new Set(getStatus().packages);

@@ -3,7 +3,7 @@ import { AppText as Text } from '../ui/AppText';
 import { AppButton } from '../ui/AppSurface';
 import { Card, Field, ToggleRow, useKit } from '../ui/AppKit';
 import { useAppFeedback } from '../ui/AppFeedback';
-import { va } from './api';
+import { va, errTone } from './api';
 import { useLoad } from './hooks';
 
 const split = (v: string) => v.split(/[,\n]/).map((x) => x.trim()).filter(Boolean).slice(0, 40);
@@ -18,7 +18,7 @@ export function EmailFilterCard() {
   const d = f.data;
   const save = async (patch: Record<string, unknown>) => {
     try { await va.saveConfig({ email_filter: patch }); await f.reload(); showSnackbar(bn ? 'সেভ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   if (!d) return null;
   return (

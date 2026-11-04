@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Card, ChipGroup, ToggleRow, useKit } from '../ui/AppKit';
 import { useAppFeedback } from '../ui/AppFeedback';
-import { va } from './api';
+import { va, errTone } from './api';
 import { useLoad } from './hooks';
 import { InfoHint } from './InfoHint';
 
@@ -24,7 +24,7 @@ export function PlatformSettings({ platform, canAuto }: { platform: string; canA
   const p: Plat = { ...DEFAULT, ...(all?.[platform] ?? {}) };
   const save = async (patch: Partial<Plat>) => {
     try { await va.saveAssistantConfig({ platforms: { [platform]: patch } }); await cfg.reload(); showSnackbar(bn ? 'সেভ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   return (
     <Card icon="tune-variant" title={bn ? 'এই প্ল্যাটফর্মের সেটিং' : 'Settings for this platform'}>

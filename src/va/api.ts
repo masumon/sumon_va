@@ -26,7 +26,9 @@ function networkReason(reason?: string): string {
 }
 
 async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
-  const r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
+  let r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
+  // A read that only timed out (the free server was waking up) gets one more try before anything is reported.
+  if (method === 'GET' && r.status === 0 && networkKind(r.reason) === 'timeout') r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
   if (r.status === 0) throw new VaError(0, networkReason(r.reason), networkKind(r.reason));
   if (r.status === 401) throw new VaError(401, 'এই ফোনের অনুমতি বাতিল হয়েছে বা মেয়াদ শেষ। আবার জোড়া লাগান');
   if (r.status < 200 || r.status >= 300) {
@@ -92,6 +94,9 @@ export type HubSummary = {
   enabled: boolean; connections: HubConn[]; prefs: HubPrefs; today: { count: number; paid: number };
   best: Record<HubTask, string>; last_error: { text: string; at: string }; working: number;
 };
+
+/** How to show an error: a slow answer is only a note, everything else is a real error. */
+export const errTone = (e: unknown): 'info' | 'danger' => (e instanceof VaError && e.kind === 'timeout' ? 'info' : 'danger');
 
 export const va = {
   loginPhone: () => call<{ set: boolean; masked: string }>('GET', '/admin/inbox/login-phone'),

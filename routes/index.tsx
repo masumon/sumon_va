@@ -6,7 +6,7 @@ import { AppBadge, AppButton, AppSectionHeader } from '../src/ui/AppSurface';
 import { Card, ChipGroup, EmptyNote, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshNumber, formatBangladeshWeekdayDate } from '../src/i18n/date-time';
-import { va, type Contact, type Task } from '../src/va/api';
+import { va, type Contact, type Task, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
@@ -57,7 +57,7 @@ export default function DashboardScreen() {
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
     try { await fn(); await Promise.all([overview.reload(), cfg.reload()]); if (ok) showSnackbar(ok, 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
   const setStatus = (key: string) => {

@@ -1,3 +1,4 @@
+import { errTone } from './api';
 import { useState } from 'react';
 import { View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -21,7 +22,7 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
   const [speakers, setSpeakers] = useState<string[]>([]);
   const [consent, setConsent] = useState(false);
   const [ask, setAsk] = useState(false);
-  const fail = (e: unknown) => showSnackbar(e instanceof Error ? e.message : (bn ? 'কাজটি হয়নি' : 'That did not work'), 'danger');
+  const fail = (e: unknown) => showSnackbar(e instanceof Error ? e.message : (bn ? 'কাজটি হয়নি' : 'That did not work'), errTone(e));
 
   const learn = async (chat: string, speaker?: string, allow = consent) => {
     setBusy('import');

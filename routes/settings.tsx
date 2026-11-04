@@ -6,7 +6,7 @@ import { AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppPreferences } from '../src/app/AppPreferences';
-import { va, type Limits } from '../src/va/api';
+import { va, type Limits, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
@@ -32,7 +32,7 @@ function LoginPhone() {
   const save = async () => {
     setBusy(true);
     try { await va.setLoginPhone(phone); setPhone(''); await cur.reload(); showSnackbar(bn ? 'ফোন নম্বর সংরক্ষণ হয়েছে' : 'Phone number saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
   const ok = phone.replace(/\D/g, '').length >= 10;
@@ -87,7 +87,7 @@ export default function SettingsScreen() {
 
   const saveLimits = async (patch: Partial<Limits>) => {
     try { await va.saveConfig({ limits: patch }); await channels.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
 
   return (

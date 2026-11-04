@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
-import { va } from '../src/va/api';
+import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero } from '../src/va/Hero';
 import { CATEGORY, CATEGORY_KEYS } from '../src/va/labels';
@@ -24,7 +24,7 @@ export default function RulesScreen() {
 
   const save = async (patch: Record<string, unknown>) => {
     try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
 
   return (
