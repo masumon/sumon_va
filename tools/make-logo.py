@@ -25,12 +25,13 @@ NAME_FONT = ROOT / "tools/fonts/Montserrat_600SemiBold.ttf"   # SIL Open Font Li
 CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 DEFS = ('<defs>'
-        '<linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#2C3C8A"/><stop offset="1" stop-color="#0C122F"/></linearGradient>'
+        '<linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#2447B5"/><stop offset="1" stop-color="#0A1440"/></linearGradient>'
         '<radialGradient id="glow" cx="0.3" cy="0.2" r="0.7"><stop offset="0" stop-color="#8E9CDA" stop-opacity="0.26"/><stop offset="1" stop-color="#8E9CDA" stop-opacity="0"/></radialGradient>'
-        '<radialGradient id="disc" cx="0.35" cy="0.25" r="0.9"><stop offset="0" stop-color="#34459C"/><stop offset="1" stop-color="#141C4A"/></radialGradient>'
+        '<radialGradient id="disc" cx="0.35" cy="0.25" r="0.9"><stop offset="0" stop-color="#2F55C9"/><stop offset="1" stop-color="#102066"/></radialGradient>'
         '<linearGradient id="gold" x1="0.1" y1="0" x2="0.7" y2="1"><stop offset="0" stop-color="#FCE08A"/><stop offset="0.55" stop-color="#E2B04A"/><stop offset="1" stop-color="#B07A0C"/></linearGradient>'
         '<linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF4C8" stop-opacity="0.9"/><stop offset="0.5" stop-color="#FFF4C8" stop-opacity="0"/></linearGradient>'
-        '<radialGradient id="red" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FF7B5F"/><stop offset="1" stop-color="#DB3E2A"/></radialGradient>'
+        '<radialGradient id="red" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#5CF0B0"/><stop offset="1" stop-color="#0FA56B"/></radialGradient>'
+        '<linearGradient id="ring" x1="0.1" y1="0.1" x2="0.9" y2="0.9"><stop offset="0" stop-color="#FCE08A"/><stop offset="0.5" stop-color="#D9A63F"/><stop offset="1" stop-color="#22C58B"/></linearGradient>'
         '<filter id="soft" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="12"/></filter>'
         '</defs>')
 
@@ -89,10 +90,10 @@ def emblem() -> str:
     bx, by = BADGE
     return (f'<circle cx="512" cy="512" r="{DISC_R}" fill="url(#disc)"/>'
             f'<circle cx="512" cy="512" r="{DISC_R - 22}" fill="none" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="3"/>'
-            f'<circle cx="512" cy="512" r="{DISC_R}" fill="none" stroke="url(#gold)" stroke-width="10"/>'
+            f'<circle cx="512" cy="512" r="{DISC_R}" fill="none" stroke="url(#ring)" stroke-width="12"/>'
             f'<path d="{S_PATH}" fill="#050819" fill-opacity="0.55" transform="translate(8 16)" filter="url(#soft)"/>'
             f'<path d="{S_PATH}" fill="url(#gold)"/><path d="{S_PATH}" fill="url(#edge)" fill-opacity="0.28"/>'
-            f'<circle cx="{bx:.0f}" cy="{by:.0f}" r="66" fill="#0C122F"/><circle cx="{bx:.0f}" cy="{by:.0f}" r="46" fill="url(#red)"/>'
+            f'<circle cx="{bx:.0f}" cy="{by:.0f}" r="66" fill="#0A1440"/><circle cx="{bx:.0f}" cy="{by:.0f}" r="46" fill="url(#red)"/>'
             f'<ellipse cx="{bx - 12:.0f}" cy="{by - 17:.0f}" rx="17" ry="10" fill="#FFFFFF" fill-opacity="0.34"/>')
 
 
