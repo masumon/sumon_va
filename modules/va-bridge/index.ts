@@ -37,6 +37,8 @@ type Native = {
   unpair(): boolean;
   loginPassword(base: string, email: string, password: string, totp: string | null, name: string): Promise<LoginResult>;
   loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
+  loginTelegramRequest(base: string, name: string): Promise<{ ok: boolean; requestId?: string; code?: string; expiresIn?: number; error?: string }>;
+  loginTelegramPoll(base: string, requestId: string): Promise<{ ok: boolean; status: 'pending' | 'approved' | 'denied' | 'expired' | 'used' | 'error'; name?: string }>;
   loginVerify(base: string, email: string, code: string, totp: string | null, name: string): Promise<{ ok: boolean; needTotp?: boolean; name?: string; error?: string }>;
   addListener(event: 'inboxChanged', listener: () => void): { remove(): void };
   request(method: string, path: string, body: string | null): Promise<{ status: number; body: string }>;
@@ -85,6 +87,13 @@ export const loginRequest = (base: string, email: string) =>
   native ? native.loginRequest(base, email) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });
 
 export type LoginResult = { ok: boolean; needTotp?: boolean; name?: string; error?: string };
+
+/** Password-free sign-in: ask, then wait for the owner's tap in his Telegram bot. */
+export const loginTelegramRequest = (base: string, name: string) =>
+  native ? native.loginTelegramRequest(base, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' } as { ok: boolean; requestId?: string; code?: string; expiresIn?: number; error?: string });
+
+export const loginTelegramPoll = (base: string, requestId: string) =>
+  native ? native.loginTelegramPoll(base, requestId) : Promise.resolve({ ok: false, status: 'error' as const });
 
 export const loginVerify = (base: string, email: string, code: string, totp: string | null, name: string): Promise<LoginResult> =>
   native ? native.loginVerify(base, email, code, totp, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });

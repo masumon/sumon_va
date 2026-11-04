@@ -149,6 +149,41 @@ class VaBridgeModule : Module() {
       }
     }
 
+    /** Sign in without a password, step 1: the server sends the owner a message with a code and two buttons in his own Telegram bot. */
+    AsyncFunction("loginTelegramRequest") { base: String, name: String ->
+      val clean = base.trimEnd('/')
+      if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
+      val r = Http.call(ctx, "POST", "/device/login-telegram/request", JSONObject().put("name", "${name.take(60)} (${Build.MODEL})").toString(), auth = false, baseOverride = clean)
+      val detail = try { JSONObject(r.body).optString("detail") } catch (_: Exception) { "" }
+      when {
+        r.code in 200..299 -> {
+          val json = JSONObject(r.body)
+          mapOf("ok" to true, "requestId" to json.optString("request_id"), "code" to json.optString("code"), "expiresIn" to json.optInt("expires_in", 120))
+        }
+        r.code == 0 -> mapOf("ok" to false, "error" to "ইন্টারনেট নেই বা সার্ভারে পৌঁছানো যাচ্ছে না")
+        else -> mapOf("ok" to false, "error" to detail.ifEmpty { "অনুরোধ যায়নি (${r.code})" })
+      }
+    }
+
+    /** Step 2: has the owner answered? On approval the phone keeps its OWN token (same as every other sign-in) and starts syncing. */
+    AsyncFunction("loginTelegramPoll") { base: String, requestId: String ->
+      val c = ctx
+      val clean = base.trimEnd('/')
+      if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "status" to "error")
+      val r = Http.call(c, "GET", "/device/login-telegram/status?request_id=" + Uri.encode(requestId) + "&app_version=1.0.0", null, auth = false, baseOverride = clean)
+      if (r.code !in 200..299) return@AsyncFunction mapOf("ok" to false, "status" to "error")
+      val json = JSONObject(r.body)
+      val status = json.optString("status", "error")
+      if (status == "approved") {
+        val token = json.optString("token")
+        if (token.isEmpty()) return@AsyncFunction mapOf("ok" to false, "status" to "error")
+        Store.setPaired(c, clean, token)
+        Store.setAccount(c, json.optString("name"), null)
+        PollService.start(c)
+        mapOf("ok" to true, "status" to "approved", "name" to json.optString("name"))
+      } else mapOf("ok" to true, "status" to status)
+    }
+
     Function("unpair") { Store.clear(ctx); PollService.stop(ctx); true }
 
     /** Server call with the device token. Only the owner's inbox endpoints are reachable from the screens. */
