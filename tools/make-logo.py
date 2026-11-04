@@ -1,6 +1,6 @@
 """Writes vector (SVG) masters of the app logo and renders PNG / JPG / PDF with headless Chrome. Run: python tools/make-logo.py
 
-The logo is the owner's first design, polished: a gold "S" on deep ABO indigo with one red notification dot. The letter is drawn from
+The approved logo (2026-11-04): a brush-painted green-to-red ring, a gold serif S with a soft glow, a blue badge, and MUMAIN AHMED beneath. The letter is drawn from
 the Inter Bold typeface (SIL Open Font License, free for logos and apps) so the artwork carries no Microsoft/Segoe font licence.
 Polish over the first version: the S is optically centred, the dot sits clear of the letter (it used to overlap it) with a ring in the
 background colour, a fine light edge on the letter gives it a metal feel, and the background carries one soft light.
@@ -25,18 +25,22 @@ NAME_FONT = ROOT / "tools/fonts/Cinzel_600SemiBold.ttf"   # the name (SIL Open F
 CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 DEFS = ('<defs>'
-        '<linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#2447B5"/><stop offset="1" stop-color="#0A1440"/></linearGradient>'
-        '<radialGradient id="glow" cx="0.3" cy="0.2" r="0.7"><stop offset="0" stop-color="#8E9CDA" stop-opacity="0.26"/><stop offset="1" stop-color="#8E9CDA" stop-opacity="0"/></radialGradient>'
-        '<radialGradient id="disc" cx="0.35" cy="0.25" r="0.9"><stop offset="0" stop-color="#2F55C9"/><stop offset="1" stop-color="#102066"/></radialGradient>'
-        '<linearGradient id="gold" x1="0.1" y1="0" x2="0.7" y2="1"><stop offset="0" stop-color="#FCE08A"/><stop offset="0.55" stop-color="#E2B04A"/><stop offset="1" stop-color="#B07A0C"/></linearGradient>'
-        '<linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF4C8" stop-opacity="0.9"/><stop offset="0.5" stop-color="#FFF4C8" stop-opacity="0"/></linearGradient>'
-        '<radialGradient id="red" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#5CF0B0"/><stop offset="1" stop-color="#0FA56B"/></radialGradient>'
-        '<linearGradient id="ring" x1="0.1" y1="0.1" x2="0.9" y2="0.9"><stop offset="0" stop-color="#FCE08A"/><stop offset="0.5" stop-color="#D9A63F"/><stop offset="1" stop-color="#22C58B"/></linearGradient>'
-        '<filter id="soft" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="12"/></filter>'
+        '<linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EFE9DB"/></linearGradient>'
+        '<linearGradient id="gold" x1="0.15" y1="0" x2="0.75" y2="1"><stop offset="0" stop-color="#E8B94A"/><stop offset="1" stop-color="#9A6A0A"/></linearGradient>'
+        '<linearGradient id="pg" gradientUnits="userSpaceOnUse" x1="150" y1="880" x2="860" y2="140"><stop offset="0" stop-color="#0A8F63"/><stop offset="0.3" stop-color="#1E9A5E"/><stop offset="0.5" stop-color="#C7A23C"/><stop offset="0.7" stop-color="#E2503A"/><stop offset="1" stop-color="#E8283D"/></linearGradient>'
+        '<filter id="brush" x="-6%" y="-6%" width="112%" height="112%">'
+        '<feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G" result="d"/>'
+        '<feTurbulence type="fractalNoise" baseFrequency="0.7 0.05" numOctaves="2" seed="3" result="t"/>'
+        '<feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.9 1.2" result="a"/><feComposite in="d" in2="a" operator="in"/></filter>'
+        '<filter id="haze" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="16"/></filter>'
+        '<radialGradient id="aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#F2C75C" stop-opacity="0.45"/><stop offset="1" stop-color="#F2C75C" stop-opacity="0"/></radialGradient>'
+        '<radialGradient id="blue" cx="0.35" cy="0.3" r="0.85"><stop offset="0" stop-color="#4F7BE8"/><stop offset="1" stop-color="#1A3A9E"/></radialGradient>'
+        '<radialGradient id="bhalo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#6E96F5" stop-opacity="0.5"/><stop offset="1" stop-color="#6E96F5" stop-opacity="0"/></radialGradient>'
         '</defs>')
 
-S_HEIGHT = 300
-DISC_R = 400
+S_HEIGHT = 360
+RING_R = 424
+BADGE = (690, 306, 34)
 FONT_GLYPHS = None
 
 
@@ -48,7 +52,7 @@ def _font():
 
 
 def letter_s(height: float) -> str:
-    """The S outline as an SVG path, scaled so it is `height` tall and centred in the disc."""
+    """The S outline as an SVG path, scaled so it is `height` tall and centred on the canvas."""
     font = _font()
     glyphs = font.getGlyphSet()
     name = font.getBestCmap()[ord("S")]
@@ -57,21 +61,20 @@ def letter_s(height: float) -> str:
     x0, y0, x1, y1 = bp.bounds
     k = height / (y1 - y0)
     ox = 512 - (x0 + x1) / 2 * k
-    oy = 476 + (y0 + y1) / 2 * k       # the font's y axis points up, SVG's down
+    oy = 512 + (y0 + y1) / 2 * k       # the font's y axis points up, SVG's down
     pen = SVGPathPen(glyphs)
     glyphs[name].draw(TransformPen(pen, (k, 0, 0, -k, ox, oy)))
     return pen.getCommands()
 
 
 def text_path(text: str, size: float, tracking: float, cx: float, baseline: float) -> str:
-    """Text turned into outlines (no font needed to view the file), letter-spaced and centred on cx. Set in Montserrat SemiBold."""
+    """Text turned into outlines (no font needed to view the file), letter-spaced and centred on cx. Set in Cinzel SemiBold."""
     font = TTFont(str(NAME_FONT))
     glyphs, cmap, hmtx = font.getGlyphSet(), font.getBestCmap(), font["hmtx"]
     k = size / font["head"].unitsPerEm
     names = [cmap[ord(c)] for c in text]
     adv = [hmtx[n][0] * k + tracking for n in names]
-    total = sum(adv) - tracking
-    x = cx - total / 2
+    x = cx - (sum(adv) - tracking) / 2
     out = []
     for n, a in zip(names, adv):
         pen = SVGPathPen(glyphs)
@@ -82,26 +85,30 @@ def text_path(text: str, size: float, tracking: float, cx: float, baseline: floa
 
 
 S_PATH = letter_s(S_HEIGHT)
-BADGE = (664, 326)   # the notification badge, clear of the letter's top-right corner
 
 
-def emblem() -> str:
-    """Everything sits inside one round emblem: a disc with a fine gold-to-green ring, the gold S with a green badge at its top
-    right, and the owner's name small beneath the letter."""
-    bx, by = BADGE
-    name = text_path("MUMAIN AHMED", 40, 15, 512, 716)
-    return (f'<circle cx="512" cy="512" r="{DISC_R}" fill="url(#disc)"/>'
-            f'<circle cx="512" cy="512" r="{DISC_R - 22}" fill="none" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="3"/>'
-            f'<circle cx="512" cy="512" r="{DISC_R}" fill="none" stroke="url(#ring)" stroke-width="12"/>'
-            f'<path d="{S_PATH}" fill="#050819" fill-opacity="0.55" transform="translate(6 12)" filter="url(#soft)"/>'
-            f'<path d="{S_PATH}" fill="url(#gold)"/><path d="{S_PATH}" fill="url(#edge)" fill-opacity="0.28"/>'
-            f'<circle cx="{bx}" cy="{by}" r="46" fill="#0A1440"/><circle cx="{bx}" cy="{by}" r="32" fill="url(#red)"/>'
-            f'<ellipse cx="{bx - 8}" cy="{by - 12}" rx="12" ry="7" fill="#FFFFFF" fill-opacity="0.34"/>'
-            f'<path d="{name}" fill="url(#gold)"/><rect x="467" y="744" width="90" height="4" rx="2" fill="url(#ring)"/>')
+def ring() -> str:
+    return (f'<circle cx="512" cy="512" r="{RING_R}" fill="none" stroke="url(#pg)" stroke-width="30"/>'
+            f'<circle cx="512" cy="512" r="{RING_R + 3}" fill="none" stroke="url(#pg)" stroke-width="12" opacity="0.55"/>')
+
+
+def emblem(name: bool = True) -> str:
+    """One round ring painted with a brush from green into red, a soft warm glow, the gold serif S, a blue badge at its corner,
+    and the owner's name small beneath the letter."""
+    bx, by, br = BADGE
+    parts = (f'<g filter="url(#haze)" opacity="0.30">{ring()}</g><g filter="url(#brush)">{ring()}</g>'
+             f'<circle cx="500" cy="440" r="330" fill="url(#aura)"/>'
+             f'<g transform="translate(0 -70)"><path d="{S_PATH}" fill="url(#gold)"/></g>'
+             f'<circle cx="{bx}" cy="{by}" r="{br * 2.6:.0f}" fill="url(#bhalo)"/>'
+             f'<circle cx="{bx}" cy="{by}" r="{br}" fill="url(#blue)" stroke="#E8B94A" stroke-width="3"/>'
+             f'<ellipse cx="{bx - 9}" cy="{by - 12}" rx="10" ry="6" fill="#fff" fill-opacity="0.45"/>')
+    if name:
+        parts += f'<path d="{text_path("MUMAIN AHMED", 46, 17, 512, 740)}" fill="url(#gold)"/>'
+    return parts
 
 
 def svg(body: str, bg: bool, h: int = 1024) -> str:
-    base = f'<rect width="1024" height="{h}" fill="url(#bg)"/><rect width="1024" height="{h}" fill="url(#glow)"/>' if bg else ""
+    base = f'<rect width="1024" height="{h}" fill="url(#bg)"/>' if bg else ""
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 {h}" width="1024" height="{h}">{DEFS}{base}{body}</svg>' + chr(10)
 
 
@@ -110,20 +117,16 @@ def tf(scale: float) -> str:
 
 
 def mono(scale: float) -> str:
-    return f'<g {tf(scale)}><path d="{S_PATH}" fill="#FFFFFF" transform="translate(0 {0})"/></g>'
-
-
-def lockup() -> str:
-    return emblem()
+    return f'<g {tf(scale)}><path d="{S_PATH}" fill="#FFFFFF" transform="translate(0 -70)"/></g>'
 
 
 VARIANTS = {
-    "logo-icon": svg(emblem(), True),                                    # the full app icon (round emblem on the square)
-    "logo-mark": svg(emblem(), False),                                   # transparent background, for the splash and anywhere on dark
-    "logo-adaptive": svg(f'<g {tf(0.84)}>{emblem()}</g>', False),        # Android adaptive foreground (safe zone)
+    "logo-icon": svg(emblem(), True),                                    # the full app icon / master logo
+    "logo-mark": svg(emblem(), False),                                   # transparent background
+    "logo-adaptive": svg(f'<g {tf(0.80)}>{emblem()}</g>', False),        # Android adaptive foreground (safe zone)
     "logo-mono": svg(mono(1.0), False),                                  # Android themed icon
     "logo-notification": svg(mono(1.25), False),                         # status-bar icon (white only)
-    "logo-lockup": svg(lockup(), True, 1024),                            # emblem + MUMAIN AHMED, for documents and signboards
+    "logo-lockup": svg(emblem(), True),                                  # same artwork, for documents and signboards
 }
 
 
