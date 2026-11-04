@@ -15,6 +15,7 @@ import { Page, Status } from './Page';
 import { ContactRow } from './ContactRow';
 import type { ModuleDef } from './modules';
 import { InfoHint } from './InfoHint';
+import { PlatformSettings } from './PlatformSettings';
 import { ConnectGuide } from './ConnectGuide';
 import { EmailFilterCard } from './EmailFilterCard';
 
@@ -73,6 +74,8 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       <ConnectGuide mod={mod} channels={d ?? null} received={total} onTested={() => { void list.reload(); void waiting.reload(); }} />
 
       {mod.key === 'email' ? <EmailFilterCard /> : null}
+
+      <PlatformSettings platform={mod.key} canAuto={mod.auto !== 'none' || mod.key === 'whatsapp'} />
 
       {mod.auto === 'telegram' && d ? (
         <Card icon="send-outline" title={bn ? 'Telegram বট' : 'Telegram bot'}>

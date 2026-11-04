@@ -49,7 +49,7 @@ export function Drawer() {
   const initial = (bridge.accountName || bridge.accountEmail || 'S').trim().charAt(0).toUpperCase();
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={drawer ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, styles.layer]} pointerEvents={drawer ? 'auto' : 'none'}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.veil, veil]}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel={bn ? 'মেনু বন্ধ করুন' : 'Close menu'} onPress={close} />
       </Animated.View>
@@ -110,8 +110,10 @@ export function Drawer() {
 }
 
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
+  // On Android a view with elevation (the bottom bar) is drawn above later siblings; the menu needs a higher elevation to cover it.
+  layer: { zIndex: 1000, elevation: 1000 },
   veil: { backgroundColor: colors.overlay },
-  panel: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.surface, paddingHorizontal: spacing.md, borderRightWidth: border.thin, borderRightColor: colors.border, justifyContent: 'space-between' },
+  panel: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.surface, paddingHorizontal: spacing.md, borderRightWidth: border.thin, borderRightColor: colors.border, justifyContent: 'space-between', elevation: 1001 },
   account: { flexDirection: 'row', alignItems: 'center', gap: spacing.smd, paddingBottom: spacing.md, borderBottomWidth: border.thin, borderBottomColor: colors.border },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.onPrimary, fontWeight: '700', fontSize: 19 },
