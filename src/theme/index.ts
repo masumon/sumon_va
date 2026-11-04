@@ -30,7 +30,7 @@ export const lightColors={background:'#F5F1EC',surface:'#FFFFFF',surfaceMuted:'#
 export const darkColors={background:'#0B1030',surface:'#151C42',surfaceMuted:'#1E2755',surfaceSunken:'#0D1233',primary:'#8EA0E6',primaryPressed:'#7A8CD0',primaryTint:'#1F2A63',onPrimary:'#07122A',accent:'#D9B663',textPrimary:'#F2F4FF',textSecondary:'#C3CAEA',textMuted:'#9AA4CF',border:'#2A3470',borderStrong:'#3C4A8C',success:'#46CE86',warning:'#E1A94E',danger:'#F0736A',info:'#5FB2E6',overlay:'rgba(0, 0, 0, 0.66)'} as const;
 // Low-light ("dim") mode: near-black warm ground (saves OLED battery), soft warm text, almost no blue light — easy on tired eyes at night.
 export const dimColors={background:'#0B0A09',surface:'#15130F',surfaceMuted:'#1E1B16',surfaceSunken:'#0F0D0B',primary:'#D6A453',primaryPressed:'#BF8F44',primaryTint:'#2A2214',onPrimary:'#1A1204',accent:'#D6A453',textPrimary:'#DCD2C0',textSecondary:'#B3A898',textMuted:'#8A8172',border:'#2B2620',borderStrong:'#3A332A',success:'#86BC8E',warning:'#D9A64A',danger:'#E0796B',info:'#86A9C6',overlay:'rgba(0, 0, 0, 0.78)'} as const;
-export type ThemeColors=typeof lightColors|typeof darkColors|typeof dimColors;
+export type ThemeColors={[K in keyof typeof lightColors]:string};
 export type AppThemeMode='light'|'dark'|'dim';
 export function getThemeColors(mode:AppThemeMode):ThemeColors{return mode==='dark'?darkColors:mode==='dim'?dimColors:lightColors;}
 export const colors=lightColors;

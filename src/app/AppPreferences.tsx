@@ -3,7 +3,8 @@ import { Appearance, I18nManager, NativeModules, Platform } from 'react-native';
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getGlassTokens, getThemeAccents, getThemeColors, type GlassTokens, type ThemeAccents, type ThemeColors } from '../theme';
+import { getGlassTokens, getThemeAccents, type GlassTokens, type ThemeAccents, type ThemeColors } from '../theme';
+import { DEFAULT_DESIGN, DESIGN_IDS, getDesignColors, getDesignTokens, type DesignId, type DesignTokens } from '../theme/designs';
 import { setTimeFormatPreference, setTimeZonePreference, BANGLADESH_TIME_ZONE } from '../i18n/date-time';
 import * as Crypto from 'expo-crypto';
 import { pbkdf2 } from '../backup/crypto';
@@ -28,6 +29,9 @@ type PreferencesContextValue = {
   colors: ThemeColors;
   accents: ThemeAccents;
   glass: GlassTokens;
+  /** The chosen design theme (aurora / premium / warm) and what it adds to the colours: radii, shadows, gradients, background art. */
+  design: DesignTokens;
+  designId: DesignId;
   onboarded: boolean;
   prefsLoaded: boolean;
   reduceMotion: boolean;
@@ -49,6 +53,7 @@ type PreferencesContextValue = {
   appLockEnabled: boolean;
   setLanguage: (language: Language) => Promise<void>;
   setThemeMode: (themeSetting: ThemeSetting) => Promise<void>;
+  setDesignTheme: (id: DesignId) => Promise<void>;
   setReduceMotion: (value: boolean) => Promise<void>;
   setQuietHours: (value: QuietHours | null) => Promise<void>;
   setTimeFormat: (value: TimeFormat) => Promise<void>;
@@ -177,6 +182,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
   // language switch; someone who wants English changes it once, on the first screen.
   const [language, setLanguageState] = useState<Language>('bn');
   const [themeSetting, setThemeSettingState] = useState<ThemeSetting>('light');
+  const [designId, setDesignIdState] = useState<DesignId>(DEFAULT_DESIGN);
   const [systemScheme, setSystemScheme] = useState<ThemeMode>(() => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'));
   const themeMode: ThemeMode = themeSetting === 'system' ? systemScheme : themeSetting;
   const [onboarded, setOnboarded] = useState(false);
@@ -212,7 +218,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
         let lastError: unknown = null;
         for (let attempt = 0; attempt < 3 && rows === null; attempt += 1) {
           try {
-            rows = await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM app_preferences WHERE key IN ('language', 'themeMode', 'onboarded', 'reduceMotion', 'quietHours', 'appLockHash', 'timeFormat', 'weekStartsOn', 'reminderLeadMinutes', 'quickCaptureTile', 'blockScreenshots', 'autoBackup', 'autoBackupFolderUri', 'timeZone', 'textScale')");
+            rows = await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM app_preferences WHERE key IN ('language', 'themeMode', 'designTheme', 'onboarded', 'reduceMotion', 'quietHours', 'appLockHash', 'timeFormat', 'weekStartsOn', 'reminderLeadMinutes', 'quickCaptureTile', 'blockScreenshots', 'autoBackup', 'autoBackupFolderUri', 'timeZone', 'textScale')");
           } catch (error) {
             lastError = error;
             if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
@@ -225,6 +231,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
         for (const row of rows) {
           if (row.key === 'language' && (row.value === 'en' || row.value === 'bn')) setLanguageState(row.value);
           if (row.key === 'themeMode' && (row.value === 'light' || row.value === 'dark' || row.value === 'dim' || row.value === 'system')) setThemeSettingState(row.value);
+          if (row.key === 'designTheme' && (DESIGN_IDS as string[]).includes(row.value)) setDesignIdState(row.value as DesignId);
           if (row.key === 'onboarded' && row.value === '1') setOnboarded(true);
           if (row.key === 'reduceMotion') setReduceMotionState(row.value === '1');
           if (row.key === 'textScale') { const v = Number(row.value); if ([0.9, 1, 1.1, 1.2].includes(v)) setTextScaleState(v); }
@@ -295,6 +302,16 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
       setThemeSettingState(previous);
     }
   }, [persist, themeSetting]);
+
+  const setDesignTheme = useCallback(async (id: DesignId) => {
+    const previous = designId;
+    setDesignIdState(id);
+    try {
+      await persist('designTheme', id);
+    } catch {
+      setDesignIdState(previous);
+    }
+  }, [persist, designId]);
 
   const completeOnboarding = useCallback(async () => {
     setOnboarded(true);
@@ -391,10 +408,11 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
     return true;
   }, [appLockHash, persist, lockUnreadable, db]);
 
-  const colors = useMemo(() => getThemeColors(themeMode), [themeMode]);
+  const colors = useMemo(() => getDesignColors(designId, themeMode), [designId, themeMode]);
+  const design = useMemo(() => getDesignTokens(designId, themeMode), [designId, themeMode]);
   const accents = useMemo(() => getThemeAccents(themeMode), [themeMode]);
   const glass = useMemo(() => getGlassTokens(themeMode), [themeMode]);
-  const value = useMemo(() => ({ language, themeMode, themeSetting, colors, accents, glass, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockEnabled: appLockHash !== null || lockUnreadable, setLanguage, setThemeMode, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding }), [language, themeMode, themeSetting, colors, accents, glass, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockHash, lockUnreadable, setLanguage, setThemeMode, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding]);
+  const value = useMemo(() => ({ language, themeMode, themeSetting, colors, accents, glass, design, designId, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockEnabled: appLockHash !== null || lockUnreadable, setLanguage, setThemeMode, setDesignTheme, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding }), [language, themeMode, themeSetting, colors, accents, glass, design, designId, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockHash, lockUnreadable, setLanguage, setThemeMode, setDesignTheme, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding]);
   return <PreferencesContext.Provider value={value}><TextScaleContext.Provider value={textScale}>{children}</TextScaleContext.Provider></PreferencesContext.Provider>;
 }
 

@@ -10,6 +10,7 @@ import { va, type Limits, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
+import { DesignPicker } from '../src/va/DesignPicker';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
 import { getStatus, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
 import { APP_VERSION } from '../src/va/config';
@@ -96,8 +97,12 @@ export default function SettingsScreen() {
         <ChipGroup<Lang> options={['bn', 'en']} value={p.language} labelOf={(l) => (l === 'bn' ? 'বাংলা' : 'English')} onChange={(l) => { if (l) void p.setLanguage(l); }} />
       </Card>
 
+      <Card icon="palette-swatch-outline" title={bn ? 'ডিজাইন-থিম' : 'Design theme'}>
+        <DesignPicker />
+      </Card>
+
       <Card icon="palette-outline" title={bn ? 'চেহারা' : 'Appearance'}>
-        <ChipGroup<ThemeChoice> label={bn ? 'রং' : 'Theme'} options={THEME_OPTIONS.map((t) => t.value)} value={p.themeSetting} labelOf={(v) => { const t = THEME_OPTIONS.find((x) => x.value === v); return t ? (bn ? t.bn : t.en) : v; }} onChange={(t) => { if (t) void p.setThemeMode(t); }} />
+        <ChipGroup<ThemeChoice> label={bn ? 'মোড (দিন / রাত)' : 'Mode (day / night)'} options={THEME_OPTIONS.map((t) => t.value)} value={p.themeSetting} labelOf={(v) => { const t = THEME_OPTIONS.find((x) => x.value === v); return t ? (bn ? t.bn : t.en) : v; }} onChange={(t) => { if (t) void p.setThemeMode(t); }} />
         <ChipGroup<(typeof SIZES)[number]> label={bn ? 'লেখার মাপ' : 'Text size'} options={SIZES} value={String(p.textScale) as (typeof SIZES)[number]}
           labelOf={(s) => (s === '0.9' ? (bn ? 'ছোট' : 'Small') : s === '1' ? (bn ? 'স্বাভাবিক' : 'Normal') : s === '1.1' ? (bn ? 'বড়' : 'Large') : (bn ? 'আরও বড়' : 'Larger'))} onChange={(s) => { if (s) void p.setTextScale(Number(s)); }} />
         <ToggleRow icon="motion-pause-outline" label={bn ? 'কম অ্যানিমেশন' : 'Reduce motion'} value={p.reduceMotion} onChange={(v) => void p.setReduceMotion(v)} />
