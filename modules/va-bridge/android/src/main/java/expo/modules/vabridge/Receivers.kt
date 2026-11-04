@@ -225,6 +225,9 @@ object Presence {
     } catch (_: Exception) { null }
   }
 
+  /** Seconds the phone has been completely still and untouched: nobody is carrying or using it. */
+  fun stillForSeconds(): Long = ((System.currentTimeMillis() - maxOf(movedAt, touchedAt)) / 1000).coerceAtLeast(0)
+
   fun report(ctx: Context) {
     val now = System.currentTimeMillis()
     val touchedAgo = ((now - touchedAt) / 1000).coerceAtLeast(0)

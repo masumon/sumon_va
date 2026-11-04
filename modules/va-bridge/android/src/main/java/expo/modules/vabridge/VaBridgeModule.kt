@@ -161,6 +161,7 @@ class VaBridgeModule : Module() {
 
     AsyncFunction("flush") { Outbox.flush(ctx) }
     Function("startService") { if (Store.paired(ctx)) PollService.start(ctx); true }
+    Function("stillFor") { Presence.start(ctx); Presence.stillForSeconds().toInt() }
     Function("stopService") { PollService.stop(ctx); true }
     Function("setPackages") { list: List<String> -> Store.setPackages(ctx, list.filter { it.length in 3..120 }.toSet()); true }
     Function("setPollSeconds") { s: Int -> Store.setPollSeconds(ctx, s); true }

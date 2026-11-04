@@ -43,6 +43,8 @@ type Native = {
   flush(): Promise<boolean>;
   startService(): boolean;
   stopService(): boolean;
+  /** Seconds the phone has been still and untouched (nobody carrying or using it). */
+  stillFor(): number;
   setPackages(list: string[]): boolean;
   setPollSeconds(seconds: number): boolean;
   testAlert(): boolean;
@@ -112,6 +114,7 @@ const call = <K extends keyof Native>(name: K) => (...args: Parameters<Native[K]
 
 export const startService = call('startService');
 export const stopService = call('stopService');
+export const stillFor = call('stillFor');
 export const setPackages = call('setPackages');
 export const setPollSeconds = call('setPollSeconds');
 export const testAlert = call('testAlert');

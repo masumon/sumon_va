@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSQLiteContext } from 'expo-sqlite';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
@@ -21,7 +22,16 @@ export default function LoginScreen() {
   const { bn } = useKit();
   const { showSnackbar } = useAppFeedback();
   const [step, setStep] = useState<Step>('password');
+  const db = useSQLiteContext();
   const [email, setEmail] = useState('');
+  // The e-mail used last time is remembered on this phone, so after a sign-out only the password (or its autofill) is left to give.
+  useEffect(() => {
+    let alive = true;
+    db.getFirstAsync<{ value: string }>("SELECT value FROM app_preferences WHERE key = 'lastLoginEmail'")
+      .then((row) => { if (alive && row?.value) setEmail((cur) => cur || row.value); }).catch(() => {});
+    return () => { alive = false; };
+  }, [db]);
+  const rememberEmail = () => { void db.runAsync("INSERT INTO app_preferences (key, value) VALUES ('lastLoginEmail', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", email.trim()).catch(() => {}); };
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [mailCode, setMailCode] = useState('');
@@ -33,7 +43,7 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       const r = await loginPassword(SERVER, email, password, step === 'totp' ? totp : null, name);
-      if (r.ok) { router.replace('/lock-setup' as never); return; }
+      if (r.ok) { rememberEmail(); router.replace('/lock-setup' as never); return; }
       if (r.needTotp) { setStep('totp'); return; }
       fail(r.error);
     } finally { setBusy(false); }
@@ -50,7 +60,7 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       const r = await loginVerify(SERVER, email, mailCode, null, name);
-      if (r.ok) { router.replace('/lock-setup' as never); return; }
+      if (r.ok) { rememberEmail(); router.replace('/lock-setup' as never); return; }
       if (r.needTotp) { setStep('totp'); showSnackbar(bn ? 'এবার পাসওয়ার্ড দিয়ে ঢুকুন' : 'Please sign in with your password', 'info'); return; }
       fail(r.error);
     } finally { setBusy(false); }

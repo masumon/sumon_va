@@ -4,11 +4,14 @@ import { AppText as Text } from './AppText';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppPreferences } from '../app/AppPreferences';
+import { stillFor } from '../../modules/va-bridge';
 import { AppIcon } from './AppIcon';
 import { border, control, layout, opacity, radius, spacing, typography } from '../theme';
 
 // D9: a quick glance away keeps the app open; anything longer asks again.
 const GRACE_MS = 5000;
+// Phone still and untouched this long (10 minutes) means it is not with the owner.
+const AWAY_SECONDS = 600;
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'ok'] as const;
 
 export function LockGate({ children }: PropsWithChildren) {
@@ -53,6 +56,16 @@ export function LockGate({ children }: PropsWithChildren) {
     return () => sub.remove();
   }, []);
 
+  // Not with the owner: the phone's own sensors say it has been still and untouched for a while (left on a desk), so the app locks
+  // by itself and asks for the PIN again. The messages keep arriving in the background; only the screen is protected.
+  useEffect(() => {
+    if (!appLockEnabled) return undefined;
+    const check = () => { const still = stillFor(); if (typeof still === 'number' && still > AWAY_SECONDS) { setUnlocked(false); bioTried.current = false; } };
+    const id = setInterval(check, 30_000);
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') check(); });
+    return () => { clearInterval(id); sub.remove(); };
+  }, [appLockEnabled]);
+
   // Offer Face/Fingerprint as the fast path; the PIN pad is always the fallback.
   useEffect(() => {
     if (!locked || bioTried.current) return;
@@ -65,7 +78,7 @@ export function LockGate({ children }: PropsWithChildren) {
         // phone's own screen-lock credential as a fallback inside the biometric prompt,
         // which unlocks this app with a code that has nothing to do with the PIN the user
         // set for it — anyone who knows the phone's lock defeats App Lock entirely.
-        const res = await LocalAuthentication.authenticateAsync({ promptMessage: bn ? 'আনলক করুন' : 'Unlock Apon', disableDeviceFallback: true });
+        const res = await LocalAuthentication.authenticateAsync({ promptMessage: bn ? 'আনলক করুন' : 'Unlock the app', disableDeviceFallback: true });
         if (!cancelled && res.success) setUnlocked(true);
       } catch { /* fall back to PIN */ }
     })();
