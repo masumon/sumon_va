@@ -95,21 +95,21 @@ def save(img, path, px, fmt=None, **kw):
     img.resize((px, px), Image.LANCZOS).save(path, fmt, **kw)
 
 
+def load(name):
+    return Image.open(ASSETS / "logo" / f"{name}.png").convert("RGBA").resize((S, S), Image.LANCZOS)
+
+
 def main():
-    bg = background()
-    full = Image.alpha_composite(bg.convert("RGBA"), mark(S, 0.64))
-    # store/master icon (square, system masks it)
+    """Every icon is cut from the master artwork in assets/logo (made by tools/make-logo.py), so the logo lives in one place."""
+    full = load("logo-icon")
     save(full.convert("RGB"), ASSETS / "icon.png", 1024)
-    # adaptive layers (108dp canvas, safe zone = centre 66%)
-    fg = mark(S, 0.50)
-    mono = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    mono.paste(Image.new("RGBA", (S, S), (255, 255, 255, 255)), (0, 0), s_mask(S, 0.50))
+    fg = load("logo-adaptive")
+    mono = load("logo-mono")
+    notif = load("logo-notification")
+    splash = load("logo-mark")
     save(fg, ASSETS / "adaptive-icon.png", 1024)
     save(mono, ASSETS / "monochrome-icon.png", 1024)
-    notif = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    notif.paste(Image.new("RGBA", (S, S), (255, 255, 255, 255)), (0, 0), s_mask(S, 0.78))
     save(notif, ASSETS / "notification-icon.png", 1024)
-    splash = mark(S, 0.62)
     save(splash, ASSETS / "splash-mark.png", 1024)
     save(full.convert("RGB"), ASSETS / "favicon.png", 96)
 
