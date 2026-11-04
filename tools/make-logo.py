@@ -1,7 +1,7 @@
 """Writes the app's logo as SVG (the source of truth) and renders PNG / JPG / PDF with headless Chrome. Run: python tools/make-logo.py
 
-The mark: ONE shape, a speech bubble with the letter S cut out of it (conversation + Sumon). No extra elements, so it reads at 24 px
-and on a signboard. Alternatives (a single S, S with an alert dot, the Bangla letter স) were compared and set aside. Colours follow the ABO Enterprise palette: deep indigo, bronze-gold, one accent.
+The mark: one line that reads two ways, a Latin S and a Bangla letter hanging from its matra (the bar on top, as in the Bangla স).
+Only a bar and two arcs, so it reads at 24 px and on a signboard. Green on white-on-green for a modern, calm feel. Colours follow the owner's choice: emerald green with white.
 """
 from __future__ import annotations
 
@@ -16,25 +16,24 @@ OUT = ROOT / "assets" / "logo"
 CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 DEFS = ('<defs>'
-        '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26357F"/><stop offset="1" stop-color="#0B1030"/></linearGradient>'
-        '<linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="300" y1="170" x2="700" y2="880"><stop offset="0" stop-color="#F8D06C"/><stop offset="1" stop-color="#B0760A"/></linearGradient>'
+        '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#19C98F"/><stop offset="1" stop-color="#067A57"/></linearGradient>'
+        '<linearGradient id="soft" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5EEAB4"/><stop offset="1" stop-color="#12B886"/></linearGradient>'
         '</defs>')
-R, CX, TOP = 104, 512, 380
+R, CX, TOP, SW = 92, 512, 478, 66
 S_PATH = f'M{CX + R} {TOP} A{R} {R} 0 1 0 {CX} {TOP + R} A{R} {R} 0 1 1 {CX - R} {TOP + 2 * R}'
-BUBBLE = '<circle cx="512" cy="480" r="330"/><path d="M290 700 Q276 820 196 868 Q360 876 470 800 Z"/>'
-CUT = (f'<mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><rect width="1024" height="1024" fill="#fff"/>'
-       f'<path d="{S_PATH}" fill="none" stroke="#000" stroke-width="74" stroke-linecap="round"/></mask>')
+BAR = 'M392 288 H632'                    # the Bangla matra, the line every Bangla letter hangs from
 
 
 def svg(body: str, bg: bool) -> str:
     rect = '<rect width="1024" height="1024" fill="url(#bg)"/>' if bg else ""
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">{DEFS}{CUT}{rect}{body}</svg>\n'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">{DEFS}{rect}{body}</svg>' + chr(10)
 
 
-def mark(scale: float = 1.0, fill: str = "url(#gold)") -> str:
-    """One shape: a speech bubble with the letter S cut out of it (negative space). Conversation + Sumon, nothing else."""
+def mark(scale: float = 1.0, color: str = "#FFFFFF") -> str:
+    """One mark that reads two ways: a Latin S, and a Bangla letter hanging from its matra (the bar on top), like the Bangla স."""
     t = f'transform="translate(512 512) scale({scale}) translate(-512 -512)"'
-    return f'<g {t}><g fill="{fill}" mask="url(#cut)">{BUBBLE}</g></g>'
+    return (f'<g {t} fill="none" stroke="{color}" stroke-linecap="round"><path d="{BAR}" stroke-width="{SW}"/>'
+            f'<path d="{S_PATH}" stroke-width="{SW}"/></g>')
 
 
 def mono(scale: float) -> str:
@@ -43,8 +42,8 @@ def mono(scale: float) -> str:
 
 VARIANTS = {
     "logo-icon": svg(mark(1.0), True),                 # full app icon
-    "logo-mark": svg(mark(1.0), False),     # transparent, for the splash and anywhere on dark
-    "logo-adaptive": svg(mark(0.80), False),           # Android adaptive foreground (safe zone)
+    "logo-mark": svg(mark(1.0, "url(#soft)"), False),     # transparent, for the splash and anywhere on dark
+    "logo-adaptive": svg(mark(0.86), False),           # Android adaptive foreground (safe zone)
     "logo-mono": svg(mono(1.0), False),                # Android themed icon
     "logo-notification": svg(mono(1.15), False),       # status-bar icon (white only)
 }
