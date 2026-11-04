@@ -47,6 +47,8 @@ let hour12Default=true;
 export function setTimeFormatPreference(mode:'12'|'24'):void{hour12Default=mode==='12';}
 export function isHour12():boolean{return hour12Default;}
 const localeFor=(language:AppLanguage)=>language==='bn'?'bn-BD':'en-BD';
+/** Intl writes "am"/"pm" in lower case (or "a.m.") for en-BD; the app shows capitals: "12:46 AM". */
+const ampm=(text:string)=>text.replace(/\b([ap])\.?m\.?(?![a-z])/giu,(_m,x:string)=>`${x.toUpperCase()}M`);
 function toDate(value:string|Date):Date{const date=value instanceof Date?value:new Date(value);if(Number.isNaN(date.getTime()))throw new Error('Invalid date/time value');return date;}
 const format=(value:string|Date,language:AppLanguage,options:Intl.DateTimeFormatOptions)=>new Intl.DateTimeFormat(localeFor(language),{...options,timeZone:activeZone}).format(toDate(value));
 function dhakaCalendarParts(value:string|Date):{year:number;month:number;day:number}{const date=toDate(value);const parts=new Intl.DateTimeFormat('en-US',{timeZone:activeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const year=Number(parts.find(part=>part.type==='year')?.value);const month=Number(parts.find(part=>part.type==='month')?.value);const day=Number(parts.find(part=>part.type==='day')?.value);if(!Number.isInteger(year)||!Number.isInteger(month)||!Number.isInteger(day))throw new Error('Invalid Bangladesh calendar date');return{year,month,day};}
@@ -75,12 +77,13 @@ export function bnDayPart(hour:number):string{return hour<4?'রাত':hour<6?'
 function bnClock(hour:number,minute:number):string{
   const mm=String(minute).padStart(2,'0');
   if(!hour12Default)return bnDigits(`${String(hour).padStart(2,'0')}:${mm}`);
-  return `${bnDayPart(hour)} ${bnDigits(((hour+11)%12)+1)}:${bnDigits(mm)}`;
+  // 12-hour clock as AM/PM in Bangla letters (owner's choice 2026-11-05): "১২:৪৬ এএম", "০৩:০৫ পিএম" — Bangladesh time.
+  return `${bnDigits(String(((hour+11)%12)+1).padStart(2,'0'))}:${bnDigits(mm)} ${hour<12?'এএম':'পিএম'}`;
 }
 const bnDate=(w:{year:number;month:number;day:number})=>`${bnDigits(w.day)} ${BN_MONTHS[w.month-1]}, ${bnDigits(w.year)}`;
 export function formatBangladeshDate(value:string|Date,language:AppLanguage):string{if(language==='bn')return bnDate(zoneWall(value));return format(value,language,{year:'numeric',month:'long',day:'numeric'});}
-export function formatBangladeshDateTime(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return `${bnDate(w)}, ${bnClock(w.hour,w.minute)}`;}return format(value,language,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:hour12Default});}
-export function formatBangladeshTime(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return bnClock(w.hour,w.minute);}return format(value,language,{hour:'numeric',minute:'2-digit',hour12:hour12Default});}
+export function formatBangladeshDateTime(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return `${bnDate(w)}, ${bnClock(w.hour,w.minute)}`;}return ampm(format(value,language,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:hour12Default}));}
+export function formatBangladeshTime(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return bnClock(w.hour,w.minute);}return ampm(format(value,language,{hour:'numeric',minute:'2-digit',hour12:hour12Default}));}
 export function formatBangladeshWeekdayDate(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return `${BN_WEEKDAYS[w.weekday]}, ${bnDate(w)}`;}return format(value,language,{weekday:'short',year:'numeric',month:'long',day:'numeric'});}
 export function formatBangladeshMonthYear(value:string|Date,language:AppLanguage):string{if(language==='bn'){const w=zoneWall(value);return `${BN_MONTHS[w.month-1]} ${bnDigits(w.year)}`;}return format(value,language,{year:'numeric',month:'long'});}
 export function formatBangladeshWeekday(value:string|Date,language:AppLanguage):string{if(language==='bn')return BN_WEEKDAYS[zoneWall(value).weekday]!;return format(value,language,{weekday:'long'});}
