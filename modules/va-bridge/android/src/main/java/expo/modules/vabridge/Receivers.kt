@@ -185,7 +185,7 @@ object Presence {
       override fun onReceive(c: Context, i: Intent) {
         when (i.action) {
           Intent.ACTION_SCREEN_ON -> screenOn = true
-          Intent.ACTION_SCREEN_OFF -> screenOn = false
+          Intent.ACTION_SCREEN_OFF -> { screenOn = false; touchedAt = System.currentTimeMillis() }
           Intent.ACTION_USER_PRESENT -> { screenOn = true; touchedAt = System.currentTimeMillis() }
         }
         if (screenOn) touchedAt = System.currentTimeMillis()
@@ -226,7 +226,8 @@ object Presence {
   }
 
   /** Seconds the phone has been completely still and untouched: nobody is carrying or using it. */
-  fun stillForSeconds(): Long = ((System.currentTimeMillis() - maxOf(movedAt, touchedAt)) / 1000).coerceAtLeast(0)
+  // While the screen is on the owner is using the phone, so it is never "still"; the count starts from the moment the screen went off.
+  fun stillForSeconds(): Long = if (screenOn) 0L else ((System.currentTimeMillis() - maxOf(movedAt, touchedAt)) / 1000).coerceAtLeast(0)
 
   fun report(ctx: Context) {
     val now = System.currentTimeMillis()

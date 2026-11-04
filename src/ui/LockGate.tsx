@@ -9,7 +9,7 @@ import { AppIcon } from './AppIcon';
 import { border, control, layout, opacity, radius, spacing, typography } from '../theme';
 
 // D9: a quick glance away keeps the app open; anything longer asks again.
-const GRACE_MS = 5000;
+const GRACE_MS = 120000; // leaving the app for under two minutes (to answer a message elsewhere) never asks again
 // Phone still and untouched this long (10 minutes) means it is not with the owner.
 const AWAY_SECONDS = 600;
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'ok'] as const;
