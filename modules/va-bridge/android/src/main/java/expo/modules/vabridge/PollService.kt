@@ -23,6 +23,8 @@ import org.json.JSONObject
  */
 class PollService : Service() {
   @Volatile private var running = false
+  private val wakeLock = Object()
+  private var netCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,6 +37,7 @@ class PollService : Service() {
     if (!running) {
       running = true
       alive = true
+      watchNetwork()
       Thread { loop() }.start()
     }
     return START_STICKY
@@ -43,13 +46,28 @@ class PollService : Service() {
   override fun onDestroy() {
     running = false
     alive = false
+    try { netCallback?.let { (getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).unregisterNetworkCallback(it) } } catch (_: Exception) {}
+    synchronized(wakeLock) { wakeLock.notifyAll() }
     super.onDestroy()
+  }
+
+  /** The moment the internet comes back (or changes network), skip any waiting and sync right away, so nothing stays stuck in the queue. */
+  private fun watchNetwork() {
+    try {
+      val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+      val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) { nudge = true; synchronized(wakeLock) { wakeLock.notifyAll() } }
+      }
+      cm.registerDefaultNetworkCallback(cb)
+      netCallback = cb
+    } catch (_: Exception) { /* without it the normal timer still syncs, just a little later */ }
   }
 
   private fun loop() {
     val ctx = applicationContext
     var failures = 0
     while (running) {
+      if (nudge) { nudge = false; failures = 0 }
       try {
         if (!Store.paired(ctx)) { Thread.sleep(5000); continue }
         Outbox.flush(ctx)
@@ -63,7 +81,7 @@ class PollService : Service() {
       }
       // Normal case: the server already held the call for up to 25 s, so a short breath is enough. Trouble: back off, never hammer.
       val pause = if (failures == 0) 800L else minOf(30_000L, 3_000L * failures)
-      try { Thread.sleep(pause) } catch (_: InterruptedException) { return }
+      try { if (nudge) nudge = false else synchronized(wakeLock) { wakeLock.wait(pause) } } catch (_: InterruptedException) { return }
     }
   }
 
@@ -126,6 +144,7 @@ class PollService : Service() {
     const val CH_URGENT = "va_urgent_v2"
     const val CH_NORMAL = "va_normal_v2"
     @Volatile var alive = false
+    @Volatile private var nudge = false
 
     fun start(ctx: Context) {
       val i = Intent(ctx, PollService::class.java)
