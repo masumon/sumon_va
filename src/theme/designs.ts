@@ -110,3 +110,80 @@ export const DESIGN_INFO: { id: DesignId; bn: string; en: string; hintBn: string
   { id: 'prime', bn: 'প্রিমিয়াম', en: 'Premium', hintBn: 'গভীর রং, জ্বলজ্বলে গ্রেডিয়েন্ট', hintEn: 'Deep colour with glowing gradients', swatch: ['#4F46E5', '#0891B2', '#F59E0B'] },
   { id: 'warm', bn: 'রঙিন উষ্ণ', en: 'Warm and colourful', hintBn: 'উষ্ণ রং, বড় গোল কার্ড', hintEn: 'Warm colours, big rounded cards', swatch: ['#EA580C', '#DB2777', '#86EFAC'] },
 ];
+
+// ── Section colours (owner, 2026-11-05): "the colour follows the place" ───────────────────────────────────────────
+// Every part of the app has its own colour for its hero card, buttons, selected chips and the active tab; a platform page
+// takes the platform's own brand colour. Nothing here changes behaviour: it only recolours `primary*` and the gradients.
+export type SectionColor = { primary: string; pressed: string; grad: Grad2 };
+const sec = (primary: string, pressed: string, a: string, b: string): SectionColor => ({ primary, pressed, grad: [a, b] });
+
+/** Solid `primary` is always dark enough for white text (≥ 4.5:1); the gradient stops are for big white headlines. */
+const SECTIONS: Record<string, SectionColor> = {
+  home: sec('#0F766E', '#115E59', '#0F766E', '#0891B2'),         // teal → cyan
+  inbox: sec('#6D28D9', '#5B21B6', '#7C3AED', '#C026D3'),        // violet → magenta
+  tasks: sec('#B45309', '#92400E', '#D97706', '#EA580C'),        // amber → orange
+  channels: sec('#BE185D', '#9D174D', '#DB2777', '#E11D48'),     // rose
+  more: sec('#334155', '#1E293B', '#475569', '#0F766E'),         // slate → teal
+  settings: sec('#334155', '#1E293B', '#475569', '#64748B'),     // slate
+  setup: sec('#15803D', '#166534', '#15803D', '#0F766E'),        // green
+  assistant: sec('#5B21B6', '#4C1D95', '#6D28D9', '#4F46E5'),    // deep violet (rules, routine, replies, simulate)
+  report: sec('#047857', '#065F46', '#047857', '#0E7490'),       // emerald → teal
+  health: sec('#B91C1C', '#991B1B', '#DC2626', '#EA580C'),       // red → orange
+  ai: sec('#6D28D9', '#5B21B6', '#7C3AED', '#DB2777'),           // violet → pink
+  // platforms: their own brand colours (solid side darkened enough for white text)
+  whatsapp: sec('#0F7B6C', '#0B6358', '#128C7E', '#25D366'),
+  messenger: sec('#0A66D1', '#0852A8', '#0A7CFF', '#7C3AED'),
+  instagram: sec('#C2255C', '#9F1D4A', '#E1306C', '#F77737'),
+  telegram: sec('#0B76A8', '#095E86', '#229ED9', '#0088CC'),
+  linkedin: sec('#0A66C2', '#08519B', '#0A66C2', '#0077B5'),
+  tiktok: sec('#111827', '#000000', '#111827', '#EE1D52'),
+  facebook: sec('#1565D8', '#1051AE', '#1877F2', '#0A5AD1'),
+  sms: sec('#C2410C', '#9A3412', '#F97316', '#EA580C'),
+  email: sec('#B91C1C', '#991B1B', '#DC2626', '#B91C1C'),
+  imo: sec('#0369A1', '#075985', '#0EA5E9', '#2563EB'),
+  viber: sec('#59267C', '#451C60', '#7360F2', '#59267C'),
+  line: sec('#047857', '#065F46', '#06C755', '#00B900'),
+  wechat: sec('#047857', '#065F46', '#07C160', '#059669'),
+  signal: sec('#1D4ED8', '#1E40AF', '#3A76F0', '#2C6BED'),
+};
+
+/** Which colour a screen gets, from its path. Unknown paths (login, pair, lock, custom apps) keep the design's own colour. */
+export function sectionKeyFor(pathname: string): string | null {
+  const p = pathname.split('?')[0] ?? '';
+  if (p === '/' || p === '') return 'home';
+  const m = p.match(/^\/m\/([^/]+)/u);
+  if (m) return SECTIONS[m[1]!] ? m[1]! : 'channels';
+  const first = p.split('/')[1] ?? '';
+  const map: Record<string, string> = {
+    inbox: 'inbox', contact: 'inbox', tasks: 'tasks', channels: 'channels', more: 'more', settings: 'settings', setup: 'setup', about: 'more', tour: 'home',
+    rules: 'assistant', routine: 'assistant', scripts: 'assistant', simulate: 'assistant', report: 'report', health: 'health', 'wa-health': 'health', ai: 'ai',
+  };
+  return map[first] ?? null;
+}
+
+const mixWhite = (hex: string, t: number): string => {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0');
+  return `#${f((n >> 16) & 255)}${f((n >> 8) & 255)}${f(n & 255)}`;
+};
+const mixDark = (hex: string, base: string, t: number): string => {
+  const a = parseInt(hex.slice(1), 16), b = parseInt(base.slice(1), 16);
+  const f = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  return `#${f((a >> 16) & 255, (b >> 16) & 255)}${f((a >> 8) & 255, (b >> 8) & 255)}${f(a & 255, b & 255)}`;
+};
+
+/** Recolour the design for a screen's section. Low-light mode stays as it is (calm, no coloured glow). */
+export function applySection(key: string | null, mode: Mode, colors: ThemeColors, design: DesignTokens): { colors: ThemeColors; design: DesignTokens } {
+  const s = key ? SECTIONS[key] : undefined;
+  if (!s || mode === 'dim') return { colors, design };
+  const dark = mode === 'dark';
+  const primary = dark ? mixWhite(s.primary, 0.55) : s.primary;
+  const pressed = dark ? mixWhite(s.primary, 0.38) : s.pressed;
+  const tint = dark ? mixDark(s.primary, colors.background, 0.72) : mixWhite(s.primary, 0.9);
+  const onPrimary = dark ? colors.background : '#FFFFFF';
+  const blobs = design.blobs.length > 0 ? [{ ...design.blobs[0]!, color: s.grad[0] }, ...design.blobs.slice(1)] : design.blobs;
+  return {
+    colors: { ...colors, primary, primaryPressed: pressed, primaryTint: tint, onPrimary },
+    design: { ...design, blobs, heroGrad: s.grad, ctaGrad: s.grad, drawerGrad: s.grad },
+  };
+}

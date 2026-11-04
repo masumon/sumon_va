@@ -4,7 +4,8 @@ import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getGlassTokens, getThemeAccents, type GlassTokens, type ThemeAccents, type ThemeColors } from '../theme';
-import { DEFAULT_DESIGN, DESIGN_IDS, getDesignColors, getDesignTokens, type DesignId, type DesignTokens } from '../theme/designs';
+import { usePathname } from 'expo-router';
+import { DEFAULT_DESIGN, DESIGN_IDS, applySection, getDesignColors, getDesignTokens, sectionKeyFor, type DesignId, type DesignTokens } from '../theme/designs';
 import { setTimeFormatPreference, setTimeZonePreference, BANGLADESH_TIME_ZONE } from '../i18n/date-time';
 import * as Crypto from 'expo-crypto';
 import { pbkdf2 } from '../backup/crypto';
@@ -408,8 +409,12 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
     return true;
   }, [appLockHash, persist, lockUnreadable, db]);
 
-  const colors = useMemo(() => getDesignColors(designId, themeMode), [designId, themeMode]);
-  const design = useMemo(() => getDesignTokens(designId, themeMode), [designId, themeMode]);
+  // The colour follows the place: each screen's section recolours primary, the gradients and the glow (see applySection).
+  const pathname = usePathname();
+  const sectionKey = sectionKeyFor(pathname);
+  const themed = useMemo(() => applySection(sectionKey, themeMode, getDesignColors(designId, themeMode), getDesignTokens(designId, themeMode)), [designId, themeMode, sectionKey]);
+  const colors = themed.colors;
+  const design = themed.design;
   const accents = useMemo(() => getThemeAccents(themeMode), [themeMode]);
   const glass = useMemo(() => getGlassTokens(themeMode), [themeMode]);
   const value = useMemo(() => ({ language, themeMode, themeSetting, colors, accents, glass, design, designId, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockEnabled: appLockHash !== null || lockUnreadable, setLanguage, setThemeMode, setDesignTheme, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding }), [language, themeMode, themeSetting, colors, accents, glass, design, designId, onboarded, prefsLoaded, reduceMotion, textScale, setTextScale, quietHours, timeFormat, weekStartsOn, reminderLeadMinutes, quickCaptureTile, blockScreenshots, autoBackup, autoBackupFolderUri, appLockHash, lockUnreadable, setLanguage, setThemeMode, setDesignTheme, setReduceMotion, setQuietHours, setTimeFormat, timeZone, setTimeZone, setWeekStartsOn, setReminderLeadMinutes, setQuickCaptureTile, setBlockScreenshots, setAutoBackup, setAutoBackupFolderUri, setAppLockPin, verifyAppLockPin, applyDeviceLanguage, completeOnboarding]);
