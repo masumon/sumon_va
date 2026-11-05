@@ -14,7 +14,9 @@
 #>
 param(
   [ValidateSet('phone', 'emulator', 'both')][string]$Target = 'phone',
-  [switch]$Install,
+  [switch]$Install,      # kept so old commands still work; installing is now the default
+  [switch]$NoInstall,    # build only
+  [switch]$CheckOnly,    # print memory + devices and stop
   [switch]$FreeMemory,
   [switch]$Qa,   # test build: screenshots allowed (the normal build always blocks them)
   [string]$Avd = 'Pixel_6'
@@ -38,13 +40,25 @@ function Get-Device([bool]$wantEmulator) {
   return $null
 }
 
-Write-Host "Free Windows commit memory: $(Get-FreeCommitGB) GB"
-$needsMemory = (Get-FreeCommitGB) -lt 6
+function Get-FreeRamGB { [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 1) }
+function Show-TopMemory {
+  Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 4 | ForEach-Object { Write-Host ("   {0,-22} {1,6} MB" -f $_.ProcessName, [int]($_.WorkingSet64 / 1MB)) }
+}
+$clock = [System.Diagnostics.Stopwatch]::StartNew()
+Write-Host "Free RAM: $(Get-FreeRamGB) GB   Free commit memory: $(Get-FreeCommitGB) GB"
+$phoneNow = Get-Device $false
+Write-Host ("Phone: " + $(if ($phoneNow) { "connected ($phoneNow)" } else { 'NOT connected (APK will stay in dist\)' }))
+if ($CheckOnly) { Write-Host 'Biggest memory users:'; Show-TopMemory; Write-Host 'CheckOnly: nothing built.'; return }
+$needsMemory = ((Get-FreeCommitGB) -lt 6) -or ((Get-FreeRamGB) -lt 3)
 if ($FreeMemory -or $needsMemory) {
+  if ($needsMemory -and -not $FreeMemory) { Write-Host 'Memory is low: freeing the emulator and idle Gradle daemons first.'; $FreeMemory = [switch]::Present }
   if ($Target -eq 'phone' -and (Get-Device $true)) { Write-Host 'Stopping the emulator to free memory...'; & $adb -s (Get-Device $true) emu kill | Out-Null; Start-Sleep 5 }
   if ($FreeMemory) { Push-Location $android; & .\gradlew.bat --stop | Out-Null; Pop-Location }
-  Write-Host "Free commit memory now: $(Get-FreeCommitGB) GB"
-  if ((Get-FreeCommitGB) -lt 5) { Write-Warning 'Still little memory. Close Chrome tabs / extra VS Code windows, then run again. (Low memory makes clang fail with 0x5AA.)' }
+  Write-Host "Free RAM now: $(Get-FreeRamGB) GB   Free commit memory now: $(Get-FreeCommitGB) GB"
+  if ((Get-FreeCommitGB) -lt 5 -or (Get-FreeRamGB) -lt 2) {
+    Write-Warning 'Still little memory. These use the most (close what you do not need, e.g. Chrome tabs, extra VS Code windows), then run again. Low memory makes the build very slow or fails with clang 0x5AA.'
+    Show-TopMemory
+  }
 }
 
 $abis = switch ($Target) { 'phone' { @('arm64-v8a') } 'emulator' { @('x86_64') } default { @('arm64-v8a', 'x86_64') } }
@@ -60,15 +74,21 @@ foreach ($abi in $abis) {
   Pop-Location
   if ($code -ne 0) { throw "Build failed for $abi (exit $code). Read the last lines above; if you see 0x5AA, free memory and rerun." }
   $short = if ($abi -eq 'arm64-v8a') { 'arm64' } else { 'x86_64' }
-  Copy-Item (Join-Path $android 'app\build\outputs\apk\release\app-release.apk') (Join-Path $dist "sumon-va-$short.apk") -Force
+  $target = Join-Path $dist "sumon-va-$short.apk"
+  if (Test-Path $target) {  # keep the previous build as a rollback (last 3)
+    Copy-Item $target (Join-Path $dist ("sumon-va-$short-PREV-auto-" + (Get-Date -Format 'yyyyMMdd-HHmm') + '.apk')) -Force
+    Get-ChildItem $dist -Filter "sumon-va-$short-PREV-auto-*.apk" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 3 | Remove-Item -Force
+  }
+  Copy-Item (Join-Path $android 'app\build\outputs\apk\release\app-release.apk') $target -Force
   Write-Host "Saved dist\sumon-va-$short.apk"
 }
 
-if ($Install) {
+$installed = $false
+if (-not $NoInstall) {
   if ($abis -contains 'arm64-v8a') {
     $phone = Get-Device $false
-    if ($phone) { Write-Host "Installing on the phone ($phone)..."; & $adb -s $phone install -r (Join-Path $dist 'sumon-va-arm64.apk') }
-    else { Write-Warning 'No phone found. Plug it in, unlock it, and accept the "Allow USB debugging" prompt.' }
+    if ($phone) { Write-Host "Installing on the phone ($phone)..."; & $adb -s $phone install -r (Join-Path $dist 'sumon-va-arm64.apk'); $installed = ($LASTEXITCODE -eq 0) }
+    else { Write-Warning 'No phone connected: the APK stays in dist\. (Plug it in, unlock it, accept "Allow USB debugging", then run:  adb install -r dist\sumon-va-arm64.apk )' }
   }
   if ($abis -contains 'x86_64') {
     $emu = Get-Device $true
@@ -80,7 +100,10 @@ if ($Install) {
       if ($emu) { for ($i = 0; $i -lt 60; $i++) { if ((& $adb -s $emu shell getprop sys.boot_completed 2>$null) -match '1') { break }; Start-Sleep 3 } }
     }
     if (-not $emu) { throw 'The emulator did not come up. Start it from Android Studio, then run again.' }
-    Write-Host "Installing on the emulator ($emu)..."; & $adb -s $emu install -r (Join-Path $dist 'sumon-va-x86_64.apk')
+    Write-Host "Installing on the emulator ($emu)..."; & $adb -s $emu install -r (Join-Path $dist 'sumon-va-x86_64.apk'); $installed = ($LASTEXITCODE -eq 0)
   }
 }
-Write-Host 'Done.'
+$min = [math]::Round($clock.Elapsed.TotalMinutes, 1)
+Write-Host ''
+Write-Host "=== শেষ (সময় লেগেছে $min মিনিট) ==="
+Write-Host ("APK: dist\ ফোল্ডারে আছে।  " + $(if ($installed) { 'ফোনে/emulator এ ইনস্টল হয়েছে।' } elseif ($NoInstall) { 'ইনস্টল করা হয়নি (-NoInstall)।' } else { 'ইনস্টল হয়নি।' }))
