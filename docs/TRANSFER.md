@@ -4,7 +4,7 @@
 > **আপডেটের নিয়ম:** সুমন বললে "আমার কাজ শেষ" → Claude তার ধাপ `[x]` করে তারিখ বসায়। Claude নিজের কাজ শেষ করলে নিজেই আপডেট করে। কোনো ধাপ আন্দাজে `[x]` হবে না: যাচাই করা হলে তবেই।
 > **কোনো secret (পাসওয়ার্ড, token, DB লিংক, API key) এই ফাইলে বা চ্যাটে নয়।** শুধু নাম লেখা থাকে; মান বসে সরাসরি Render এ।
 
-Last updated: 2026-11-06 (প্রথম খসড়া; কিছু শুরু হয়নি)
+Last updated: 2026-11-06 (P1 কোড সম্পন্ন, branch `feature/va-server-2026-11-06` লোকাল commit; push অনুমতির অপেক্ষায়)
 
 ## ১. লক্ষ্য (এক লাইনে)
 ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assistant যেমন আছে তেমন থাকবে। Sumon VA পাবে নিজের GitHub repo, নিজের Render, নিজের Supabase, নিজের Telegram বট, নিজের ইমেইল পথ, নিজের ঠিকানা `va-api.aboenterprise.com`। ABO এর ডাটাবেসে সে সরাসরি ঢুকবে না।
@@ -67,10 +67,10 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 ## ৭. Claude যা করবে
 | # | কাজ | অবস্থা |
 |---|---|---|
-| C1 | ABO repo ক্লোন/পড়া (শুধু পড়া); fork-point commit `server/README` এ লিখে রাখা | [ ] |
-| C2 | `server/` তৈরি: ~৫৩ মডিউল কপি, ছাঁটাই (দোকান, পেমেন্ট, কুরিয়ার, ওয়েবসাইট chatbot বাদ; `assistant/__init__.py` এর chatbot import বাদ) | [ ] |
-| C3 | সংশ্লিষ্ট টেস্ট কপি, সব সবুজ (অফলাইনে) | [ ] |
-| C4 | `server/manual_sql/0001_sumon_va_schema.sql` (~১৪ টেবিল, RLS চালু, policy ছাড়া) | [ ] |
+| C1 | ABO repo ক্লোন/পড়া (শুধু পড়া); fork-point commit `server/README` এ লিখে রাখা | [x] 2026-11-06 ABO main 9b258a45 (PR #468 merged) থেকে, GitHub ক্লোন; fork-point `server/README.md` এ |
+| C2 | `server/` তৈরি: ~৫৩ মডিউল কপি, ছাঁটাই (দোকান, পেমেন্ট, কুরিয়ার, ওয়েবসাইট chatbot বাদ; `assistant/__init__.py` এর chatbot import বাদ) | [x] 2026-11-06 `server/` ৬৭ মডিউল (~১৪ হাজার লাইন); chatbot import ও দোকানের রুট বাদ; ABO order/lead লুকআপ বাদ |
+| C3 | সংশ্লিষ্ট টেস্ট কপি, সব সবুজ (অফলাইনে) | [x] 2026-11-06 ২৬৭ টেস্ট সবুজ (অফলাইন) |
+| C4 | `server/manual_sql/0001_sumon_va_schema.sql` (~১৪ টেবিল, RLS চালু, policy ছাড়া) | [x] 2026-11-06 `server/manual_sql/0001_sumon_va_schema.sql` (১৪ টেবিল, RLS চালু, সুমন এখনো চালাননি) |
 | C5 | ছক: Render এ কোন env কী নামে (§৯ সম্পূর্ণ করা) | [ ] |
 | C6 | নতুন Worker কোড (Q3 এর পর) | [ ] |
 | C7a | ABO তে "সুমন VA" ট্যাব (শুধু ফ্রন্টএন্ড+ছোট backend প্রক্সি): ডিভাইস জোড়ার কোড তৈরি, ডিভাইস তালিকা/সরানো, kill switch; নতুন সার্ভারের `/integration/*` কে সার্ভিস টোকেনে ডাকে (ABO তে অ্যাডিটিভ PR, সুমন merge) | [ ] |
