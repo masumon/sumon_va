@@ -249,7 +249,7 @@ class VaBridgeModule : Module() {
     /** Settings test buttons: feel/hear exactly this strength (level 1–3) and loudness (1–3). */
     Function("testAlertLevel") { level: Int, volume: Int -> PollService.test(ctx, level, volume); true }
     /** Is this app installed on the phone? (Only the chat apps listed in the manifest's <queries> can be asked about.) */
-    Function("isInstalled") { pkg: String -> try { ctx.packageManager.getPackageInfo(pkg, 0); true } catch (_: Exception) { false } }
+    Function("isInstalled") { pkg: String -> try { val info = ctx.packageManager.getApplicationInfo(pkg, 0); info.enabled && (info.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) != 0 && ctx.packageManager.getLaunchIntentForPackage(pkg) != null } catch (_: Exception) { false } }
     Function("testAlert") { PollService.showAlert(ctx, "p1", "পরীক্ষা: এভাবেই জরুরি বার্তা বাজবে", "test-" + System.currentTimeMillis()); true }
 
     /** Alerts this app showed, newest first (for the in-app notification centre). */

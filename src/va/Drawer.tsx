@@ -32,6 +32,9 @@ export function Drawer() {
   const panel = Math.min(320, width * 0.86);
   const x = useSharedValue(-panel);
   const [confirm, setConfirm] = useState(false);
+  // The menu is drawn ONLY while it is open or sliding shut. When the state says "closed" it is removed after the slide, so a
+  // stuck animation can never leave a ghost menu on the screen (owner bug: menu opened by itself / would not go away).
+  const [gone, setGone] = useState(true);
   const bridge = getStatus();
 
   // The menu always starts shut and shuts whenever the screen changes or the app comes back (owner bug, 2026-11-05).
@@ -44,6 +47,10 @@ export function Drawer() {
 
   useEffect(() => {
     x.value = withTiming(drawer ? 0 : -panel, { duration: reduceMotion ? 0 : 220, easing: Easing.out(Easing.cubic) });
+  }, [drawer, panel, reduceMotion, x]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (!drawer) x.value = -panel; setGone(!drawer); }, drawer ? 0 : (reduceMotion ? 0 : 300));
+    return () => clearTimeout(t);
   }, [drawer, panel, reduceMotion, x]);
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   const veil = useAnimatedStyle(() => ({ opacity: 1 + x.value / panel }));
@@ -61,6 +68,7 @@ export function Drawer() {
   const TILE = ['blue', 'green', 'orange', 'purple', 'yellow', 'red'] as const;
   let tileIndex = 0;
 
+  if (!drawer && gone) return null;
   return (
     <View style={[StyleSheet.absoluteFill, styles.layer]} pointerEvents={drawer ? 'auto' : 'none'}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.veil, veil]}>
