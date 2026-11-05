@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -20,6 +20,18 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
 }) {
   const { colors } = useAppPreferences();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // Pull-to-refresh: the spinner is ours and stops after at most 2.5 s (or sooner when the screen says it is done), so it can
+  // never hang while a slow request is still running behind it (owner bug: refresh seemed to stick).
+  const [pulling, setPulling] = useState(false);
+  const pullTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (pullTimer.current) clearTimeout(pullTimer.current); }, []);
+  const pull = () => {
+    setPulling(true);
+    if (pullTimer.current) clearTimeout(pullTimer.current);
+    pullTimer.current = setTimeout(() => setPulling(false), 2500);
+    onRefresh?.();
+  };
+  void refreshing;
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -30,7 +42,7 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
     <View style={styles.container}>
       <AppBackdrop />
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}>
+        keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={pulling} onRefresh={pull} tintColor={colors.primary} /> : undefined}>
         <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
         <View style={styles.body}>{children}</View>
       </ScrollView>

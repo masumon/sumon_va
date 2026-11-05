@@ -1,5 +1,32 @@
 # সুমনের ভার্চুয়াল সহকারী — HANDOFF (read this FIRST, before any work)
 
+## 0. CURRENT STATE (2026-11-06, newest; everything below section 0 is older history and may be outdated)
+Sumon VA is now **separate from ABO**. Full checklist and decisions: `docs/TRANSFER.md` (living file, update it when work finishes). Plan details: `docs/SERVER_SEPARATION_MASTER_PLAN.md`.
+- **Server (own):** repo `masumon/sumon_va`, folder `server/` (FastAPI, fork of ABO `main` 9b258a45, 67 modules, 275 tests green: `cd server; pytest`). Render service `sumon-va-api` (free, Singapore, root dir `server`, auto-deploy OFF: owner presses Manual Deploy after merging to `main`). Public address `https://va-api.aboenterprise.com` (Cloudflare CNAME). Health `/health`, `/health/db`.
+- **Database (own):** new Supabase project `Sumon_va` (free, Singapore pooler). Schema = `server/manual_sql/0001_sumon_va_schema.sql` (14 tables, RLS on, already run). Starts EMPTY on purpose: the owner does not want the old ABO data.
+- **Bot:** `@SumonVA_bot` (same bot as before, webhook now points to `va-api`). The owner's sign-in approval works even while the assistant is switched off (fix in `inbox.py`).
+- **E-mail in:** Cloudflare Email Routing `info@aboenterprise.com` -> Worker `abo-mail-to-inbox` -> `va-api.../api/v1/email/inbound` (+ forwards to the owner's Gmail). E-mail channel in the app is still switched off. No e-mail sending (no sign-in codes by e-mail; the app's e-mail-code button was removed in code, will be visible from the next build).
+- **Sign-in methods on the new server:** Telegram approval (works, tested), Google passkey (not yet tested on the new host), phone number, pairing code, e-mail+password (admin@sumon.com + Render `ADMIN_PASSWORD`).
+- **Scheduler:** in-process, once a minute (`server/app/core/scheduler.py`); no cron-job.org needed.
+- **AI hub:** code identical to ABO (7 files byte-identical). Keys are NOT copied: the owner adds his own API keys in the app's AI screen.
+- **ABO connection (planned, off by default):** (a) ABO admin tab "সুমন VA" to pair/list/cancel phones: Sumon VA side built (`server/app/api/v1/routes/integration.py`, needs `VA_INTEGRATION_TOKEN` on both Render services), ABO side = work of the ABO agent per `docs/ABO_ADMIN_TAB_SPEC.md`; (b) ABO read-only summary API for the 4 business numbers (orders/bookings/leads/applications): Sumon VA client built (`server/app/core/abo_client.py`, needs `ABO_API_BASE` + `ABO_INTEGRATION_TOKEN`), ABO side NOT specified yet. Until then Home shows zeros.
+- **ABO cleanup (by the ABO agent, after the owner says go):** `docs/ABO_CLEANUP_HANDOFF.md` (tiers 1-3). Agent finished step 0 (inventory); next: step 1 (the tab), then tier 1.
+- **App:** `src/va/config.ts` SERVER = `https://va-api.aboenterprise.com`. Build 46 (versionCode 46) installed on the phone 2026-11-06 03:16 and signed in to the NEW server. Code committed AFTER that build and not yet on the phone: e-mail-code button removed (`routes/login.tsx`), 75 s patience before sign-in + reason shown on network errors (`Core.kt`, `VaBridgeModule.kt`). Rollback APK: `dist/sumon-va-arm64-PREV-before-va-api-1106.apk` (points at the OLD ABO server).
+- **Build script:** `powershell -ExecutionPolicy Bypass -File toolsuild-apk.ps1` builds the phone APK and installs it if the phone is connected (else APK stays in `dist\`); `-CheckOnly` shows RAM + devices; keeps last 3 rollback APKs. Ask the owner before every build. First build in E: took 24 min (cold cache); later ones should be minutes.
+- **Branch:** all work on `feature/va-server-2026-11-06` (owner's order: push everything there, he merges to `main`). The assistant's `git push` is sometimes blocked by Claude Code's safety check: the owner then runs `git push` himself.
+
+### Open list (see TRANSFER.md for the full table)
+1. Owner: add AI keys in the app; set channel/platform settings; decide "সহকারী চালু" (assistant switch is OFF on the fresh server, auto-reply OFF).
+2. **DB backup: DEFERRED by the owner (2026-11-06, option "খ": skip for now). Remind him from time to time.** Supabase free has no backups, so the database currently has NO backup. When he agrees: add `.github/workflows/db-backup.yml` (daily `pg_dump`, private Actions artifact, 14 days) + repository secret `BACKUP_DATABASE_URL`. The assistant's first attempt to write that file was blocked by Claude Code's safety check, so the owner may have to save the file himself.
+3. Next build (after the owner's OK): includes items from "App" above. Then real tests on the phone: notification/SMS/call capture reaches the new server, replies, alerts, Google passkey.
+4. Screenshot blocking: default is ON in code (`routes/_layout.tsx`, `routes/settings.tsx` switch) but a screenshot was possible on the phone after install: check the Settings switch and the window flag; owner wants default blocked, allowed only when he switches it on.
+5. ABO side: agent steps 1-4; `VA_INTEGRATION_TOKEN` on both Renders; ABO summary API for business numbers.
+6. Release keystore: owner says his backup exists (2026-11-06).
+7. Older open items from sections below (permission trim, TalkBack, premium/warm design pass, English UI pass, F-04 Silent-vs-Off test, UX-08 system mail as a person, `allowBackup`).
+
+---
+
+## HISTORY (before 2026-11-06, kept for reference)
 Last updated: 2026-11-05 05:30 (code fixes in 3b). Branch `feature/design-2026-11` (local git, no remote), last commit `a749b4f`. `master` holds the older state.
 Owner: Sumon, non-technical, writes Bangla. **Reply in short Bangla, one step at a time, save tokens, never repeat a step, never run the same check twice.**
 

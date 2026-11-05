@@ -115,11 +115,22 @@ async def set_webhook(url: str) -> str:
     return str(data.get("description") or "ok")
 
 
-async def info() -> dict[str, Any]:
+_INFO_CACHE: dict[str, Any] = {"at": 0.0, "value": None}
+_INFO_TTL_S = 45  # the modules screen asks every 30 s: two Telegram calls each time made every refresh slow
+
+
+async def info(force: bool = False) -> dict[str, Any]:
+    import time as _time
+
+    now = _time.monotonic()
+    if not force and _INFO_CACHE["value"] is not None and now - _INFO_CACHE["at"] < _INFO_TTL_S:
+        return _INFO_CACHE["value"]
     me = (await _call("getMe", {})).get("result") or {}
     hook = (await _call("getWebhookInfo", {})).get("result") or {}
-    return {"bot": me.get("username"), "url": hook.get("url") or "", "pending": hook.get("pending_update_count", 0),
-            "last_error": hook.get("last_error_message") or ""}
+    value = {"bot": me.get("username"), "url": hook.get("url") or "", "pending": hook.get("pending_update_count", 0),
+             "last_error": hook.get("last_error_message") or ""}
+    _INFO_CACHE.update(at=now, value=value)
+    return value
 
 
 def _name(frm: dict[str, Any], chat: dict[str, Any]) -> str | None:

@@ -74,12 +74,12 @@ foreach ($abi in $abis) {
   Pop-Location
   if ($code -ne 0) { throw "Build failed for $abi (exit $code). Read the last lines above; if you see 0x5AA, free memory and rerun." }
   $short = if ($abi -eq 'arm64-v8a') { 'arm64' } else { 'x86_64' }
-  $target = Join-Path $dist "sumon-va-$short.apk"
-  if (Test-Path $target) {  # keep the previous build as a rollback (last 3)
-    Copy-Item $target (Join-Path $dist ("sumon-va-$short-PREV-auto-" + (Get-Date -Format 'yyyyMMdd-HHmm') + '.apk')) -Force
+  $apkPath = Join-Path $dist "sumon-va-$short.apk"
+  if (Test-Path $apkPath) {  # keep the previous build as a rollback (last 3)
+    Copy-Item $apkPath (Join-Path $dist ("sumon-va-$short-PREV-auto-" + (Get-Date -Format 'yyyyMMdd-HHmm') + '.apk')) -Force
     Get-ChildItem $dist -Filter "sumon-va-$short-PREV-auto-*.apk" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 3 | Remove-Item -Force
   }
-  Copy-Item (Join-Path $android 'app\build\outputs\apk\release\app-release.apk') $target -Force
+  Copy-Item (Join-Path $android 'app\build\outputs\apk\release\app-release.apk') $apkPath -Force
   Write-Host "Saved dist\sumon-va-$short.apk"
 }
 

@@ -7,7 +7,7 @@ import { AppIcon } from '../src/ui/AppIcon';
 import { useKit } from '../src/ui/AppKit';
 import { formatBangladeshNumber } from '../src/i18n/date-time';
 import { va } from '../src/va/api';
-import { useLoad } from '../src/va/hooks';
+import { useLoad, useAppActive } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
 import { MODULES, notOnPhone } from '../src/va/modules';
@@ -27,7 +27,8 @@ export default function ModulesScreen() {
     return { key: m.key, waiting: w.total, urgent: u.total, total: all.total };
   })), 'module-counts', 60000); // 30 small requests: once a minute is plenty (new messages also refresh it at once)
   const chans = useLoad(() => va.channels(), 'channels', 30000);
-  const missing = useMemo(() => notOnPhone(MODULES, isInstalled), []);
+  const active = useAppActive(); // asked again every time the app comes back, so installing/removing an app shows at once
+  const missing = useMemo(() => (active ? notOnPhone(MODULES, isInstalled) : new Set<string>()), [active]);
   const by = new Map((counts.data ?? []).map((c) => [c.key, c]));
 
   return (

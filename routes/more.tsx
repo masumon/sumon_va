@@ -8,6 +8,7 @@ import { useKit } from '../src/ui/AppKit';
 import { Page } from '../src/va/Page';
 import { MENU } from '../src/va/menu';
 import { MODULES, notOnPhone } from '../src/va/modules';
+import { useAppActive } from '../src/va/hooks';
 import { isInstalled } from '../modules/va-bridge';
 
 // These three are already in the bottom bar.
@@ -16,7 +17,8 @@ const IN_BAR = ['/', '/inbox', '/tasks'];
 /** Everything in the app as big tappable cards — the same list the side menu shows. */
 export default function MoreScreen() {
   const { bn, colors } = useKit();
-  const missing = useMemo(() => notOnPhone(MODULES, isInstalled), []);
+  const active = useAppActive(); // asked again every time the app comes back, so installing/removing an app shows at once
+  const missing = useMemo(() => (active ? notOnPhone(MODULES, isInstalled) : new Set<string>()), [active]);
   return (
     <Page title={bn ? 'আরও' : 'More'} subtitle={bn ? 'অ্যাপের সব অংশ' : 'Every part of the app'}>
       {MENU.map((section) => ({ ...section, items: section.items.filter((i) => !IN_BAR.includes(i.href)) })).map((section) => (
