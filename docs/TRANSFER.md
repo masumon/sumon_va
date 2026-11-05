@@ -54,7 +54,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | S2 | Supabase নতুন ফ্রি প্রজেক্ট `sumon-va` (রিজিয়ন Render এর কাছাকাছি) | [x] 2026-11-06 তৈরি (Free, nano, Healthy; project ref `iuavcqdeysruiuwvacrw`; রিজিয়ন সুমন নিশ্চিত করেননি; SQL এখনো চালানো হয়নি, কোনো টেবিল নেই) |
 | S3 | Telegram BotFather থেকে নতুন বট; **username** চ্যাটে বলবেন, token নয় | [x] 2026-11-06 বট `@SumonVA_bot` (token সুমনের কাছে, Render এ বসবে; webhook এখনো সংযুক্ত নয়) |
 | S4 | ~~Resend নতুন API key~~ বাদ: ইমেইল কোড লাগবে না (সুমনের সিদ্ধান্ত 2026-11-06) | বাদ |
-| S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [ ] |
+| S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [x] 2026-11-06 `va-api.aboenterprise.com` verified, HTTPS চালু, `/health` ও `assetlinks.json` ok |
 | S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
 | S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | [ ] |
 | S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] |
@@ -78,7 +78,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | C8 | ABO তে API PR (অ্যাডিটিভ, বন্ধ থাকে) + ABO এর পুরো টেস্ট সবুজ | [ ] |
 | C9 | পুরোনো ডেটা শুধু-পড়ে নতুন DB তে কপি (ABO এর কিছু বদলাবে না) | [ ] |
 | C10 | অডিটের জানা বাগ নতুন কপিতে ঠিক (B-01 জরুরি alert, B-02 পরিবার কখনো auto-reply নয়, B-04, B-12, P-01, D-02 ...) | [ ] |
-| C11 | অ্যাপ: `SERVER` বদল, নতুন সার্ভারে `base` মাইগ্রেশন/পুনরায় সাইন-ইন, নতুন passkey, `assetlinks.json` | [ ] |
+| C11 | অ্যাপ: `SERVER` বদল, নতুন সার্ভারে `base` মাইগ্রেশন/পুনরায় সাইন-ইন, নতুন passkey, `assetlinks.json` | [~] 2026-11-06 `src/va/config.ts` SERVER = va-api (tsc/eslint ok, লোকাল commit); বাকি: বিল্ড, emulator পরীক্ষা, passkey |
 | C12 | নতুন APK: **আপনার অনুমতি নিয়ে**, আগে emulator, তারপর ফোন | [ ] |
 | C13 | `docs/HANDOFF.md` আপডেট | [ ] |
 
@@ -113,3 +113,5 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 2026-11-06 | Claude | প্রথম খসড়া; সিদ্ধান্ত ও খোলা প্রশ্ন তোলা হলো |
 | 2026-11-06 | Claude+সুমন | Supabase এ 0001 SQL চালানো হয়েছে; Render প্রথম deploy সফল; `/health` ও `/health/db` ok (database connected) |
 | 2026-11-06 | Claude | S1 Render, S2 Supabase, S3 বট সম্পন্ন; S4 (Resend) বাদ, ইমেইল কোড লাগবে না; pair ABO অ্যাডমিন ট্যাব থেকে (C7a) |
+
+| 2026-11-06 | সুমন | Telegram: `@SumonVA_bot` আগের বটই (নতুন নয়); token ও secret `sumon-va-api` এ বসানো; webhook এখন `va-api.aboenterprise.com` এ বাঁধা (ইচ্ছাকৃত; ABO আর এই বট ব্যবহার করে না) |
