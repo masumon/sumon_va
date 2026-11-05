@@ -50,15 +50,27 @@ export default function LoginScreen() {
   const [tgError, setTgError] = useState('');
   const startTelegram = async () => {
     setStep('telegram'); setTgState('asking'); setTgError(''); setTgId(''); setTgCode('');
-    const r = await loginTelegramRequest(SERVER, name);
-    if (!r.ok || !r.requestId) { setTgError(r.error ?? ''); setTgState('error'); return; }
-    setTgId(r.requestId); setTgCode(r.code ?? ''); setTgLeft(r.expiresIn ?? 120); setTgState('waiting');
+    try {
+      const r = await loginTelegramRequest(SERVER, name);
+      if (!r.ok || !r.requestId) { setTgError(r.error ?? ''); setTgState('error'); return; }
+      setTgId(r.requestId); setTgCode(r.code ?? ''); setTgLeft(r.expiresIn ?? 120); setTgState('waiting');
+    } catch {
+      const msg = bn ? 'সংযোগ হয়নি। ইন্টারনেট দেখে আবার চেষ্টা করুন, অথবা অন্যভাবে ঢুকুন' : 'Could not connect. Check the internet and try again, or use another way';
+      setTgError(msg); setTgState('error'); showSnackbar(msg, 'danger');
+    }
   };
   useEffect(() => {
     if (step !== 'telegram' || tgState !== 'waiting' || !tgId) return undefined;
     let stop = false;
     const tick = async () => {
-      const r = await loginTelegramPoll(SERVER, tgId);
+      let r: Awaited<ReturnType<typeof loginTelegramPoll>>;
+      try { r = await loginTelegramPoll(SERVER, tgId); } catch {
+        if (stop) return;
+        stop = true;
+        const msg = bn ? 'অনুমোদনের খবর আনা যায়নি। আবার চেষ্টা করুন' : 'Could not check the approval. Please try again';
+        setTgError(msg); setTgState('error'); showSnackbar(msg, 'danger');
+        return;
+      }
       if (stop) return;
       if (r.status === 'approved') { stop = true; router.replace('/lock-setup' as never); return; }
       if (r.status === 'denied') { setTgState('denied'); return; }
@@ -68,6 +80,7 @@ export default function LoginScreen() {
     };
     const id = setInterval(() => { void tick(); }, 2000);
     return () => { stop = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, tgState, tgId]);
 
   // ── e-mail and password ──

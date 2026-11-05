@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton, AppIconButton } from '../src/ui/AppSurface';
 import { Card, Chip, ChipGroup, Field, useKit } from '../src/ui/AppKit';
-import { useAppFeedback } from '../src/ui/AppFeedback';
+import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { useAppPreferences } from '../src/app/AppPreferences';
 import { va, errTone, type ScheduleBlock, type SavedPlace, type StatusDef } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
@@ -12,6 +12,7 @@ import { Hero } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { SoftIcon } from '../src/va/SoftIcon';
+import { fillOwner, num } from '../src/va/bd';
 
 const BUILTIN = ['free', 'sleeping', 'meeting', 'prayer', 'driving'];
 // Server order: Monday = 0 ... Sunday = 6.
@@ -28,17 +29,17 @@ function shift(t: string, mins: number): string {
 }
 
 function TimePick({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const { s, colors } = useKit();
+  const { s, colors, bn } = useKit();
   return (
     <View>
       <Text style={s.label}>{label}</Text>
       <View style={[s.chipRow, { alignItems: 'center' }]}>
-        <AppIconButton icon="minus" label="-30" onPress={() => onChange(shift(value, -30))} />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'center' }}>{value}</Text>
-        <AppIconButton icon="plus" label="+30" onPress={() => onChange(shift(value, 30))} />
+        <AppIconButton icon="minus" label={bn ? '৩০ মিনিট কমান' : '30 minutes earlier'} onPress={() => onChange(shift(value, -30))} />
+        <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, minWidth: 64, textAlign: 'center' }}>{num(value, bn)}</Text>
+        <AppIconButton icon="plus" label={bn ? '৩০ মিনিট বাড়ান' : '30 minutes later'} onPress={() => onChange(shift(value, 30))} />
       </View>
       <View style={s.chipRow}>
-        {TIMES.map((t) => <Chip key={t} label={t} active={value === t} onPress={() => onChange(t)} />)}
+        {TIMES.map((t) => <Chip key={t} label={num(t, bn)} active={value === t} onPress={() => onChange(t)} />)}
       </View>
     </View>
   );
@@ -55,6 +56,9 @@ export default function RoutineScreen() {
   const [blk, setBlk] = useState<{ days: number[]; from: string; to: string; status: string } | null>(null);
   const [pl, setPl] = useState<{ label: string; say: string; lat: number | null; lng: number | null; radius: string }>({ label: '', say: '', lat: null, lng: null, radius: '300' });
   const [locBusy, setLocBusy] = useState(false);
+  const [drop, setDrop] = useState<{ name: string; run: () => void } | null>(null);
+  const ownerName = c?.owner_name;
+  const say = (x: { label: string; say: string }) => (x.say.trim() ? fillOwner(x.say, ownerName, { assistant: c?.assistant_name, replyBy: c?.reply_by, bn }) : (bn ? `সহকারী বলবে: ${fillOwner('{owner}', ownerName, { bn })} এখন “${x.label}” অবস্থায় আছেন।` : `The assistant will say ${fillOwner('{owner}', ownerName, { bn })} is “${x.label}” right now.`));
 
   const save = async (patch: Record<string, unknown>): Promise<boolean> => {
     try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); return true; }
@@ -116,10 +120,10 @@ export default function RoutineScreen() {
 
           <Card icon="tag-outline" title={bn ? 'আমার অবস্থা' : 'My statuses'}>
             <InfoHint text={bn ? 'নিজের অবস্থা যোগ করুন, যেমন “দোকানে”। বাক্যে {owner} লিখলে সেখানে আপনার নাম বসবে। ফ্রি, ঘুম, মিটিং, নামাজ ও গাড়ি চালানো মুছা যায় না।' : 'Add your own status, like "At the shop". Write {owner} in the sentence and your name goes there. The built-in ones cannot be deleted.'} />
-            {statuses.map((x) => row('tag-outline', x.label, x.say, (
+            {statuses.map((x) => row('tag-outline', x.label, say(x), (
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 <AppIconButton icon="pencil-outline" label={bn ? 'বদলান' : 'Edit'} onPress={() => setSt({ id: x.key, label: x.label, say: x.say })} />
-                {BUILTIN.includes(x.key) ? null : <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => void save({ statuses: statuses.filter((y) => y.key !== x.key) })} />}
+                {BUILTIN.includes(x.key) ? null : <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => setDrop({ name: x.label, run: () => void save({ statuses: statuses.filter((y) => y.key !== x.key) }) })} />}
               </View>
             ), x.key))}
             {st ? (
@@ -136,8 +140,8 @@ export default function RoutineScreen() {
 
           <Card icon="calendar-clock" title={bn ? 'সাপ্তাহিক সময়সূচি' : 'Weekly schedule'}>
             <InfoHint text={bn ? 'নির্দিষ্ট দিন ও সময়ে অবস্থা নিজে থেকে বদলাবে। যেমন প্রতিদিন রাত ১০টা থেকে ভোর ৬টা ঘুম।' : 'On chosen days and times the status changes by itself, for example sleeping every night 22:00 to 06:00.'} />
-            {schedule.map((b, i) => row('calendar-clock', b.days.map((d) => (bn ? DAYS_BN : DAYS_EN)[d] ?? '').join(' '), `${b.from} - ${b.to}, ${labelOf(b.status)}`,
-              <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => void save({ schedule: schedule.filter((_, j) => j !== i) })} />, `${i}-${b.from}`))}
+            {schedule.map((b, i) => row('calendar-clock', b.days.map((d) => (bn ? DAYS_BN : DAYS_EN)[d] ?? '').join(' '), `${num(b.from, bn)} - ${num(b.to, bn)}, ${labelOf(b.status)}`,
+              <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => setDrop({ name: b.days.map((d) => (bn ? DAYS_BN : DAYS_EN)[d] ?? '').join(' ') + ` ${b.from}-${b.to}`, run: () => void save({ schedule: schedule.filter((_, j) => j !== i) }) })} />, `${i}-${b.from}`))}
             {blk ? (
               <View style={{ gap: 10 }}>
                 <View>
@@ -159,8 +163,8 @@ export default function RoutineScreen() {
 
           <Card icon="map-marker-outline" title={bn ? 'সংরক্ষিত জায়গা' : 'Saved places'}>
             <InfoHint text={bn ? 'আপনি কোনো সংরক্ষিত জায়গার কাছে থাকলে তবেই সহকারী বলবে আপনি কোথায়। অন্য সময় কখনও জায়গা বলা হয় না।' : 'The assistant only says where you are when you are at a saved place. Otherwise your location is never shared.'} />
-            {places.map((x) => row('map-marker-outline', x.label, `${x.say} (${x.radius_m >= 1000 ? `${x.radius_m / 1000} km` : `${x.radius_m} m`})`,
-              <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => void save({ places: places.filter((y) => y.key !== x.key) })} />, x.key))}
+            {places.map((x) => row('map-marker-outline', x.label, `${say(x)} (${num(x.radius_m >= 1000 ? `${x.radius_m / 1000} km` : `${x.radius_m} m`, bn)})`,
+              <AppIconButton icon="delete-outline" variant="danger" label={bn ? 'মুছুন' : 'Delete'} onPress={() => setDrop({ name: x.label, run: () => void save({ places: places.filter((y) => y.key !== x.key) }) })} />, x.key))}
             <Field label={bn ? 'জায়গার নাম' : 'Place name'} value={pl.label} onChangeText={(v) => setPl({ ...pl, label: v })} placeholder={bn ? 'যেমন: দোকান' : 'e.g. Shop'} />
             <Field label={bn ? 'সহকারী যা বলবে' : 'What it says'} value={pl.say} onChangeText={(v) => setPl({ ...pl, say: v })} placeholder={bn ? '{owner} এখন দোকানে আছেন।' : '{owner} is at the shop.'} multiline />
             <ChipGroup<(typeof RADII)[number]> label={bn ? 'কতটা কাছে থাকলে' : 'How close'} options={RADII} value={pl.radius as (typeof RADII)[number]} labelOf={(r) => (r === '1000' ? '1 km' : `${r} m`)} onChange={(r) => { if (r) setPl({ ...pl, radius: r }); }} />
@@ -170,6 +174,8 @@ export default function RoutineScreen() {
           </Card>
         </>
       ) : null}
+      <AppConfirmDialog visible={!!drop} danger icon="trash-can-outline" title={bn ? 'এটা মুছবেন?' : 'Delete this?'} description={drop?.name ?? ''}
+        cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'মুছুন' : 'Delete'} onCancel={() => setDrop(null)} onConfirm={() => { const d = drop; setDrop(null); d?.run(); }} />
     </Page>
   );
 }

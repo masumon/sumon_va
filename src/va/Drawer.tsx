@@ -71,7 +71,7 @@ export function Drawer() {
           <View style={styles.avatar}><Image source={LOGO} style={styles.logo} accessibilityLabel={bn ? 'সুমনের ভার্চুয়াল সহকারী' : "Sumon's Virtual Assistant"} /></View>
           <View style={{ flex: 1 }}>
             <Text numberOfLines={1} style={styles.name}>{bridge.accountName || (bn ? 'মালিক' : 'Owner')}</Text>
-            <Text numberOfLines={1} style={styles.email}>{bridge.accountEmail || (bn ? 'অ্যাডমিন কোড দিয়ে জোড়া' : 'Paired by admin code')}</Text>
+            <Text numberOfLines={1} style={styles.email}>{bridge.accountEmail || (bridge.accountName ? `${bn ? 'Telegram/ফোন লগইন' : 'Telegram/phone login'}` : (bn ? 'এই ফোন জোড়া আছে' : 'This phone is paired'))}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বন্ধ' : 'Close'} onPress={close} style={styles.x}><AppIcon name="close" size={22} color="#FFFFFF" /></Pressable>
         </LinearGradient>

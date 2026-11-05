@@ -1,4 +1,5 @@
-import { Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
@@ -9,6 +10,7 @@ import { useHealth } from '../src/va/useHealth';
 import type { Issue } from '../src/va/health';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
+import { HERO_BAD, HERO_OK, HERO_WARN } from '../src/va/bd';
 import { openAppSettings, startService } from '../modules/va-bridge';
 
 const SEV = { critical: { tone: 'danger' as const, bn: 'গুরুতর', en: 'Serious', icon: 'alert-circle' as const }, warn: { tone: 'warning' as const, bn: 'সতর্কতা', en: 'Warning', icon: 'alert' as const }, info: { tone: 'neutral' as const, bn: 'তথ্য', en: 'Info', icon: 'information-outline' as const } };
@@ -17,6 +19,8 @@ const SEV = { critical: { tone: 'danger' as const, bn: 'গুরুতর', en:
 export default function HealthScreen() {
   const { bn, colors, language } = useKit();
   const { issues, reload, bridge, loading } = useHealth();
+  const [pull, setPull] = useState(false);
+  const onPull = () => { setPull(true); reload(); setTimeout(() => setPull(false), 900); };
   const serious = issues.filter((i) => i.severity === 'critical').length;
   const warn = issues.filter((i) => i.severity === 'warn').length;
 
@@ -34,8 +38,8 @@ export default function HealthScreen() {
   };
 
   return (
-    <Page title={bn ? 'সমস্যা ও অবস্থা' : 'Problems & health'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={reload} refreshing={loading}>
-      <Hero icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
+    <Page title={bn ? 'সমস্যা ও অবস্থা' : 'Problems & health'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={onPull} refreshing={pull}>
+      <Hero grad={serious ? HERO_BAD : warn ? HERO_WARN : HERO_OK} right={loading ? <ActivityIndicator color="#FFFFFF" accessibilityLabel={bn ? 'দেখা হচ্ছে' : 'Checking'} /> : undefined} icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
         subtitle={bn ? 'অ্যাপ প্রতি ১৫ সেকেন্ডে নিজেই দেখে নেয়, নতুন সমস্যা হলে নোটিফিকেশন দেয়।' : 'The app checks itself every 15 seconds and notifies you of new problems.'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={formatBangladeshNumber(serious, language)} label={bn ? 'গুরুতর' : 'Serious'} />
@@ -48,7 +52,7 @@ export default function HealthScreen() {
       {issues.map((i) => {
         const s = SEV[i.severity];
         return (
-          <Pressable key={i.key} disabled={!i.fix} accessibilityRole={i.fix ? 'button' : undefined} onPress={() => fix(i)} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+          <Pressable key={i.key} disabled={!i.fix} accessibilityRole={i.fix ? 'button' : undefined} accessibilityLabel={i.fix ? `${bn ? i.bn : i.en}. ${bn ? i.fix.bn : i.fix.en}` : undefined} onPress={() => fix(i)} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <AppIcon name={s.icon} size={26} color={i.severity === 'critical' ? colors.danger : i.severity === 'warn' ? colors.warning : colors.textMuted} />
@@ -66,7 +70,7 @@ export default function HealthScreen() {
         <Text>{bn ? 'ব্যাকগ্রাউন্ড সিঙ্ক: ' : 'Background sync: '}{bridge.serviceAlive ? (bn ? 'চালু ✓' : 'running ✓') : (bn ? 'বন্ধ' : 'stopped')}</Text>
         <Text>{bn ? 'শেষবার সংযোগ হয়েছে: ' : 'Last successful sync: '}{bridge.lastOk ? formatBangladeshDateTime(new Date(bridge.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
         <Text>{bn ? 'পাঠাতে বাকি: ' : 'Waiting to upload: '}{formatBangladeshNumber(bridge.queued, language)}</Text>
-        <Text>{bn ? 'অ্যাকাউন্ট: ' : 'Account: '}{bridge.accountEmail ?? (bn ? 'অ্যাডমিন কোড দিয়ে জোড়া' : 'Paired by admin code')}</Text>
+        <Text>{bn ? 'অ্যাকাউন্ট: ' : 'Account: '}{bridge.accountEmail || (bridge.accountName ? `${bridge.accountName} · ${bn ? 'Telegram/ফোন লগইন' : 'Telegram/phone login'}` : (bn ? 'এই ফোন জোড়া আছে' : 'This phone is paired'))}</Text>
         {bridge.lastError ? <Text style={{ color: colors.danger }}>{bridge.lastError}</Text> : null}
         <View style={{ marginTop: 10 }}><AppButton variant="secondary" icon="refresh" label={bn ? 'এখনই দেখুন' : 'Check now'} onPress={reload} /></View>
       </Card>

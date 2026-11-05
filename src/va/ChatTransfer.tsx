@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -8,6 +8,15 @@ import { AppButton } from '../ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
 import { errTone, va } from './api';
+
+const MAX_CHARS = 400_000;
+const MIN_CHARS = 20;
+
+/** Keep only safe characters of a file name (any script's letters, digits, - _ .); never a path. */
+function safeFileName(name: unknown): string {
+  const cleaned = String(name ?? '').replace(/\.\.+/g, '.').replace(/[^\p{L}\p{N}\-_.]/gu, '').replace(/^\.+/, '').slice(0, 80);
+  return cleaned || 'chat.txt';
+}
 
 /**
  * Import a saved chat (WhatsApp "Export chat" .txt) so the assistant learns who this person is and how to talk to them, and
@@ -21,10 +30,19 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
   const [speakers, setSpeakers] = useState<string[]>([]);
   const [consent, setConsent] = useState(false);
   const [ask, setAsk] = useState(false);
-  const fail = (e: unknown) => showSnackbar(e instanceof Error ? e.message : (bn ? 'কাজটি হয়নি' : 'That did not work'), errTone(e));
+  const [tooLong, setTooLong] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
+  const running = useRef(false);
+  const fail = (e: unknown) => {
+    // A timeout on the free server does not mean it failed: it may still be reading. Say so, so the owner does not press again at once.
+    if (errTone(e) === 'info') { showSnackbar(bn ? 'সার্ভার এখনও কাজ করতে পারে। একটু অপেক্ষা করুন, তারপর কিছুক্ষণ বাদে দেখুন। সঙ্গে সঙ্গে আবার চাপবেন না' : 'The server may still be working. Wait a bit and check again later; do not press again right away', 'info'); return; }
+    showSnackbar(e instanceof Error ? e.message : (bn ? 'কাজটি হয়নি' : 'That did not work'), errTone(e));
+  };
 
   const learn = async (chat: string, speaker?: string, allow = consent) => {
-    setBusy('import');
+    if (running.current) return;
+    running.current = true;
+    setBusy('import'); setSlow(true);
     try {
       const r = await va.learnChat(contactId, chat, speaker, allow);
       if (r.need_consent) { setAsk(true); return; }
@@ -32,10 +50,11 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
       setText(null); setSpeakers([]);
       showSnackbar(bn ? (r.messages ? `চেনা হয়েছে, ${r.messages}টি বার্তা পড়া হয়েছে ✓` : 'চেনা হয়েছে ✓') : (r.messages ? `Learned (${r.messages} messages read) ✓` : 'Learned ✓'), 'success');
       onLearned();
-    } catch (e) { fail(e); } finally { setBusy(null); }
+    } catch (e) { fail(e); } finally { running.current = false; setBusy(null); setSlow(false); }
   };
 
   const pick = async () => {
+    if (busy) return;
     setBusy('import');
     try {
       const res = await DocumentPicker.getDocumentAsync({ type: ['text/plain', 'application/zip', '*/*'], copyToCacheDirectory: true });
@@ -44,10 +63,23 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
       if (/\.zip$/i.test(asset.name ?? '') || asset.mimeType === 'application/zip') { showSnackbar(bn ? 'এটি ZIP ফাইল। WhatsApp থেকে “মিডিয়া ছাড়া” এক্সপোর্ট করে .txt ফাইলটি বেছে নিন' : 'That is a ZIP. Export from WhatsApp “without media” and pick the .txt file', 'info'); return; }
       if ((asset.size ?? 0) > 3_000_000) { showSnackbar(bn ? 'ফাইলটি অনেক বড় (৩ MB-র বেশি)। ছোট অংশ বেছে নিন' : 'The file is too large (over 3 MB). Pick a smaller part', 'info'); return; }
       const chat = await FileSystem.readAsStringAsync(asset.uri);
-      setText(chat);
-      await learn(chat);
       void FileSystem.deleteAsync(asset.uri, { idempotent: true });
+      if (chat.trim().length < MIN_CHARS) { showSnackbar(bn ? 'এই ফাইলে পড়ার মতো যথেষ্ট লেখা নেই। WhatsApp থেকে এক্সপোর্ট করা চ্যাটের .txt ফাইল বেছে নিন' : 'This file has too little text to read. Pick the .txt file exported from WhatsApp', 'info'); return; }
+      if (chat.length > MAX_CHARS) { setTooLong(chat); return; }
+      setText(chat);
+      setBusy(null);
+      await learn(chat);
     } catch (e) { fail(e); } finally { setBusy(null); }
+  };
+
+  const useLast = () => {
+    const chat = tooLong; setTooLong(null);
+    if (!chat) return;
+    let cut = chat.slice(chat.length - MAX_CHARS);
+    const nl = cut.search(/\n/);
+    if (nl >= 0 && nl < cut.length - MIN_CHARS) cut = cut.slice(nl + 1);
+    setText(cut);
+    void learn(cut);
   };
 
   const exportIt = async () => {
@@ -64,7 +96,7 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
         ));
         if (!go) return;
       }
-      const path = `${FileSystem.cacheDirectory}${r.filename}`;
+      const path = `${FileSystem.cacheDirectory}${safeFileName(r.filename)}`;
       await FileSystem.writeAsStringAsync(path, r.text);
       try {
         if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(path, { mimeType: 'text/plain', dialogTitle: bn ? 'চ্যাট এক্সপোর্ট' : 'Export chat' });
@@ -83,14 +115,19 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
         </View>
       ) : null}
       <View style={{ gap: 8 }}>
-        <AppButton icon="file-import-outline" label={bn ? 'চ্যাট ইমপোর্ট করুন (ফাইল বাছুন)' : 'Import a chat file'} loading={busy === 'import'} onPress={() => void pick()} />
-        <AppButton variant="secondary" icon="file-export-outline" label={bn ? 'এই ব্যক্তির চ্যাট এক্সপোর্ট করুন' : 'Export this person’s chat'} loading={busy === 'export'} onPress={() => void exportIt()} />
+        <AppButton icon="file-import-outline" label={bn ? 'চ্যাট ইমপোর্ট করুন (ফাইল বাছুন)' : 'Import a chat file'} loading={busy === 'import'} disabled={busy !== null} onPress={() => void pick()} />
+        <AppButton variant="secondary" icon="file-export-outline" label={bn ? 'এই ব্যক্তির চ্যাট এক্সপোর্ট করুন' : 'Export this person’s chat'} loading={busy === 'export'} disabled={busy !== null} onPress={() => void exportIt()} />
       </View>
+      {slow ? <Text style={{ opacity: 0.75, fontSize: 13, lineHeight: 20, marginTop: 8 }}>{bn ? 'AI পড়ছে, ১ মিনিট পর্যন্ত লাগতে পারে। অ্যাপ বন্ধ করবেন না।' : 'The AI is reading; this can take up to a minute. Please do not close the app.'}</Text> : null}
       {isPrivate ? <Text style={{ opacity: 0.65, fontSize: 12, marginTop: 8 }}>{bn ? 'এটি ব্যক্তিগত বা পরিবারের চ্যাট। AI-কে পড়তে দেওয়ার আগে প্রতিবার আপনার অনুমতি চাওয়া হবে।' : 'This is a private/family chat: you will be asked each time before the AI may read it.'}</Text> : null}
       <AppConfirmDialog visible={ask} icon="shield-account-outline" title={bn ? 'AI-কে এই চ্যাট পড়তে দেবেন?' : 'Let the AI read this chat?'}
         description={bn ? 'এটি ব্যক্তিগত বা পরিবারের চ্যাট। ফোন নম্বর ও ইমেইল মুছে শুধু শেখার জন্য AI-কে পাঠানো হবে, চ্যাট রাখা হবে না। আপনি কি রাজি?' : 'This is a private or family chat. Numbers and e-mails are removed and the text goes to the AI only to learn from; it is not saved. Do you agree?'}
         cancelLabel={bn ? 'না, থাক' : 'No'} confirmLabel={bn ? 'হ্যাঁ, পড়ুক' : 'Yes, read it'}
         onCancel={() => { setAsk(false); setText(null); }} onConfirm={() => { setAsk(false); setConsent(true); if (text) void learn(text, undefined, true); }} />
+      <AppConfirmDialog visible={tooLong !== null} icon="file-alert-outline" title={bn ? 'চ্যাটটি অনেক লম্বা' : 'This chat is too long'}
+        description={bn ? 'একবারে এত লম্বা চ্যাট পড়ানো যায় না (সর্বোচ্চ ৪ লক্ষ অক্ষর)। শেষের দিকের ৪ লক্ষ অক্ষর (সবচেয়ে নতুন কথা) পড়াবেন?' : 'A chat this long cannot be read in one go (max 400,000 characters). Use the last 400,000 characters (the newest messages)?'}
+        cancelLabel={bn ? 'না, থাক' : 'No'} confirmLabel={bn ? 'হ্যাঁ, শেষের অংশ নিন' : 'Yes, use the last part'}
+        onCancel={() => setTooLong(null)} onConfirm={useLast} />
     </Card>
   );
 }

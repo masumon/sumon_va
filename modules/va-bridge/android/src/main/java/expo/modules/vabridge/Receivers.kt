@@ -71,16 +71,21 @@ class VaNotificationListener : NotificationListenerService() {
       // Several messages often arrive in ONE notification: read each of them, not only the last line.
       val list = messagesOf(extras)
       val items = if (list.isNotEmpty()) list else listOf(Triple(if (group) rawTitle.substringAfter(": ", "") else "", text, sbn.postTime))
-      var added = false
+      val toAdd = ArrayList<org.json.JSONObject>()
       for ((who, body, at) in items) {
         val line = if (group && who.isNotBlank() && !body.startsWith(who)) "$who: $body" else body
         if (line.isBlank() || SYSTEM_TEXT.containsMatchIn(line)) continue
         if (Outbox.duplicate("${sbn.packageName}|$chat|$line|${at / 60000}")) continue
         val ext = "n:" + sha("${sbn.packageName}|$chat|$line|${at / 60000}")
-        Outbox.add(ctx, item("msg", "notif", chat, sbn.packageName, line, ext, null, group))
-        added = true
+        toAdd.add(item("msg", "notif", chat, sbn.packageName, line, ext, null, group))
       }
-      if (added) Thread { Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) } }.start()  // upload at once, even if the screen is off
+      // Storing and uploading can wait for the disk/network: do it on one ordered background thread so this callback returns at once.
+      if (toAdd.isNotEmpty()) worker.execute {
+        try {
+          for (it in toAdd) Outbox.add(ctx, it)
+          Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) }  // upload at once, even if the screen is off
+        } catch (_: Exception) {}
+      }
     } catch (_: Exception) {
       // A broken notification must never crash the listener.
     }
@@ -114,6 +119,7 @@ class VaNotificationListener : NotificationListenerService() {
 
   companion object {
     @Volatile var instance: VaNotificationListener? = null
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val NOT_MESSAGE_CATEGORIES = setOf(Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
       Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM, Notification.CATEGORY_RECOMMENDATION, Notification.CATEGORY_PROMO, Notification.CATEGORY_NAVIGATION)
     private val SYSTEM_TEXT = Regex("(preparing|creating|restoring|uploading|backup|checking for new messages|waiting for network|connecting|syncing|end-to-end encrypted|\\d+%|ব্যাকআপ)", RegexOption.IGNORE_CASE)
@@ -178,30 +184,35 @@ class SmsReceiver : BroadcastReceiver() {
 class CallReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED || !Store.paired(context)) return
+    // The ring state is kept in the encrypted prefs too, so a process kill between "ringing" and "hung up" does not lose the missed call.
+    val p = Store.prefs(context)
+    val now = System.currentTimeMillis()
+    var since = p.getLong(K_SINCE, 0L)
+    if (since != 0L && now - since > 2 * 60_000L) { since = 0L; p.edit().remove(K_SINCE).remove(K_NUMBER).remove(K_ANSWERED).apply() }  // too old to trust
     when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
       TelephonyManager.EXTRA_STATE_RINGING -> {
         val number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
-        if (!number.isNullOrEmpty() || ringingSince == 0L) { ringingNumber = number ?: ringingNumber }
-        if (ringingSince == 0L) ringingSince = System.currentTimeMillis()
-        answered = false
+        val e = p.edit()
+        if (!number.isNullOrEmpty()) e.putString(K_NUMBER, number)
+        if (since == 0L) e.putLong(K_SINCE, now)
+        e.putBoolean(K_ANSWERED, false).apply()
       }
-      TelephonyManager.EXTRA_STATE_OFFHOOK -> answered = true
+      TelephonyManager.EXTRA_STATE_OFFHOOK -> p.edit().putBoolean(K_ANSWERED, true).apply()
       TelephonyManager.EXTRA_STATE_IDLE -> {
-        if (ringingSince != 0L && !answered) {
-          val from = ringingNumber ?: "অজানা নম্বর"
-          val since = ringingSince
+        if (since != 0L && !p.getBoolean(K_ANSWERED, false)) {
+          val from = p.getString(K_NUMBER, null) ?: "অজানা নম্বর"
           Outbox.add(context, item("call", "sms", from, null, "", "c:" + sha("$from|$since"), contactName(context, from)))
           Thread { Outbox.flush(context) }.start()
         }
-        ringingSince = 0L; ringingNumber = null; answered = false
+        p.edit().remove(K_SINCE).remove(K_NUMBER).remove(K_ANSWERED).apply()
       }
     }
   }
 
   companion object {
-    @Volatile private var ringingSince = 0L
-    @Volatile private var ringingNumber: String? = null
-    @Volatile private var answered = false
+    private const val K_SINCE = "ring_since"
+    private const val K_NUMBER = "ring_number"
+    private const val K_ANSWERED = "ring_answered"
   }
 }
 

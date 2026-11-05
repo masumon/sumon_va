@@ -1,33 +1,50 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { router, usePathname } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
 import { getStatus } from '../../modules/va-bridge';
-import { va } from './api';
-import { useLoad } from './hooks';
-import { titleFor } from './menu';
+import { clearApiCache, va } from './api';
+import { sameValue, useAppActive, useLoad } from './hooks';
 import { useShell } from './shell';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 
 /** The top bar on every signed-in screen: menu, logo and title, connection light, urgent bell, and your initial. */
 export function AppHeader() {
-  const { colors, language, design } = useAppPreferences();
+  const { colors, language, design, reduceMotion } = useAppPreferences();
   const bn = language === 'bn';
-  const pathname = usePathname();
+  const active = useAppActive();
   const open = useShell((s) => s.open);
   const refresh = useShell((s) => s.refresh);
   const [spin, setSpin] = useState(false);
-  const doRefresh = () => { refresh(); setSpin(true); setTimeout(() => setSpin(false), 1500); };
+  const spinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current); }, []);
+  const doRefresh = () => {
+    clearApiCache();
+    refresh();
+    setSpin(true);
+    if (spinTimer.current) clearTimeout(spinTimer.current);
+    spinTimer.current = setTimeout(() => setSpin(false), 1500);
+  };
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const overview = useLoad(() => va.overview(), 'header-overview', 30000, { always: true });
   // The phone's sync state, re-read every few seconds (cheap: no server call).
   const [snap, setSnap] = useState(() => ({ bridge: getStatus(), at: Date.now() }));
-  useEffect(() => { const id = setInterval(() => setSnap({ bridge: getStatus(), at: Date.now() }), 4000); return () => clearInterval(id); }, []);
+  useEffect(() => {
+    // Re-renders only when the status really changed (or every ~16 s so the "silent for N seconds" age stays right). Paused in the background.
+    const check = () => {
+      if (AppState.currentState !== 'active') return;
+      const next = getStatus();
+      setSnap((prev) => (!sameValue(prev.bridge, next) || Date.now() - prev.at >= 16000 ? { bridge: next, at: Date.now() } : prev));
+    };
+    const id = setInterval(check, 4000);
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') setSnap({ bridge: getStatus(), at: Date.now() }); });
+    return () => { clearInterval(id); sub.remove(); };
+  }, []);
   const { bridge, at } = snap;
   const urgent = overview.data?.urgent ?? 0;
   // One sync light instead of messages: green = running and in step with the server; red = not running or no contact for a
@@ -43,17 +60,19 @@ export function AppHeader() {
   const pulse = useSharedValue(0);
   useEffect(() => {
     const ms = mood === 'green' ? 1600 : mood === 'amber' ? 900 : 500;
+    cancelAnimation(pulse);
     pulse.value = 0;
-    pulse.value = withRepeat(withTiming(1, { duration: ms, easing: Easing.inOut(Easing.ease) }), -1, true);
+    // Green = a still ring. Amber / red pulse, but never in the background or with reduced motion.
+    if (mood !== 'green' && active && !reduceMotion) pulse.value = withRepeat(withTiming(1, { duration: ms, easing: Easing.inOut(Easing.ease) }), -1, true);
     return () => cancelAnimation(pulse);
-  }, [mood, pulse]);
+  }, [mood, pulse, active, reduceMotion]);
   const ringStyle = useAnimatedStyle(() => ({ opacity: 0.55 - pulse.value * 0.45, transform: [{ scale: 1 + pulse.value * 0.35 }] }));
   const dotStyle = useAnimatedStyle(() => ({ opacity: mood === 'red' ? 1 - pulse.value * 0.6 : 1 - pulse.value * 0.25 }));
   const turn = useSharedValue(0);
   useEffect(() => {
-    if (syncing) turn.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
+    if (syncing && active && !reduceMotion) turn.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
     else { cancelAnimation(turn); turn.value = 0; }
-  }, [syncing, turn]);
+  }, [syncing, turn, active, reduceMotion]);
   const spinStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
 
 
@@ -62,7 +81,7 @@ export function AppHeader() {
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মেনু খুলুন' : 'Open menu'} onPress={open} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="menu" size={26} color={colors.textPrimary} />
       </Pressable>
-      <Text numberOfLines={1} style={styles.title}>{titleFor(pathname, bn)}</Text>
+      <Text numberOfLines={1} style={styles.title}>{bn ? 'সুমন সহকারী' : 'Sumon VA'}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'AI সংযোগ' : 'AI connections'} onPress={() => router.push('/ai' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="brain" size={22} color={colors.textPrimary} />
       </Pressable>
@@ -73,7 +92,7 @@ export function AppHeader() {
           <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={26} color={light} /></Animated.View>
         </Animated.View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'জরুরি বার্তা' : 'Urgent messages'} onPress={() => router.push({ pathname: '/inbox', params: { view: 'urgent' } } as never)} style={styles.iconBtn} hitSlop={0}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বিজ্ঞপ্তি' : 'Notifications'} onPress={() => router.push('/alerts' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={24} color={urgent ? colors.danger : colors.textPrimary} />
         {urgent ? <View style={styles.badge}><Text style={styles.badgeText}>{urgent > 9 ? '9+' : urgent}</Text></View> : null}
       </Pressable>

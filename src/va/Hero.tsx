@@ -8,10 +8,10 @@ import { useAppPreferences } from '../app/AppPreferences';
 import { radius, spacing } from '../theme';
 
 /** The big card at the top of a screen: an icon, a headline, a line of context, and room for chips or numbers. One look for every screen. */
-export function Hero({ icon, eyebrow, title, subtitle, right, children }: { icon?: IconName; eyebrow?: string; title: string; subtitle?: string; right?: ReactNode; children?: ReactNode }) {
+export function Hero({ icon, eyebrow, title, subtitle, right, children, grad: gradOverride }: { icon?: IconName; eyebrow?: string; title: string; subtitle?: string; right?: ReactNode; children?: ReactNode; grad?: [string, string] }) {
   const { themeMode, colors, design } = useAppPreferences();
   // Each design theme has its own gradient; low light uses a warm near-black so nothing glares in a dark room.
-  const grad: [string, string] = design.heroGrad;
+  const grad: [string, string] = gradOverride && themeMode !== 'dim' ? gradOverride : design.heroGrad;
   const ink = themeMode === 'dim' ? colors.textPrimary : '#FFFFFF';
   const soft = themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.78)';
   return (

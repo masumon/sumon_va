@@ -29,22 +29,31 @@ class PollService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    channels(this)
-    Presence.start(this)
-    val note = Notification.Builder(this, CH_SERVICE).setContentTitle("সুমনের ভার্চুয়াল সহকারী চলছে")
-      .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(android.R.drawable.stat_notify_sync).setOngoing(true).build()
-    // Android 15 stops a "data sync" service after 6 hours a day and never lets it start at boot: that is why sync used to die
-    // after a few hours and never came back after a restart. A messaging service has neither limit (Android 14+).
-    when {
-      Build.VERSION.SDK_INT >= 34 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
-      Build.VERSION.SDK_INT >= 29 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-      else -> startForeground(1, note)
+    try {
+      channels(this)
+      val note = serviceNote(this)
+      // Android 15 stops a "data sync" service after 6 hours a day and never lets it start at boot: that is why sync used to die
+      // after a few hours and never came back after a restart. A messaging service has neither limit (Android 14+).
+      when {
+        Build.VERSION.SDK_INT >= 34 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+        Build.VERSION.SDK_INT >= 29 -> startForeground(1, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        else -> startForeground(1, note)
+      }
+    } catch (e: Exception) {
+      // The phone refused a foreground start (e.g. started from the background): stop quietly instead of crashing the app.
+      running = false
+      alive = false
+      stopSelf()
+      return START_NOT_STICKY
     }
+    Presence.start(this)
     if (!running) {
       running = true
       alive = true
       watchNetwork()
-      Thread { loop() }.start()
+      // Only the newest loop may ever work: a loop from an earlier start sees the number change and leaves.
+      val mine = synchronized(PollService::class.java) { ++generation }
+      Thread { loop(mine) }.start()
     }
     return START_STICKY
   }
@@ -54,6 +63,7 @@ class PollService : Service() {
 
   override fun onDestroy() {
     running = false
+    synchronized(PollService::class.java) { generation++ }
     alive = false
     try { netCallback?.let { (getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager).unregisterNetworkCallback(it) } } catch (_: Exception) {}
     synchronized(wakeLock) { wakeLock.notifyAll() }
@@ -72,16 +82,16 @@ class PollService : Service() {
     } catch (_: Exception) { /* without it the normal timer still syncs, just a little later */ }
   }
 
-  private fun loop() {
+  private fun loop(mine: Int) {
     val ctx = applicationContext
     var failures = 0
-    while (running) {
+    while (running && mine == generation) {
       if (nudge) { nudge = false; failures = 0 }
       try {
         if (!Store.paired(ctx)) { Thread.sleep(5000); continue }
         // Uploading and reporting run with the CPU held awake (capped), so they finish even with the screen off.
         Awake.hold(ctx, 40_000, "upload") { Outbox.flush(ctx); Presence.report(ctx) }
-        failures = if (pollOnce(ctx)) 0 else failures + 1
+        failures = if (pollOnce(ctx, mine)) 0 else failures + 1
       } catch (_: InterruptedException) {
         return
       } catch (e: Exception) {
@@ -97,8 +107,9 @@ class PollService : Service() {
   }
 
   /** One long-poll round. True when the server answered. The server holds the call until something arrives, so news is instant. */
-  private fun pollOnce(ctx: Context): Boolean {
+  private fun pollOnce(ctx: Context, mine: Int): Boolean {
     val r = Http.call(ctx, "GET", "/device/poll?wait=25", readMs = 35000)
+    if (mine != generation) return false  // stopped/restarted while waiting: this answer belongs to a dead loop, never act on it
     if (r.code == 401) {
       Store.note(ctx, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার লগইন করুন")
       val last = Store.prefs(ctx).getLong("last_401_notice", 0L)
@@ -124,8 +135,11 @@ class PollService : Service() {
         val c = commands.getJSONObject(i)
         val id = c.getString("id")
         if (DoneCommands.has(ctx, id)) { done.put(id); continue }  // already carried out, only the "done" was lost: never send twice
-        val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
-        if (error == null) { DoneCommands.add(ctx, id); done.put(id) } else failed.put(JSONObject().put("id", id).put("error", error))
+        if (!DoneCommands.begin(ctx, id)) continue  // another thread is running this very command right now
+        try {
+          val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
+          if (error == null) { DoneCommands.add(ctx, id); done.put(id) } else failed.put(JSONObject().put("id", id).put("error", error))
+        } finally { DoneCommands.finish(id) }
       }
       if (done.length() + failed.length() > 0) Http.call(ctx, "POST", "/device/ack", JSONObject().put("done", done).put("failed", failed).toString())
     }
@@ -138,16 +152,17 @@ class PollService : Service() {
     if ((kind == "sms" || kind == "reply") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
     else when (kind) {
       "alert" -> { showAlert(ctx, target, body, id); null }
-      "sms" -> {
+      "sms" -> { val bad = smsGuard(ctx, target); if (bad != null) bad else {
+        val number = target.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
         val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()
         val parts = sms.divideMessage(body)
         // Ask the phone for a real "sent" result and a real "delivered" report; SmsStatusReceiver tells the server what happened.
         fun pi(action: String) = PendingIntent.getBroadcast(ctx, (id + action).hashCode(), Intent(action).setPackage(ctx.packageName).putExtra("cmd", id), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val sentIntents = ArrayList<PendingIntent>().apply { repeat(parts.size) { add(pi(SmsStatusReceiver.SENT)) } }
         val deliveredIntents = ArrayList<PendingIntent>().apply { repeat(parts.size) { add(pi(SmsStatusReceiver.DELIVERED)) } }
-        sms.sendMultipartTextMessage(target, null, parts, sentIntents, deliveredIntents)
+        sms.sendMultipartTextMessage(number, null, parts, sentIntents, deliveredIntents)
         null
-      }
+      } }
       "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "এই চ্যাটের নোটিফিকেশন আর ফোনে নেই, তাই উত্তর-বক্স পাওয়া যায়নি। Android শুধু নোটিফিকেশন থাকা অবস্থায় উত্তর পাঠাতে দেয়: ওই মানুষ আবার লিখলে “আবার পাঠান” চাপুন, নয়তো অ্যাপটি খুলে নিজে উত্তর দিন"
       else -> "অজানা নির্দেশ"
     }
@@ -161,8 +176,11 @@ class PollService : Service() {
     const val CH_SERVICE = "va_service"
     const val CH_URGENT = "va_urgent_v2"
     const val CH_NORMAL = "va_normal_v2"
+    const val CH_PROBLEM = "va_problem_v1"
+    private const val ACCENT = 0xFF6D3FD1.toInt()
     @Volatile var alive = false
     @Volatile private var nudge = false
+    @Volatile private var generation = 0
 
     fun start(ctx: Context) {
       val i = Intent(ctx, PollService::class.java)
@@ -176,6 +194,8 @@ class PollService : Service() {
       val nm = ctx.getSystemService(NotificationManager::class.java)
       nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "সহকারী চলছে", NotificationManager.IMPORTANCE_MIN))
       nm.createNotificationChannel(NotificationChannel(CH_NORMAL, "গুরুত্বপূর্ণ বার্তা", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(false) })
+      // The app's own "something is wrong" notes: visible, but never an alarm and never past Do-not-disturb.
+      nm.createNotificationChannel(NotificationChannel(CH_PROBLEM, "অ্যাপের সমস্যা", NotificationManager.IMPORTANCE_DEFAULT).apply { enableVibration(false) })
       val urgent = NotificationChannel(CH_URGENT, "জরুরি (অ্যালার্ম)", NotificationManager.IMPORTANCE_HIGH).apply {
         description = "পরিবার ও সবচেয়ে জরুরি বার্তা — সাইলেন্ট মোডেও বাজে"
         setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
@@ -186,19 +206,124 @@ class PollService : Service() {
       nm.createNotificationChannel(urgent)
     }
 
+    /** The app's own monochrome status icon (configured in app.json); a system icon if it is missing. */
+    private fun smallIcon(ctx: Context): Int {
+      val id = try { ctx.resources.getIdentifier("notification_icon", "drawable", ctx.packageName) } catch (_: Exception) { 0 }
+      return if (id != 0) id else android.R.drawable.stat_notify_chat
+    }
+
+    private fun openIntent(ctx: Context, code: Int): PendingIntent? {
+      val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: return null
+      return PendingIntent.getActivity(ctx, code, launch, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun openAction(ctx: Context): Notification.Action? {
+      val pi = openIntent(ctx, 1) ?: return null
+      return Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(ctx, smallIcon(ctx)), "খুলুন", pi).build()
+    }
+
+    /** The quiet "running" notification the foreground service must show. */
+    fun serviceNote(ctx: Context): Notification {
+      val b = Notification.Builder(ctx, CH_SERVICE).setContentTitle("সহকারী চলছে")
+        .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setOngoing(true).setOnlyAlertOnce(true)
+      openIntent(ctx, 0)?.let { b.setContentIntent(it) }
+      openAction(ctx)?.let { b.addAction(it) }
+      return b.build()
+    }
+
+    /** What an alert looks like on the phone, taken apart from the server's text. `plain` is the words-free version. */
+    class Parsed(val title: String, val text: String, val sub: String, val plain: String, val ok: Boolean)
+
+    /**
+     * Server text: first line "<icon> <platform> · <who> · <priority label>", optional second part after a new line.
+     * Family: "👪 পরিবার · <who> — <label> (ভেতরের কথা ...)". App problems start with the warning sign.
+     */
+    fun parse(urgent: Boolean, text: String): Parsed {
+      val fallbackTitle = if (urgent) "🔴 জরুরি বার্তা" else "নতুন বার্তা"
+      val first = text.lineSequence().first().trim()
+      val fb = Parsed(fallbackTitle, first.take(120), "", first.take(120), false)
+      try {
+        if (text.startsWith("⚠ ")) {
+          val t = text.removePrefix("⚠ ").trim().take(200)
+          return Parsed("অ্যাপের সমস্যা", t, "", t, true)
+        }
+        if (first.startsWith("👪")) {
+          val m = Regex("^👪\\s*([^·]+?)\\s*·\\s*(.+?)\\s*—\\s*(.+?)(?:\\s*\\(ভেতরের কথা.*)?$").find(first) ?: return fb
+          val platform = m.groupValues[1].trim()
+          val who = m.groupValues[2].trim()
+          val label = m.groupValues[3].trim()
+          if (who.isEmpty()) return fb
+          return Parsed(who, label, platform, label, true)
+        }
+        val parts = first.split(" · ").map { it.trim() }
+        if (parts.size < 3) return fb
+        val head = parts[0]
+        val platform = (if (head.contains(' ') && head.substringBefore(' ').none { it.isLetterOrDigit() }) head.substringAfter(' ') else head).trim()
+        val who = parts.subList(1, parts.size - 1).joinToString(" · ")
+        val label = parts.last()
+        if (who.isEmpty() || label.isEmpty()) return fb
+        val summary = text.substringAfter('\n', "").trim()
+        val shown = (if (summary.isNotEmpty()) summary else label).take(200)
+        return Parsed(who, shown, platform, label, true)
+      } catch (_: Exception) { return fb }
+    }
+
     fun showAlert(ctx: Context, target: String, text: String, id: String) {
       channels(ctx)
       val urgent = target == "p1"
-      val open = PendingIntent.getActivity(ctx, 0, ctx.packageManager.getLaunchIntentForPackage(ctx.packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-      val b = Notification.Builder(ctx, if (urgent) CH_URGENT else CH_NORMAL)
-        .setSmallIcon(android.R.drawable.stat_notify_chat).setContentTitle(if (urgent) "🔴 জরুরি বার্তা" else "নতুন বার্তা")
-        .setContentText(text.lineSequence().first().take(120)).setStyle(Notification.BigTextStyle().bigText(text))
-        .setContentIntent(open).setAutoCancel(true).setCategory(if (urgent) Notification.CATEGORY_ALARM else Notification.CATEGORY_MESSAGE)
+      val problem = target == "p3" && id.startsWith("problem-")
+      val channel = if (urgent) CH_URGENT else if (problem) CH_PROBLEM else CH_NORMAL
+      val open = openIntent(ctx, 0)
+      val p = parse(urgent, text)
+      val family = text.startsWith("👪")
+      val b = Notification.Builder(ctx, channel)
+        .setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setShowWhen(true).setWhen(System.currentTimeMillis())
+        .setContentTitle(if (p.ok) p.title else if (urgent) "🔴 জরুরি বার্তা" else "নতুন বার্তা")
+        .setContentText(if (p.ok) p.text else text.lineSequence().first().take(120))
+        .setStyle(Notification.BigTextStyle().bigText(if (p.ok && !family && !problem) p.text else text))
+        .setAutoCancel(true).setCategory(if (urgent) Notification.CATEGORY_ALARM else Notification.CATEGORY_MESSAGE)
         .setVisibility(Notification.VISIBILITY_PRIVATE)
-        .setPublicVersion(Notification.Builder(ctx, if (urgent) CH_URGENT else CH_NORMAL).setSmallIcon(android.R.drawable.stat_notify_chat).setContentTitle(if (urgent) "জরুরি বার্তা" else "নতুন বার্তা").build())
-      if (urgent) b.setFullScreenIntent(open, true)
+        .setPublicVersion(Notification.Builder(ctx, channel).setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setContentTitle(if (urgent) "জরুরি বার্তা" else if (problem) "অ্যাপের সমস্যা" else "নতুন বার্তা").build())
+      if (p.ok && p.sub.isNotEmpty()) b.setSubText(p.sub).setGroup("va_" + p.sub)
+      if (open != null) b.setContentIntent(open)
+      openAction(ctx)?.let { b.addAction(it) }
+      if (urgent && open != null) b.setFullScreenIntent(open, true)
       ctx.getSystemService(NotificationManager::class.java).notify(id.hashCode(), b.build())
+      try { addHistory(ctx, id, p, if (family) p.plain else p.text, target) } catch (_: Exception) {}
       Alert.fire(ctx, target)
+    }
+
+    // ---- alert history (for the in-app notification centre) ----
+    private val historyLock = Any()
+
+    private fun addHistory(ctx: Context, id: String, p: Parsed, text: String, target: String) = synchronized(historyLock) {
+      val arr = loadHistory(ctx)
+      arr.put(JSONObject().put("id", id.take(80)).put("title", p.title.take(200)).put("text", text.take(200)).put("sub", p.sub.take(200)).put("target", target).put("at", System.currentTimeMillis()))
+      val out = JSONArray()
+      for (i in maxOf(0, arr.length() - 50) until arr.length()) out.put(arr.get(i))
+      Store.prefs(ctx).edit().putString("alert_history", out.toString()).apply()
+    }
+
+    private fun loadHistory(ctx: Context): JSONArray = try { JSONArray(Store.prefs(ctx).getString("alert_history", "[]")) } catch (_: Exception) { JSONArray() }
+
+    /** Oldest first. */
+    fun history(ctx: Context): List<JSONObject> = synchronized(historyLock) {
+      val a = loadHistory(ctx)
+      (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+    }
+
+    fun clearHistory(ctx: Context) = synchronized(historyLock) { Store.prefs(ctx).edit().remove("alert_history").apply() }
+
+    /** Only a normal phone number may receive an SMS, and at most 30 an hour. Returns the Bangla reason when refused, null when allowed. */
+    @Synchronized fun smsGuard(ctx: Context, target: String): String? {
+      val number = target.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
+      if (!Regex("^\\+?[0-9]{8,15}$").matches(number)) return "এটা সাধারণ ফোন নম্বর নয়, তাই SMS পাঠানো হয়নি"
+      val p = Store.prefs(ctx)
+      val now = System.currentTimeMillis()
+      val times = (p.getString("sms_times", "") ?: "").split(',').mapNotNull { it.toLongOrNull() }.filter { now - it < 3600_000L && it <= now }
+      if (times.size >= 30) return "ঘণ্টায় ৩০টির বেশি SMS পাঠানো যায় না"
+      p.edit().putString("sms_times", (times + now).joinToString(",")).apply()
+      return null
     }
 
     /** For the Settings test buttons: the same alert at an explicit strength. */
@@ -245,7 +370,14 @@ object Alert {
       val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
       val want = when (volume) { 1 -> 0.5; 2 -> 0.75; else -> 1.0 }
       val target = (max * want).toInt().coerceAtLeast(1)
-      if (am.getStreamVolume(android.media.AudioManager.STREAM_ALARM) < target) am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, target, 0)
+      val before = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM)
+      if (before < target) {
+        am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, target, 0)
+        // Give the owner's own alarm volume back after the alert, unless he changed it meanwhile.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+          try { if (am.getStreamVolume(android.media.AudioManager.STREAM_ALARM) == target) am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, before, 0) } catch (_: Exception) {}
+        }, 45_000)
+      }
     } catch (_: Exception) {}
   }
 }

@@ -53,9 +53,9 @@ export const MODULES: ModuleDef[] = [
   { key: 'email', brand: 'email', icon: 'email-outline', tone: 'red', bn: 'ইমেইল', en: 'E-mail', hintBn: 'ইমেইল ও Gmail', hintEn: 'E-mail and Gmail', sources: ['email', 'notif:com.google.android.gm'], auto: 'none', apps: [{ pkg: 'com.google.android.gm', bn: 'Gmail', en: 'Gmail' }] },
   { key: 'imo', brand: 'imo', icon: 'chat-processing-outline', tone: 'blue', bn: 'IMO', en: 'IMO', hintBn: 'IMO-র বার্তা (ফোনের নোটিফিকেশন থেকে পড়া)', hintEn: 'IMO chats (read from phone notifications)', sources: ['notif:com.imo.android.imoim', 'notif:com.imo.android.imous'], auto: 'none', apps: [{ pkg: 'com.imo.android.imoim', bn: 'IMO', en: 'IMO' }, { pkg: 'com.imo.android.imous', bn: 'IMO Lite', en: 'IMO Lite' }] },
   { key: 'viber', brand: 'viber', icon: 'phone-in-talk-outline', tone: 'purple', bn: 'Viber', en: 'Viber', hintBn: 'Viber-এর বার্তা', hintEn: 'Viber chats', sources: ['notif:com.viber.voip'], auto: 'none', apps: [{ pkg: 'com.viber.voip', bn: 'Viber', en: 'Viber' }] },
-  { key: 'line', brand: 'line', icon: 'chat-outline', tone: 'green', bn: 'LINE', en: 'LINE', hintBn: 'LINE-এর বার্তা', hintEn: 'LINE chats', sources: ['notif:jp.naver.line.android'], auto: 'none', apps: [{ pkg: 'jp.naver.line.android', bn: 'LINE', en: 'LINE' }] },
+  { key: 'line', brand: 'line', icon: 'message-processing-outline', tone: 'green', bn: 'LINE', en: 'LINE', hintBn: 'LINE-এর বার্তা', hintEn: 'LINE chats', sources: ['notif:jp.naver.line.android'], auto: 'none', apps: [{ pkg: 'jp.naver.line.android', bn: 'LINE', en: 'LINE' }] },
   { key: 'wechat', brand: 'wechat', icon: 'wechat', tone: 'green', bn: 'WeChat', en: 'WeChat', hintBn: 'WeChat-এর বার্তা', hintEn: 'WeChat chats', sources: ['notif:com.tencent.mm'], auto: 'none', apps: [{ pkg: 'com.tencent.mm', bn: 'WeChat', en: 'WeChat' }] },
-  { key: 'signal', brand: 'signal', icon: 'signal-variant', tone: 'blue', bn: 'Signal', en: 'Signal', hintBn: 'Signal-এর বার্তা', hintEn: 'Signal chats', sources: ['notif:org.thoughtcrime.securesms'], auto: 'none', apps: [{ pkg: 'org.thoughtcrime.securesms', bn: 'Signal', en: 'Signal' }] },
+  { key: 'signal', brand: 'signal', icon: 'message-lock-outline', tone: 'blue', bn: 'Signal', en: 'Signal', hintBn: 'Signal-এর বার্তা', hintEn: 'Signal chats', sources: ['notif:org.thoughtcrime.securesms'], auto: 'none', apps: [{ pkg: 'org.thoughtcrime.securesms', bn: 'Signal', en: 'Signal' }] },
 ];
 
 export const moduleByKey = (key: string | undefined) => allModules().find((m) => m.key === key);
@@ -90,4 +90,17 @@ export function customToModule(c: CustomApp): ModuleDef {
 }
 
 export function setCustomModules(list: CustomApp[]): void { customModules = list.map(customToModule); }
+/**
+ * Keys of chat-app platforms (read only from the phone's notifications) whose app is not installed on this phone.
+ * Call it once per list (useMemo), not on every render. Platforms with their own bot/API/e-mail are never listed here.
+ */
+export function notOnPhone(mods: ModuleDef[], isInstalled: (pkg: string) => boolean): Set<string> {
+  const out = new Set<string>();
+  for (const m of mods) {
+    const pkgs = (m.apps ?? []).map((a) => a.pkg);
+    if (!pkgs.length || !m.sources.every((s) => s.startsWith('notif:'))) continue;
+    if (!pkgs.some((p) => { try { return isInstalled(p); } catch { return false; } })) out.add(m.key);
+  }
+  return out;
+}
 export const allModules = (): ModuleDef[] => [...MODULES, ...customModules];

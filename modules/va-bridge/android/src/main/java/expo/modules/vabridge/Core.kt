@@ -30,9 +30,14 @@ object Store {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
       )
       // A restored backup (or a lost Keystore key) leaves a file nobody can decrypt. Start clean = "not paired" instead of a dead app.
+      // One short retry first (the Keystore is sometimes briefly busy right after boot); only a second failure wipes the file.
+      // The very last open() may still throw if the device is truly broken; callers are wrapped, and we never loop.
       val p = try { open() } catch (e: Exception) {
-        app.deleteSharedPreferences("va_secure")
-        open()
+        try { Thread.sleep(300) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }  // an interrupt must never wipe the pairing
+        try { open() } catch (e2: Exception) {
+          app.deleteSharedPreferences("va_secure")
+          open()
+        }
       }
       cached = p
       return p
@@ -142,15 +147,47 @@ object Outbox {
     val r = Http.call(c, "POST", "/device/ingest", JSONObject().put("items", batch).toString())
     return when {
       r.code in 200..299 -> {
-        val rest = JSONArray()
-        for (i in batch.length() until arr.length()) rest.put(arr.get(i))
-        Store.prefs(c).edit().putString("queue", rest.toString()).apply()
+        save(c, arr, batch.length())
         Store.note(c, null)
         true
       }
       r.code == 401 -> { Store.note(c, "ফোনের অনুমতি বাতিল বা মেয়াদ শেষ — আবার জোড়া লাগান"); false }
+      isRejection(r.code) && batch.length() == 1 -> {
+        // The server will never accept this one message: drop it, or it would block everything behind it forever.
+        save(c, arr, 1)
+        Store.note(c, "১টি বার্তা সার্ভার নেয়নি, বাদ দেওয়া হয়েছে")
+        true
+      }
+      isRejection(r.code) -> {
+        // One bad message in a batch: retry them one by one. 5xx / no network / timeout keeps the message for later.
+        var consumed = 0
+        var dropped = 0
+        var stopped = false
+        for (i in 0 until batch.length()) {
+          val one = Http.call(c, "POST", "/device/ingest", JSONObject().put("items", JSONArray().put(batch.get(i))).toString())
+          if (one.code in 200..299) consumed++
+          else if (isRejection(one.code)) { consumed++; dropped++ }
+          else { stopped = true; break }
+        }
+        save(c, arr, consumed)
+        if (dropped > 0) Store.note(c, "$dropped" + "টি বার্তা সার্ভার নেয়নি, বাদ দেওয়া হয়েছে")
+        else if (stopped) Store.note(c, "সার্ভারে পৌঁছানো যায়নি (${r.code})") else Store.note(c, null)
+        !stopped
+      }
       else -> { Store.note(c, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); false }
     }
+  }
+
+  /** A 4xx that means "this content is refused" (not: sign-in problem, timeout, too many requests). */
+  // Only the answers our own server gives for a message it cannot accept (bad request / too large / validation) drop a message.
+  // A 403/404/405 from a proxy, Cloudflare or a wrong address must never make the phone throw queued messages away.
+  private fun isRejection(code: Int) = code == 400 || code == 413 || code == 422
+
+  /** Removes the first `count` items from the stored queue. */
+  private fun save(c: Context, arr: JSONArray, count: Int) {
+    val rest = JSONArray()
+    for (i in count until arr.length()) rest.put(arr.get(i))
+    Store.prefs(c).edit().putString("queue", rest.toString()).apply()
   }
 }
 
@@ -160,7 +197,11 @@ object Outbox {
  */
 object DoneCommands {
   private const val MAX = 300
+  private val inFlight = HashSet<String>()
   @Synchronized fun has(c: Context, id: String): Boolean = list(c).contains(id)
+  /** True only for the one caller that may run this command now (not already done, not being run by another thread). */
+  @Synchronized fun begin(c: Context, id: String): Boolean = if (list(c).contains(id) || inFlight.contains(id)) false else { inFlight.add(id); true }
+  @Synchronized fun finish(id: String) { inFlight.remove(id) }
   @Synchronized fun add(c: Context, id: String) {
     val l = list(c).apply { remove(id); add(id) }
     while (l.size > MAX) l.removeAt(0)
@@ -179,14 +220,20 @@ object Awake {
   }
 }
 
+/** The real installed version (sent to the server instead of a hard-coded number). */
+fun appVersion(c: Context): String = try { c.packageManager.getPackageInfo(c.packageName, 0).versionName ?: "1.0.0" } catch (_: Exception) { "1.0.0" }
+
+/** Removes NUL and other control characters (keeps new line and tab): the server database rejects them with a 4xx. */
+fun cleanText(s: String): String = s.filter { !it.isISOControl() || it == '\n' || it == '\t' }
+
 fun sha(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
 
 /** One message for the server. `sender` is a phone number (SMS/call) or the name the chat app shows. */
 fun item(type: String, channel: String, sender: String, app: String?, body: String, ext: String, name: String? = null, group: Boolean = false): JSONObject =
-  JSONObject().put("type", type).put("channel", channel).put("sender", sender.take(60)).put("body", body.take(4000))
-    .put("ext_id", ext.take(80)).put("at", System.currentTimeMillis()).apply {
-      if (app != null) put("app", app.take(60))
-      if (!name.isNullOrBlank()) put("name", name.take(120))
+  JSONObject().put("type", type).put("channel", channel).put("sender", cleanText(sender).take(60)).put("body", cleanText(body).take(4000))
+    .put("ext_id", cleanText(ext).take(80)).put("at", System.currentTimeMillis()).apply {
+      if (app != null) put("app", cleanText(app).take(60))
+      if (!name.isNullOrBlank()) put("name", cleanText(name).take(120))
       if (group) put("group", true)
     }
 

@@ -36,7 +36,12 @@ object ChatOpener {
       ctx.contentResolver.query(
         ContactsContract.CommonDataKinds.Phone.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
         "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} = ? COLLATE NOCASE", arrayOf(name), null,
-      )?.use { if (it.moveToFirst()) it.getString(0) else null }
+      )?.use {
+        // Two different people (or two numbers) with this name: guessing would open the WRONG chat, so say "unknown".
+        val found = LinkedHashMap<String, String>()
+        while (it.moveToNext()) { val raw = it.getString(0) ?: continue; val n = normalize(raw) ?: continue; found.putIfAbsent(n, raw) }
+        if (found.size == 1) found.values.first() else null
+      }
     } catch (_: Exception) { null }
   }
 
@@ -57,6 +62,16 @@ object ChatOpener {
     try {
       val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
       cm.setPrimaryClip(ClipData.newPlainText("reply", text))
+      // The answer should not stay on the clipboard for ever: clear it after a minute if it is still ours (best effort).
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        try {
+          val mine = cm.primaryClipDescription?.label?.toString() == "reply"
+          val same = cm.primaryClip?.getItemAt(0)?.text?.toString()?.let { it == text } ?: true
+          if (mine && same) {
+            if (android.os.Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip() else cm.setPrimaryClip(ClipData.newPlainText("", ""))
+          }
+        } catch (_: Exception) {}
+      }, 60_000)
     } catch (_: Exception) { /* the clipboard is only a safety net */ }
 
     val number = numberFor(ctx, name)

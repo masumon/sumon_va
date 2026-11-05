@@ -124,7 +124,7 @@ const SECTIONS: Record<string, SectionColor> = {
   tasks: sec('#B45309', '#92400E', '#D97706', '#EA580C'),        // amber → orange
   channels: sec('#BE185D', '#9D174D', '#DB2777', '#E11D48'),     // rose
   more: sec('#334155', '#1E293B', '#475569', '#0F766E'),         // slate → teal
-  settings: sec('#334155', '#1E293B', '#475569', '#64748B'),     // slate
+  settings: sec('#3730A3', '#312E81', '#4F46E5', '#6366F1'),     // indigo (selected chips must not look grey)
   setup: sec('#15803D', '#166534', '#15803D', '#0F766E'),        // green
   assistant: sec('#5B21B6', '#4C1D95', '#6D28D9', '#4F46E5'),    // deep violet (rules, routine, replies, simulate)
   report: sec('#047857', '#065F46', '#047857', '#0E7490'),       // emerald → teal

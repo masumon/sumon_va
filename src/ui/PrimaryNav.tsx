@@ -26,6 +26,19 @@ export const primaryNavItems = [
   { href: '/more', icon: 'dots-horizontal-circle-outline' as const, activeIcon: 'dots-horizontal-circle' as const, tone: 'yellow' as AccentName, en: 'More', bn: 'আরও' },
 ];
 
+/** Height of the floating bar itself, and the gap under it; pages read these to keep their content above it. */
+export const NAV_BAR_HEIGHT = layout.compactNavHeight - 8;
+export const NAV_BAR_GAP = 8;
+
+/** Raise a colour's opacity to at least `min` so list text can never show through the bar. */
+function atLeastOpaque(c: string, min: number): string {
+  const m = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/.exec(c);
+  if (m) return `rgba(${m[1]},${m[2]},${m[3]},${Math.max(Number(m[4]), min)})`;
+  const h = /^#([0-9a-f]{6})$/i.exec(c);
+  if (h) { const n = parseInt(h[1]!, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${min})`; }
+  return c;
+}
+
 export function PrimaryNav() {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,13 +62,13 @@ export function PrimaryNav() {
     medium && styles.barMedium,
     expanded && styles.barExpanded,
     {
-      backgroundColor: expanded ? (isIOS ? glass.navScrim : glass.navSolid) : design.barFill,
+      backgroundColor: expanded ? (isIOS ? glass.navScrim : glass.navSolid) : atLeastOpaque(design.barFill, 0.96),
       borderColor: expanded ? glass.border : design.barBorder,
       borderTopColor: expanded ? glass.highlight : design.barBorder,
-      height: expanded ? undefined : layout.compactNavHeight - 8,
+      height: expanded ? undefined : NAV_BAR_HEIGHT,
       paddingBottom: expanded ? spacing.lg : 0,
     },
-    !expanded && { marginHorizontal: 12, marginBottom: insets.bottom + 8, borderWidth: border.thin, borderRadius: design.radiusBar, paddingTop: 0, ...(design.shadow ?? {}) },
+    !expanded && { marginHorizontal: 12, marginBottom: insets.bottom + NAV_BAR_GAP, borderWidth: border.thin, borderRadius: design.radiusBar, paddingTop: 0, ...(design.shadow ?? {}) },
   ];
   const Bar = isIOS ? BlurView : View;
 

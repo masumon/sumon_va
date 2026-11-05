@@ -73,20 +73,24 @@ class VaBridgeModule : Module() {
     AsyncFunction("pair") { base: String, code: String, name: String ->
       val c = ctx
       if (!base.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
-      Store.prefs(c).edit().putString("base", base.trimEnd('/')).apply()
-      val body = JSONObject().put("code", code.trim().uppercase()).put("name", name.take(80)).put("app_version", "0.1.0").toString()
-      val r = Http.call(c, "POST", "/device/pair", body, auth = false)
+      // Remember the session we already had: a failed pairing attempt must not sign the owner out of a working one.
+      val previousBase = Store.baseUrl(c)
+      fun restoreBase() { val e = Store.prefs(c).edit(); if (previousBase.isNullOrEmpty()) e.remove("base") else e.putString("base", previousBase); e.apply() }
+      // The new address is used only for this one call (baseOverride); it is stored only after the server accepts the code,
+      // so an already-working session keeps talking to its own server meanwhile.
+      val body = JSONObject().put("code", code.trim().uppercase()).put("name", name.take(80)).put("app_version", appVersion(c)).toString()
+      val r = Http.call(c, "POST", "/device/pair", body, auth = false, baseOverride = base.trimEnd('/'))
       if (r.code in 200..299) {
         val token = JSONObject(r.body).optString("token")
         if (token.isEmpty()) {
-          Store.prefs(c).edit().remove("base").apply()
+          restoreBase()
           return@AsyncFunction mapOf("ok" to false, "error" to "সার্ভার ভুল উত্তর দিয়েছে")
         }
         Store.setPaired(c, base.trimEnd('/'), token)
         PollService.start(c)
         mapOf("ok" to true)
       } else {
-        Store.prefs(c).edit().remove("base").apply()
+        restoreBase()
         val why = try { JSONObject(r.body).optString("detail") } catch (_: Exception) { "" }
         mapOf("ok" to false, "error" to (why.ifEmpty { "জোড়া লাগেনি (${r.code})" }))
       }
@@ -97,7 +101,7 @@ class VaBridgeModule : Module() {
       val c = ctx
       val clean = base.trimEnd('/')
       if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
-      val body = JSONObject().put("email", email.trim()).put("password", password).put("name", name.take(80)).put("app_version", "0.1.0")
+      val body = JSONObject().put("email", email.trim()).put("password", password).put("name", name.take(80)).put("app_version", appVersion(c))
       if (!totp.isNullOrBlank()) body.put("totp_code", totp.trim())
       val r = Http.call(c, "POST", "/device/login", body.toString(), auth = false, baseOverride = clean)
       val detail = try { JSONObject(r.body).optString("detail") } catch (_: Exception) { "" }
@@ -130,7 +134,7 @@ class VaBridgeModule : Module() {
       val c = ctx
       val clean = base.trimEnd('/')
       if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
-      val body = JSONObject().put("email", email.trim()).put("code", code.trim()).put("name", name.take(80)).put("app_version", "0.1.0")
+      val body = JSONObject().put("email", email.trim()).put("code", code.trim()).put("name", name.take(80)).put("app_version", appVersion(c))
       if (!totp.isNullOrBlank()) body.put("totp_code", totp.trim())
       val r = Http.call(c, "POST", "/device/otp/verify", body.toString(), auth = false, baseOverride = clean)
       val detail = try { JSONObject(r.body).optString("detail") } catch (_: Exception) { "" }
@@ -170,7 +174,7 @@ class VaBridgeModule : Module() {
       val c = ctx
       val clean = base.trimEnd('/')
       if (!clean.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "status" to "error")
-      val r = Http.call(c, "GET", "/device/login-telegram/status?request_id=" + Uri.encode(requestId) + "&app_version=1.0.0", null, auth = false, baseOverride = clean)
+      val r = Http.call(c, "GET", "/device/login-telegram/status?request_id=" + Uri.encode(requestId) + "&app_version=" + Uri.encode(appVersion(c)), null, auth = false, baseOverride = clean)
       if (r.code !in 200..299) return@AsyncFunction mapOf("ok" to false, "status" to "error")
       val json = JSONObject(r.body)
       val status = json.optString("status", "error")
@@ -214,7 +218,7 @@ class VaBridgeModule : Module() {
       val c = ctx
       io.execute {
         // Testing an AI key asks an outside company and can take a while (and a sleeping free server needs ~30 s to wake): wait longer there.
-        val r = try { Http.call(c, m, path, body, readMs = if (path.startsWith("/admin/ai-hub")) 90000 else 20000) } catch (e: Exception) { Http.Resp(0, e.javaClass.simpleName) }
+        val r = try { Http.call(c, m, path, body, readMs = if (path.startsWith("/admin/ai-hub") || path.contains("/learn")) 90000 else 20000) } catch (e: Exception) { Http.Resp(0, e.javaClass.simpleName) }
         promise.resolve(mapOf("status" to r.code, "body" to r.body))
       }
     }
@@ -233,6 +237,15 @@ class VaBridgeModule : Module() {
     /** Is this app installed on the phone? (Only the chat apps listed in the manifest's <queries> can be asked about.) */
     Function("isInstalled") { pkg: String -> try { ctx.packageManager.getPackageInfo(pkg, 0); true } catch (_: Exception) { false } }
     Function("testAlert") { PollService.showAlert(ctx, "p1", "পরীক্ষা: এভাবেই জরুরি বার্তা বাজবে", "test-" + System.currentTimeMillis()); true }
+
+    /** Alerts this app showed, newest first (for the in-app notification centre). */
+    Function("alertHistory") {
+      PollService.history(ctx).reversed().map {
+        mapOf("id" to it.optString("id"), "title" to it.optString("title"), "text" to it.optString("text"), "sub" to it.optString("sub"),
+          "target" to it.optString("target"), "at" to it.optDouble("at", 0.0))
+      }
+    }
+    Function("clearAlertHistory") { PollService.clearHistory(ctx); true }
 
     Function("openNotificationAccess") { open(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); true }
     Function("openDndAccess") { open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)); true }

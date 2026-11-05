@@ -87,7 +87,7 @@ export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownCh
               <Text numberOfLines={1} style={{ fontWeight: '800', fontSize: 16, color: colors.textPrimary }}>{displayName(c)}</Text>
               <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 12 }}>{brandName(brandFor(c.channel, c.phone))} · {c.phone.split(':').slice(-1)[0]}</Text>
             </View>
-            {sub ? <Pressable onPress={() => setSub(null)} hitSlop={8}><AppIcon name="arrow-left" size={22} color={colors.textPrimary} /></Pressable> : <Pressable onPress={close} hitSlop={8}><AppIcon name="close" size={22} color={colors.textPrimary} /></Pressable>}
+            {sub ? <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'পেছনে' : 'Back'} onPress={() => setSub(null)} hitSlop={8}><AppIcon name="arrow-left" size={22} color={colors.textPrimary} /></Pressable> : <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বন্ধ' : 'Close'} onPress={close} hitSlop={8}><AppIcon name="close" size={22} color={colors.textPrimary} /></Pressable>}
           </View>
           <ScrollView style={{ maxHeight: 520 }}>
             {sub === 'mode' ? (['inherit', 'auto', 'telegram', 'draft', 'notify'] as const).map((m) => choice(bn ? MODE[m].bn : MODE[m].en, c.mode === m, () => { void patch({ mode: m }); close(); }))

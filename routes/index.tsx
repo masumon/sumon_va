@@ -94,6 +94,7 @@ export default function DashboardScreen() {
         ) : null}
       </Hero>
       <ChipGroup<Lens> options={['personal', 'business']} value={lens} labelOf={(l) => (l === 'personal' ? (bn ? 'ব্যক্তিগত' : 'Personal') : (bn ? 'ব্যবসায়িক' : 'Business'))} onChange={(l) => { if (l) setLens(l); }} />
+      <Text style={{ marginTop: -8, color: colors.textSecondary, fontSize: 12 }}>{bn ? 'ওপরের তিনটি সংখ্যা ও নিচের তালিকা বদলায়: ব্যক্তিগত = পরিবার ও জরুরি, ব্যবসায়িক = অর্ডার ও কাজের খোঁজ।' : 'Changes the three numbers above and the list below: Personal = family and urgent, Business = orders and work enquiries.'}</Text>
 
       {o?.presence && o.presence.state !== 'unknown' ? (
         <Text style={{ opacity: 0.7, fontSize: 12, textAlign: 'center' }}>{bn ? PRESENCE[o.presence.state].bn : PRESENCE[o.presence.state].en}</Text>

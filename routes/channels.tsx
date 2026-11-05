@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
@@ -9,7 +10,7 @@ import { va } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page } from '../src/va/Page';
-import { MODULES } from '../src/va/modules';
+import { MODULES, notOnPhone } from '../src/va/modules';
 import { BrandLogo } from '../src/va/BrandLogo';
 import { getStatus, isInstalled } from '../modules/va-bridge';
 import { computeChecks, verdict } from '../src/va/connect';
@@ -26,6 +27,7 @@ export default function ModulesScreen() {
     return { key: m.key, waiting: w.total, urgent: u.total, total: all.total };
   })), 'module-counts', 60000); // 30 small requests: once a minute is plenty (new messages also refresh it at once)
   const chans = useLoad(() => va.channels(), 'channels', 30000);
+  const missing = useMemo(() => notOnPhone(MODULES, isInstalled), []);
   const by = new Map((counts.data ?? []).map((c) => [c.key, c]));
 
   return (
@@ -48,9 +50,10 @@ export default function ModulesScreen() {
             <BrandLogo brand={m.brand} size={48} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontWeight: '700', fontSize: 16 }}>{bn ? m.bn : m.en}</Text>
-              <Text numberOfLines={1} style={{ opacity: 0.65, fontSize: 12 }}>{bn ? m.hintBn : m.hintEn}</Text>
+              <Text numberOfLines={1} style={{ color: colors.textSecondary, fontSize: 12 }}>{bn ? m.hintBn : m.hintEn}</Text>
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                 {!counts.data ? <AppBadge tone="neutral" label={bn ? 'দেখছি…' : 'Checking…'} /> : <AppBadge tone={vd === 'ok' ? 'success' : vd === 'partial' ? 'warning' : 'danger'} label={vd === 'ok' ? (bn ? 'সংযুক্ত ✓' : 'Connected ✓') : vd === 'partial' ? (bn ? 'প্রায় হয়ে গেছে' : 'Almost') : (bn ? 'সংযুক্ত নয়' : 'Not connected')} />}
+                {missing.has(m.key) ? <AppBadge tone="neutral" label={bn ? 'ফোনে নেই' : 'Not on this phone'} /> : null}
                 {c && c.urgent ? <AppBadge tone="danger" label={bn ? `${n(c.urgent)} জরুরি` : `${c.urgent} urgent`} /> : null}
                 {c && c.waiting ? <AppBadge tone="warning" label={bn ? `${n(c.waiting)} বাকি` : `${c.waiting} waiting`} /> : null}
                 <AppBadge tone={m.auto === 'none' ? 'neutral' : 'primary'} label={m.auto === 'none' ? (bn ? 'শুধু খসড়া' : 'Drafts only') : (bn ? 'নিজে উত্তর দিতে পারে' : 'Can auto-reply')} />

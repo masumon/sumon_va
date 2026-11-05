@@ -151,3 +151,16 @@ export const openChat = (pkg: string, name: string, text: string): { how: 'chat'
 export const installedApps = (): { pkg: string; label: string }[] => {
   try { return native ? native.installedApps() : []; } catch { return []; }
 };
+
+/** One entry of the phone's alert history (what rang or buzzed, newest first). `target` is where tapping it should lead. */
+export type AlertHistoryItem = { id: string; title: string; text: string; sub: string; target: string; at: number };
+type AlertNative = { alertHistory?: () => AlertHistoryItem[]; clearAlertHistory?: () => boolean };
+
+/** The alert history kept by the phone service. An empty list when the native side does not have it. */
+export const alertHistory = (): AlertHistoryItem[] => {
+  try { const r = (native as unknown as AlertNative | null)?.alertHistory?.(); return Array.isArray(r) ? r : []; } catch { return []; }
+};
+/** Forget the whole alert history. False when nothing could be cleared. */
+export const clearAlertHistory = (): boolean => {
+  try { return !!(native as unknown as AlertNative | null)?.clearAlertHistory?.(); } catch { return false; }
+};

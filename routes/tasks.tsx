@@ -10,6 +10,7 @@ import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
+import { num } from '../src/va/bd';
 
 type Show = 'open' | 'done';
 
@@ -34,7 +35,7 @@ export default function TasksScreen() {
 
   return (
     <Page title={bn ? 'কাজের তালিকা' : 'Tasks'} subtitle={bn ? 'কাকে কী কথা দিয়েছেন' : 'What you promised to whom'} onRefresh={() => { void list.reload(); void open.reload(); }} refreshing={list.loading && !!list.data}>
-      <Hero icon="checkbox-marked-circle-outline" title={bn ? 'আপনার কাজ' : 'Your tasks'} subtitle={late ? (bn ? `${late}টির সময় পার হয়ে গেছে` : `${late} overdue`) : (bn ? 'সময়মতো চলছে ✓' : 'On track ✓')}>
+      <Hero icon="checkbox-marked-circle-outline" title={bn ? 'আপনার কাজ' : 'Your tasks'} subtitle={late ? (bn ? `${num(late, true)}টির সময় পার হয়ে গেছে` : `${late} overdue`) : (bn ? 'সময়মতো চলছে ✓' : 'On track ✓')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={formatBangladeshNumber(open.data?.length ?? 0, language)} label={bn ? 'বাকি' : 'Open'} />
           <HeroStat value={formatBangladeshNumber(late, language)} label={bn ? 'দেরি' : 'Overdue'} />
@@ -53,9 +54,10 @@ export default function TasksScreen() {
             <AppIcon name={t.is_done ? 'check-circle' : 'circle-outline'} size={28} color={t.is_done ? colors.success : colors.primary} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '600', textDecorationLine: t.is_done ? 'line-through' : 'none', opacity: t.is_done ? 0.6 : 1 }}>{t.title}</Text>
+            {t.contact_name || t.contact_phone ? <Text numberOfLines={1} style={{ fontWeight: '800', fontSize: 15, opacity: t.is_done ? 0.6 : 1 }}>{t.contact_name || t.contact_phone}</Text> : null}
+            <Text style={{ fontWeight: t.contact_name || t.contact_phone ? '400' : '600', textDecorationLine: t.is_done ? 'line-through' : 'none', opacity: t.is_done ? 0.6 : 1 }}>{t.title}</Text>
             <Text style={{ opacity: 0.6, fontSize: 12 }}>
-              {[t.contact_name || t.contact_phone, t.due_at ? formatBangladeshDateTime(t.due_at, language) : null, t.source === 'ai' ? (bn ? 'সহকারী লিখেছে' : 'written by the assistant') : null].filter(Boolean).join(' · ')}
+              {[t.due_at ? formatBangladeshDateTime(t.due_at, language) : null, t.source === 'ai' ? (bn ? 'সহকারী লিখেছে' : 'written by the assistant') : null].filter(Boolean).join(' · ')}
             </Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মুছুন' : 'Delete'} onPress={() => void act(() => va.removeTask(t.id))} hitSlop={8}><AppIcon name="trash-can-outline" size={22} color={colors.textMuted} /></Pressable>

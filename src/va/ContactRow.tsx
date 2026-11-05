@@ -16,6 +16,7 @@ import type { Contact } from './api';
 import { CATEGORY, PRIORITY, displayName } from './labels';
 import { ChatMenuButton } from './ChatMenu';
 import { sourceLabel } from './modules';
+import { num } from './bd';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
 export function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
@@ -64,7 +65,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
           {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
           {contact.is_vip ? <AppBadge label="VIP" tone="primary" /> : null}
           <AppBadge label={brandName(brandFor(contact.channel, contact.phone))} tone="neutral" />
-          {contact.unread > 0 ? <AppBadge label={bn ? `${contact.unread}টি নতুন` : `${contact.unread} new`} tone="danger" /> : null}
+          {contact.unread > 0 ? <AppBadge label={bn ? `${num(contact.unread, true)}টি নতুন` : `${contact.unread} new`} tone="danger" /> : null}
         </View>
       </View>
     </Pressable>

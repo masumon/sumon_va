@@ -25,7 +25,33 @@ function networkReason(reason?: string): string {
   return `সার্ভারের সাথে সংযোগ হয়নি (${reason})`;
 }
 
+// Short cache + shared in-flight request for a few read-only GETs. Errors are never cached; any change (non-GET) clears everything.
+const cache = new Map<string, { at: number; value: unknown }>();
+const inflight = new Map<string, Promise<unknown>>();
+export function clearApiCache(): void { cache.clear(); inflight.clear(); }
+function cachedGet<T>(path: string, ttlMs: number): Promise<T> {
+  const hit = cache.get(path);
+  if (hit && Date.now() - hit.at < ttlMs) return Promise.resolve(hit.value as T);
+  const running = inflight.get(path);
+  if (running) return running as Promise<T>;
+  const p: Promise<T> = rawCall<T>('GET', path).then((value) => {
+    if (inflight.get(path) === p) { cache.set(path, { at: Date.now(), value }); inflight.delete(path); }
+    return value;
+  }, (e: unknown) => {
+    if (inflight.get(path) === p) inflight.delete(path);
+    throw e;
+  });
+  inflight.set(path, p);
+  return p;
+}
+
 async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  if (method === 'GET') return rawCall<T>(method, path, body);
+  clearApiCache();
+  try { return await rawCall<T>(method, path, body); } finally { clearApiCache(); }
+}
+
+async function rawCall<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   let r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
   // A read that only timed out (the free server was waking up) gets one more try before anything is reported.
   if (method === 'GET' && r.status === 0 && networkKind(r.reason) === 'timeout') r = await request<Envelope<T> & { detail?: unknown }>(method, path, body);
@@ -115,7 +141,7 @@ export const va = {
   removeNote: (noteId: string) => call<unknown>('DELETE', `/admin/wa/notes/${noteId}`),
   assistantConfig: () => call<{ config: AssistantConfig }>('GET', '/admin/wa/config'),
   saveAssistantConfig: (config: Record<string, unknown>) => call<unknown>('PUT', '/admin/wa/config', { config }),
-  aiHub: () => call<HubSummary>('GET', '/admin/ai-hub'),
+  aiHub: () => cachedGet<HubSummary>('/admin/ai-hub', 20000),
   aiAdd: (d: { key: string; provider: string; base_url?: string; label?: string }) => call<HubConn>('POST', '/admin/ai-hub/connections', d),
   aiTest: (id: string) => call<HubConn>('POST', `/admin/ai-hub/connections/${id}/test`, {}),
   aiPatch: (id: string, d: { enabled?: boolean; move?: -1 | 0 | 1; tier?: 'free' | 'paid' }) => call<HubConn>('PATCH', `/admin/ai-hub/connections/${id}`, d),
@@ -132,7 +158,7 @@ export const va = {
   emailFilter: () => call<{ mode: 'important' | 'all'; allow: string[]; block: string[]; dropped_today: number }>('GET', '/admin/inbox/email-filter'),
   logout: () => call<unknown>('POST', '/device/logout', {}),
 
-  overview: () => call<Overview>('GET', '/admin/wa/overview'),
+  overview: () => cachedGet<Overview>('/admin/wa/overview', 8000),
   contacts: (view: View, q = '', page = 1, src: string[] = []) =>
     call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}&src=${encodeURIComponent(src.join(','))}`),
   business: () => call<{ pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
@@ -142,7 +168,7 @@ export const va = {
   suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
   approve: (mid: string, text?: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/approve`, text ? { text } : undefined),
   discard: (mid: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/discard`),
-  channels: () => call<ChannelsInfo>('GET', '/admin/inbox/channels'),
+  channels: () => cachedGet<ChannelsInfo>('/admin/inbox/channels', 8000),
   killSwitch: (on: boolean) => call<{ kill_switch_on: boolean }>('POST', '/admin/inbox/kill-switch', { on }),
   config: () => call<Record<string, unknown>>('GET', '/admin/wa/config'),
   saveConfig: (config: Record<string, unknown>) => call<unknown>('PUT', '/admin/wa/config', { config }),

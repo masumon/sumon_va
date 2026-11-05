@@ -14,6 +14,7 @@ import { DesignPicker } from '../src/va/DesignPicker';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
 import { getStatus, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
 import { APP_VERSION } from '../src/va/config';
+import { num } from '../src/va/bd';
 
 type Lang = 'bn' | 'en';
 const SIZES = ['0.9', '1', '1.1', '1.2'] as const;
@@ -125,9 +126,9 @@ export default function SettingsScreen() {
       <Card icon="bell-alert-outline" title={bn ? 'জরুরি অ্যালার্টের সীমা' : 'Urgent alert limits'}>
         {limits ? (
           <>
-            <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts a day'} options={CAPS} value={String(limits.urgent_per_day) as (typeof CAPS)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ urgent_per_day: Number(c) }); }} />
-            <ChipGroup<(typeof FROM)[number]> label={bn ? 'রাতে চুপ থাকার সময় শুরু' : 'Quiet time starts'} options={FROM} value={limits.quiet_from as (typeof FROM)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_from: c }); }} />
-            <ChipGroup<(typeof TO)[number]> label={bn ? 'চুপ থাকার সময় শেষ' : 'Quiet time ends'} options={TO} value={limits.quiet_to as (typeof TO)[number]} labelOf={(c) => c} onChange={(c) => { if (c) void saveLimits({ quiet_to: c }); }} />
+            <ChipGroup<(typeof CAPS)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts a day'} options={CAPS} value={String(limits.urgent_per_day) as (typeof CAPS)[number]} labelOf={(c) => num(c, bn)} onChange={(c) => { if (c) void saveLimits({ urgent_per_day: Number(c) }); }} />
+            <ChipGroup<(typeof FROM)[number]> label={bn ? 'রাতে চুপ থাকার সময় শুরু' : 'Quiet time starts'} options={FROM} value={limits.quiet_from as (typeof FROM)[number]} labelOf={(c) => num(c, bn)} onChange={(c) => { if (c) void saveLimits({ quiet_from: c }); }} />
+            <ChipGroup<(typeof TO)[number]> label={bn ? 'চুপ থাকার সময় শেষ' : 'Quiet time ends'} options={TO} value={limits.quiet_to as (typeof TO)[number]} labelOf={(c) => num(c, bn)} onChange={(c) => { if (c) void saveLimits({ quiet_to: c }); }} />
             <ToggleRow label={bn ? 'চুপ থাকার সময়ে শুধু সবচেয়ে জরুরি' : 'Only the most urgent in quiet time'} value={limits.quiet_urgent_only} onChange={(v) => void saveLimits({ quiet_urgent_only: v })} />
           </>
         ) : <Text>{channels.error ?? '…'}</Text>}
@@ -139,7 +140,7 @@ export default function SettingsScreen() {
 
       <Card icon="cellphone" title={bn ? 'এই ফোন' : 'This phone'}>
         <AppButton variant="danger" icon="link-off" label={bn ? 'এই ফোনের সংযোগ বিচ্ছিন্ন করুন' : 'Unpair this phone'} onPress={() => setConfirm(true)} />
-        <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {APP_VERSION}</Text>
+        <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {num(APP_VERSION, bn)}</Text>
       </Card>
 
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}

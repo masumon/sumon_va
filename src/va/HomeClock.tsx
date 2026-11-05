@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { AppState, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { AppText as Text } from '../ui/AppText';
 import { useAppPreferences } from '../app/AppPreferences';
 import { appTimeZone, isHour12 } from '../i18n/date-time';
@@ -29,7 +30,25 @@ function wall(now: Date): { h: number; m: number; s: number } {
 export function HomeClock() {
   const { colors, language, design } = useAppPreferences();
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const id = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
+  // Ticks once a second only while this screen is in view and the app is in the foreground; updates at once on return.
+  useFocusEffect(useCallback(() => {
+    let id: ReturnType<typeof setInterval> | null = null;
+    let first: ReturnType<typeof setTimeout> | null = null;
+    const start = () => {
+      if (id) return;
+      first = setTimeout(() => setNow(new Date()), 0);
+      id = setInterval(() => setNow(new Date()), 1000);
+    };
+    const stop = () => {
+      if (id) clearInterval(id);
+      id = null;
+      if (first) clearTimeout(first);
+      first = null;
+    };
+    if (AppState.currentState === 'active') start();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') start(); else stop(); });
+    return () => { stop(); sub.remove(); };
+  }, []));
   const bn = language === 'bn';
   const { h, m, s } = wall(now);
   const twelve = isHour12();

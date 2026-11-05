@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { AppText as Text } from '../src/ui/AppText';
 import { Card, ChipGroup, useKit } from '../src/ui/AppKit';
-import { formatBangladeshNumber } from '../src/i18n/date-time';
+import { formatBangladeshNumber, formatDayKey } from '../src/i18n/date-time';
 import { va } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
@@ -50,7 +50,7 @@ export default function ReportScreen() {
           <Card title={bn ? 'দিন অনুযায়ী' : 'Day by day'}>
             {d.per_day.length === 0 ? <Text style={{ opacity: 0.7 }}>{bn ? 'এখনও কোনো তথ্য নেই।' : 'No data yet.'}</Text> : d.per_day.map((x) => (
               <View key={x.day} style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, opacity: 0.7 }}>{x.day} · {bn ? `${n(x.in)} এসেছে, ${n(x.out)} গেছে` : `${x.in} in, ${x.out} out`}</Text>
+                <Text style={{ fontSize: 12, opacity: 0.7 }}>{formatDayKey(x.day, language)} · {bn ? `${n(x.in)} এসেছে, ${n(x.out)} গেছে` : `${x.in} in, ${x.out} out`}</Text>
                 <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceMuted, overflow: 'hidden', flexDirection: 'row' }}>
                   <View style={{ width: `${(x.in / max) * 100}%`, backgroundColor: colors.primary }} />
                   <View style={{ width: `${(x.out / max) * 100}%`, backgroundColor: colors.success }} />
