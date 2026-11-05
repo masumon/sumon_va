@@ -36,6 +36,13 @@ These are the ~24 uncommitted files in `git status`; they are REAL work, not str
 - Checks: tsc 0, eslint (routes src modules) 0, Kotlin `:va-bridge:compileDebugKotlin` OK, `tools\ship.ps1` built and installed on the phone (`-r`, sign-in kept; process running, no crash in logcat).
 - NOT done / NOT verified: F-05 rest (`src/database`, `src/services/db-*`, `src/backup/crypto.ts` are NOT dead: preferences, lock and error log use them — keep); ProGuard rules kept on purpose; F-08 (CallReceiver/BootReceiver) untouched, test idea: send a forged `android.intent.action.PHONE_STATE` broadcast with adb and see whether Android refuses it; phone-side look of the new screens, backup→restore re-test, U-13 loading notes, A-01..A-04 accessibility, Silent-vs-Off test, revoke Audit-Emulator devices.
 
+## 3c. Session 2026-11-05 06:10 (token budget ended here) — commit b772d28 + later edits
+- Committed locally as b772d28 (all audit fixes + UX, see 3b). NOT pushed: the app has NO GitHub remote. Owner must create a Private repo `sumon-va` on github.com/new and give the URL; then `git remote add origin <url>` and `git push -u origin feature/design-2026-11` (and master).
+- After b772d28 (uncommitted): banner action is now an eye icon only (no "কোথায় হয়েছে দেখুন" text). Last build on the phone = b772d28 content (ship.ps1 started 06:05; check `tools\ship.log`).
+- Done since 3b: steady connection status ("দেখছি…" instead of false cross, last result remembered, compact "সংযোগ ঠিক আছে ✓" card once connected), every health card tappable, primary button text white, HeroStat tappable (home), one-line marquee banner, big Bangla clock (no AM/PM, day-part words, seconds), logo moved to side menu, sync light red/amber/green with pulse.
+- NOT done: Google passkey (needs Android Credential Manager + server WebAuthn; show owner the server part first), order/booking tiles have no app page, clear server-error message on connection page, tap-test of every card/button on the phone, owner asked "no repeated builds: ask before each build" (see feedback-no-repeated-builds).
+- Build+install: `powershell -ExecutionPolicy Bypass -File D:bo_Enterprise\sumon-va	ools\ship.ps1` (phone connected by USB; ~5-10 min; the final "UNEXPECTED ERROR ... LAUNCHER" line is harmless, app is installed).
+
 ## 4. Verified vs NOT verified
 - Verified on the emulator (QA build): aurora design, light and dark: home, inbox, settings, WhatsApp page, side menu; section colours visible.
 - NOT verified: premium and warm designs visually, system and dim modes, English UI, 24-hour time, 1.5x font, the other screens, the side-menu fix.

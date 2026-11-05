@@ -29,7 +29,7 @@ export function HealthBanner() {
     edge: { width: 4, alignSelf: 'stretch' },
     main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.sm, height: 48 },
     badge: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    action: { paddingHorizontal: 10, minHeight: 30, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth * 2, justifyContent: 'center' },
+    action: { width: 36, height: 36, alignItems: 'center', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth * 2, justifyContent: 'center' },
     close: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center' },
   }), []);
 
@@ -67,7 +67,7 @@ export function HealthBanner() {
           <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 14 }}>{(bn ? first.bn : first.en) + more}</Text>
           <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{'   ·   ' + (bn ? first.whyBn : first.whyEn)}</Text>
         </MarqueeLine>
-        <View style={[styles.action, { backgroundColor: tint('1F'), borderColor: tint('55') }]}><Text style={{ color: tone, fontSize: 12.5, fontWeight: '600' }}>{first.fix ? (bn ? first.fix.bn : first.fix.en) : (bn ? 'দেখুন' : 'View')} ›</Text></View>
+        <View style={[styles.action, { backgroundColor: tint('1F'), borderColor: tint('55') }]}><AppIcon name="eye-outline" size={20} color={tone} /></View>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'এই সতর্কবার্তা সরান' : 'Dismiss'} onPress={() => setDismissed(sig)} style={styles.close}>
         <AppIcon name="close" size={18} color={colors.textMuted} />
