@@ -168,7 +168,6 @@ export default function LoginScreen() {
             {pkNone ? <Text style={{ opacity: 0.8, fontSize: 13, lineHeight: 19, textAlign: 'center' }}>প্রথমবার? অন্যভাবে ঢুকে “পাসকি বানান” চাপুন (লক-সেটআপ পাতায় বা সেটিংসে)</Text> : null}
           </View>
           <AppButton variant="secondary" label={bn ? 'ফোন নম্বর দিয়ে ঢুকুন' : 'Sign in with phone number'} icon="phone-outline" accessibilityLabel={bn ? 'ফোন নম্বর দিয়ে ঢুকুন' : 'Sign in with phone number'} onPress={() => setStep('phone')} />
-          <AppButton variant="secondary" label={bn ? 'ইমেইলে ৬ সংখ্যার কোড' : 'A 6-digit code by e-mail'} icon="email-outline" onPress={() => setStep('mail')} />
           <AppButton variant="secondary" label={bn ? 'জোড়া লাগানোর কোড (অ্যাডমিন সাইট থেকে)' : 'Pairing code (from the admin site)'} icon="link-variant" onPress={() => router.push('/pair' as never)} />
           <AppButton variant="secondary" label={bn ? 'ইমেইল ও পাসওয়ার্ড' : 'E-mail and password'} icon="lock-outline" onPress={() => setStep('password')} />
           <InfoHint text={bn ? 'একবার ঢুকলে এই ফোন মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। ফোন হারালে অ্যাডমিন সাইট থেকে এক চাপে এর ঢোকা বন্ধ করা যায়।' : 'Once signed in, this phone is remembered; next time only your PIN or fingerprint is needed. If the phone is lost, you can cut it off from the admin site with one tap.'} />
