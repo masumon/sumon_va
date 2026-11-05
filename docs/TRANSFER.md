@@ -56,7 +56,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | S4 | ~~Resend নতুন API key~~ বাদ: ইমেইল কোড লাগবে না (সুমনের সিদ্ধান্ত 2026-11-06) | বাদ |
 | S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [x] 2026-11-06 `va-api.aboenterprise.com` verified, HTTPS চালু, `/health` ও `assetlinks.json` ok |
 | S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
-| S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | [ ] |
+| S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | বাদ: সার্ভারের ভেতরের লুপ (`server/app/core/scheduler.py`) করবে |
 | S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] |
 | S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [~] 2026-11-06 মূল ৯টি বসানো (DATABASE_URL, SECRET_KEY, APP_ENV, STARTUP_BOOTSTRAP_ENABLED, ADMIN_*, FRONTEND_URL, DEVICE_PASSKEY_RP_ID); বাকি: TELEGRAM_*, ABO_*, VA_INTEGRATION_TOKEN, EMAIL_INBOUND_SECRET |
 | S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [ ] |
