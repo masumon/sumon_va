@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
-import Animated, { Easing, cancelAnimation, scrollTo, useAnimatedRef, useDerivedValue, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
 import { useAppPreferences } from '../app/AppPreferences';
 import { spacing } from '../theme';
 import { notify } from '../../modules/va-bridge';
 import { useHealth } from './useHealth';
-import { useAppActive } from './hooks';
 
 /** A strip under the header that appears the moment something is wrong, says what, and opens the Health screen. */
 const SYNC_KEYS = new Set(['sync-stopped', 'sync-error', 'sync-stale', 'slow', 'offline', 'queued']);
@@ -77,32 +75,11 @@ export function HealthBanner() {
   );
 }
 
-/** One line of text. If it is wider than the space, it glides to the end and back on its own (no touch needed). */
+/** One line of text, cut with "…" when it is wider than the space. It does not move: a gliding text kept the screen redrawing 60 times a second (measured on the phone); the eye button opens the full list. */
 function MarqueeLine({ children }: { children: ReactNode }) {
-  const ref = useAnimatedRef<Animated.ScrollView>();
-  const { reduceMotion } = useAppPreferences();
-  const active = useAppActive();
-  const x = useSharedValue(0);
-  const [box, setBox] = useState(0);
-  const [content, setContent] = useState(0);
-  const overflow = Math.max(0, content - box);
-  useEffect(() => {
-    cancelAnimation(x);
-    x.value = 0;
-    // At most 2 glides after the text appears or changes, then it rests at the start; none in the background or with reduced motion.
-    if (overflow > 4 && active && !reduceMotion) {
-      x.value = withRepeat(withSequence(
-        withDelay(1800, withTiming(overflow, { duration: Math.max(2500, overflow * 28), easing: Easing.inOut(Easing.quad) })),
-        withDelay(1500, withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })),
-      ), 2);
-    }
-    return () => cancelAnimation(x);
-  }, [overflow, x, active, reduceMotion]);
-  useDerivedValue(() => { scrollTo(ref, x.value, 0, false); });
   return (
-    <Animated.ScrollView ref={ref} horizontal scrollEnabled={false} pointerEvents="none" showsHorizontalScrollIndicator={false} style={{ flex: 1 }}
-      contentContainerStyle={{ alignItems: 'center' }} onLayout={(e) => setBox(e.nativeEvent.layout.width)} onContentSizeChange={(w) => setContent(w)}>
-      <Text numberOfLines={1} style={{ flexShrink: 0 }}>{children}</Text>
-    </Animated.ScrollView>
+    <View style={{ flex: 1, justifyContent: 'center' }}>
+      <Text numberOfLines={1} ellipsizeMode="tail">{children}</Text>
+    </View>
   );
 }
