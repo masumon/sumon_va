@@ -58,7 +58,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
 | S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | [ ] |
 | S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] |
-| S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [ ] |
+| S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [~] 2026-11-06 মূল ৯টি বসানো (DATABASE_URL, SECRET_KEY, APP_ENV, STARTUP_BOOTSTRAP_ENABLED, ADMIN_*, FRONTEND_URL, DEVICE_PASSKEY_RP_ID); বাকি: TELEGRAM_*, ABO_*, VA_INTEGRATION_TOKEN, EMAIL_INBOUND_SECRET |
 | S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [ ] |
 | S11 | ABO তে ছোট API PR (§৮) দেখে merge | [ ] |
 | S12 | রিলিজ keystore ও পাসওয়ার্ড PC এর বাইরে ব্যাকআপ | [ ] |
@@ -111,4 +111,5 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | তারিখ | কে | কী |
 |---|---|---|
 | 2026-11-06 | Claude | প্রথম খসড়া; সিদ্ধান্ত ও খোলা প্রশ্ন তোলা হলো |
+| 2026-11-06 | Claude+সুমন | Supabase এ 0001 SQL চালানো হয়েছে; Render প্রথম deploy সফল; `/health` ও `/health/db` ok (database connected) |
 | 2026-11-06 | Claude | S1 Render, S2 Supabase, S3 বট সম্পন্ন; S4 (Resend) বাদ, ইমেইল কোড লাগবে না; pair ABO অ্যাডমিন ট্যাব থেকে (C7a) |
