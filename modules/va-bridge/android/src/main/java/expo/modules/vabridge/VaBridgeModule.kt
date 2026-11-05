@@ -116,7 +116,7 @@ class VaBridgeModule : Module() {
           mapOf("ok" to true, "name" to json.optString("name"))
         }
         r.code == 401 && detail == "totp_required" -> mapOf("ok" to false, "needTotp" to true)
-        r.code == 0 -> mapOf("ok" to false, "error" to "ইন্টারনেট নেই বা সার্ভারে পৌঁছানো যাচ্ছে না")
+        r.code == 0 -> mapOf("ok" to false, "error" to "ইন্টারনেট নেই বা সার্ভারে পৌঁছানো যাচ্ছে না (${r.body.take(40)})")
         else -> mapOf("ok" to false, "error" to detail.ifEmpty { "লগইন হয়নি (${r.code})" })
       }
     }

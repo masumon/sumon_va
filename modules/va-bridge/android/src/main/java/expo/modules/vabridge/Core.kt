@@ -95,7 +95,8 @@ object Http {
       val conn = (URL("$base/api/v1$path").openConnection() as HttpURLConnection).apply {
         requestMethod = method
         connectTimeout = 15000
-        readTimeout = readMs
+        // Before sign-in the free server may be asleep (a cold start can take about a minute): wait for it instead of failing.
+        readTimeout = if (auth) readMs else maxOf(readMs, 75000)
         setRequestProperty("Accept", "application/json")
         if (auth) setRequestProperty("Authorization", "Bearer " + (Store.token(c) ?: ""))
         if (body != null) {
