@@ -28,7 +28,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 - [ ] **Q2 (সুমন):** Cloudflare এ ইনবক্সের জন্য নতুন ঠিকানা কী হবে? (যেমন `inbox@` বা `sumon@aboenterprise.com`; ABO এর বর্তমান ঠিকানা ছোঁয়া হবে না)
 - [ ] **Q3 (সুমন):** Cloudflare Dashboard এ Worker `abo-mail-to-inbox` → "Edit code" থেকে কোডটা পেস্ট করুন (এতে secret নেই; secret আলাদা binding)। এটা কপি করে নতুন Worker বানাব।
 - [ ] **Q4 (Claude):** ABO main এ release branch `feature/sumon-va-release-2026-11-06` merge হয়েছে কিনা `gh` দিয়ে দেখা।
-- [ ] **Q5 (Claude):** `privacy.py` এর sealed (`enc1:`) টেক্সটের চাবি ABO এর SECRET_KEY থেকে আসে কিনা। এতে ঠিক হবে পুরোনো private টেক্সট কপি করা যাবে কি না।
+- [x] **Q5 (Claude) 2026-11-06:** `privacy.seal` (enc1:), AI-hub কী (`ai_hub_connections`), `wa_secrets_enc` সব Fernet, চাবি `SECRET_KEY` থেকে (`totp_crypto.py`)। তাই পুরোনো ডেটা কপির সময় ABO এর পুরোনো `SECRET_KEY` দিয়ে খুলে নতুন `SECRET_KEY` দিয়ে আবার এনক্রিপ্ট করতে হবে (C9; স্ক্রিপ্ট সুমনের পিসিতে চলবে; দুই চাবি কখনো চ্যাটে নয়)। নতুন সার্ভারে ABO এর `SECRET_KEY` বসানো হবে না (আলাদা থাকার নিয়ম)।
 
 ## ৪. ঠিকানার মানচিত্র
 | কী | ABO (ছোঁয়া হবে না) | Sumon VA (নতুন) |
@@ -115,3 +115,4 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 2026-11-06 | Claude | S1 Render, S2 Supabase, S3 বট সম্পন্ন; S4 (Resend) বাদ, ইমেইল কোড লাগবে না; pair ABO অ্যাডমিন ট্যাব থেকে (C7a) |
 
 | 2026-11-06 | সুমন | Telegram: `@SumonVA_bot` আগের বটই (নতুন নয়); token ও secret `sumon-va-api` এ বসানো; webhook এখন `va-api.aboenterprise.com` এ বাঁধা (ইচ্ছাকৃত; ABO আর এই বট ব্যবহার করে না) |
+| 2026-11-06 | Claude | কোড ঘেঁটে দেখা: নতুন সার্ভারে লাগে না: Supabase কী, Cloudinary, SMS, bKash/Nagad, GA4, VAPID, Sentry, IMAP, Resend। লাগে: DATABASE_URL, SECRET_KEY, ADMIN_*, TELEGRAM_*, EMAIL_INBOUND_SECRET, FRONTEND_URL, DEVICE_PASSKEY_RP_ID; পরে ABO_* ও VA_INTEGRATION_TOKEN। cron: সার্ভারের ভেতরের লুপ (cron-job.org লাগবে না) |
