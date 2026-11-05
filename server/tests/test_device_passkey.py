@@ -95,7 +95,7 @@ def test_assetlinks_is_served_directly_as_json():
 
 
 def test_config_defaults():
-    assert settings.DEVICE_PASSKEY_RP_ID == "api.aboenterprise.com"
+    assert settings.DEVICE_PASSKEY_RP_ID == "va-api.aboenterprise.com"
     assert len(settings.device_passkey_origins) == 2 and all(o.startswith("android:apk-key-hash:") for o in settings.device_passkey_origins)
 
 
@@ -169,7 +169,7 @@ async def test_phone_sign_in_keeps_the_resend_rule_and_the_wrong_tries_lock(Sess
 async def test_passkey_options_use_the_api_host_and_a_device_login_token():
     r = await ib.device_passkey_options()
     o = r["options"]
-    assert o["rpId"] == "api.aboenterprise.com" and o["userVerification"] == "required" and not o.get("allowCredentials")
+    assert o["rpId"] == "va-api.aboenterprise.com" and o["userVerification"] == "required" and not o.get("allowCredentials")
     assert pk._read_challenge(r["token"], "device-login") == pk._unb64u(o["challenge"])
     with pytest.raises(HTTPException):  # the web login token cannot be replayed here and vice versa
         pk._read_challenge(r["token"], "login:admin")
@@ -212,7 +212,7 @@ async def test_passkey_verify_success_issues_a_device_like_otp_verify(Session, m
         tok = (await ib.device_passkey_options())["token"]
         out = await ib.device_passkey_verify(ib.PasskeyVerifyIn(token=tok, credential={"id": "appcred"}, name="Pixel", app_version="1.2"), req(), s)
         assert set(out) == {"device_id", "token", "name"} and out["name"] == "সুমন"
-        assert seen["expected_rp_id"] == "api.aboenterprise.com" and seen["expected_origin"] == settings.device_passkey_origins
+        assert seen["expected_rp_id"] == "va-api.aboenterprise.com" and seen["expected_origin"] == settings.device_passkey_origins
         assert seen["require_user_verification"] is True
         row = (await s.execute(select(Passkey).where(Passkey.credential_id == "appcred"))).scalar_one()
         assert row.sign_count == 7 and row.last_used_at is not None
@@ -257,7 +257,7 @@ async def test_passkey_register_options_verify_list_delete_and_limit(Session, mo
 
     def fake_reg(**kw):
         counter["n"] += 1
-        assert kw["expected_rp_id"] == "api.aboenterprise.com" and kw["expected_origin"] == settings.device_passkey_origins
+        assert kw["expected_rp_id"] == "va-api.aboenterprise.com" and kw["expected_origin"] == settings.device_passkey_origins
         return types.SimpleNamespace(credential_id=b"cred%d" % counter["n"], credential_public_key=b"pub", sign_count=0)
 
     monkeypatch.setattr(webauthn, "verify_registration_response", fake_reg)
@@ -265,7 +265,7 @@ async def test_passkey_register_options_verify_list_delete_and_limit(Session, mo
         u = await make_owner(s)
         dev = await make_dev(s, u)
         opt = (await ib.device_passkey_register_options(dev, s)).data
-        assert opt["options"]["rp"]["id"] == "api.aboenterprise.com"
+        assert opt["options"]["rp"]["id"] == "va-api.aboenterprise.com"
         assert pk._read_challenge(opt["token"], "device-register", f"admin_app:{u.id}")
         with pytest.raises(HTTPException) as e:  # a web register token is not accepted
             web = pk._challenge_token(b"x", "register", f"admin_app:{u.id}")

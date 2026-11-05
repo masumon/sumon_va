@@ -245,7 +245,7 @@ def test_connect_webhook_sends_our_address_and_token_to_this_account_only(monkey
     monkeypatch.setattr(wa_send, "graph_post", post)
     monkeypatch.setattr(r, "_audit", lambda *a, **k: None)
     out = asyncio.run(r.connect_webhook(DB(), "00000000-0000-0000-0000-000000000000"))
-    assert out.data["ok"] and calls == [("222/subscribed_apps", {"override_callback_uri": "https://api.aboenterprise.com/api/v1/wa/webhook", "verify_token": "vtoken"})]
+    assert out.data["ok"] and calls == [("222/subscribed_apps", {"override_callback_uri": "https://va-api.aboenterprise.com/api/v1/wa/webhook", "verify_token": "vtoken"})]
 
     async def no_waba(db):
         return {"token": "T", "phone_number_id": "1"}
