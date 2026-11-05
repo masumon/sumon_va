@@ -75,6 +75,12 @@ async def telegram_webhook(request: Request, background: BackgroundTasks, db: As
         update = json.loads(raw)
     except ValueError:
         return {"ok": True}
+    cb = update.get("callback_query") if isinstance(update, dict) else None
+    if isinstance(cb, dict) and str(cb.get("data") or "").startswith("l:"):
+        # The owner answers "may this phone sign in?". This must work even while the assistant itself is still switched off
+        # (a fresh server has everything off, and without this the very first sign-in could never be approved).
+        await telegram.handle_callback(db, cb)
+        return {"ok": True}
     cfg = await wcfg.load_config(db)
     if not (cfg.get("enabled") and (cfg.get("channels", {}).get("telegram") or {}).get("enabled")):
         return {"ok": True}  # switched off: Telegram still gets a 200 so it does not retry, nothing is stored
