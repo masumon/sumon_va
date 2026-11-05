@@ -3,7 +3,7 @@
 For the AI agent that works on the ABO repo. Written 2026-11-06 from a static import analysis of `abo-enterprise` `main` (9b258a45) and the new Sumon VA server (repo `masumon/sumon_va`, folder `server/`).
 
 ## Goal (owner's words, 2026-11-06)
-Sumon VA is now fully separate (own repo, own Render, own Supabase, own domain `va-api.aboenterprise.com`). **When this cleanup is finished, nothing that belongs to Sumon VA may remain in ABO**: no phone endpoints, no phone-app copy, no Sumon VA code paths, no Sumon VA data. ABO keeps only the website, shop, admin and the WhatsApp assistant (Meta Cloud API, channel `whatsapp`, config scope `web`). Do it in two tiers (section 1 = tier 1, section 2 = tier 2, section 3 = tier 3 data), always without breaking the WhatsApp assistant.
+Sumon VA is now fully separate (own repo, own Render, own Supabase, own domain `va-api.aboenterprise.com`). **When this cleanup is finished, nothing that belongs to Sumon VA may remain in ABO, except the one small admin tab in `docs/ABO_ADMIN_TAB_SPEC.md`**: no phone endpoints, no phone-app copy, no Sumon VA code paths, no Sumon VA data. ABO keeps only the website, shop, admin and the WhatsApp assistant (Meta Cloud API, channel `whatsapp`, config scope `web`). Do it in two tiers (section 1 = tier 1, section 2 = tier 2, section 3 = tier 3 data), always without breaking the WhatsApp assistant.
 
 ## 0. Hard rules (read first)
 1. **Do nothing here until the owner says "cutover done".** Until then the owner's phone still talks to ABO's server for part of its data. Cutover is done only when: the phone app signs in to `https://va-api.aboenterprise.com`, messages flow there, the old data was copied (docs/TRANSFER.md C9) and several days passed without problems. Check `docs/TRANSFER.md` in `masumon/sumon_va` first.
@@ -27,7 +27,7 @@ Verified by import graph: these are imported by nothing outside the phone featur
 
 **Frontend (ABO admin page `/sumon/whatsapp`)**
 - `components/admin/TrustedDevices.tsx` and `components/admin/whatsapp/WaChannels.tsx` and the places that render them, plus the `/admin/inbox/*` helpers in `lib/waAssistant.ts` that only they use. These call the removed `/admin/inbox/*` routes: remove them TOGETHER with the backend route or the admin page breaks. Keep every other WhatsApp tab.
-- Optional, later and only with the owner's wish: an ABO admin tab "সুমন VA" is planned in the other repo's TRANSFER.md (C7a); do not build it here unless asked.
+- **Exception, owner decision 2026-11-06:** ONE small admin tab "সুমন VA" (pair a phone, list phones, cancel a phone) stays in the ABO admin. It must not use ABO's own `inbox_*` tables any more: it calls the new Sumon VA server. Spec: `docs/ABO_ADMIN_TAB_SPEC.md`. Build it BEFORE removing `TrustedDevices.tsx`, so the owner never loses the ability to cancel a phone.
 
 ## 2. TIER 2: Sumon VA code that sits inside files the WhatsApp assistant also imports
 An import-graph check shows these modules are imported by `routes/wa_assistant.py`, but "imported" is not "used by WhatsApp": most of the logic in them serves the phone (channels `telegram`, `sms`, `notif`, `email`, `webhook`; config scope `app`; phone commands; presence). Goal: remove the Sumon VA parts while the WhatsApp path (channel `whatsapp`, scope `web`) keeps working.
