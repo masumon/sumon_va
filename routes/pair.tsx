@@ -21,6 +21,8 @@ export default function PairScreen() {
       const r = await pair(SERVER, code, name);
       if (r.ok) { showSnackbar(bn ? 'ফোন জোড়া লেগেছে ✓' : 'Phone paired ✓', 'success'); router.replace('/lock-setup' as never); }
       else showSnackbar(r.error ?? (bn ? 'জোড়া লাগেনি' : 'Pairing failed'), 'danger');
+    } catch {
+      showSnackbar(bn ? 'জোড়া লাগানো গেল না। অ্যাপ বন্ধ করে আবার খুলে চেষ্টা করুন; না হলে ফোনের সেটিংসে অ্যাপের তথ্য মুছে আবার চেষ্টা করুন' : 'Pairing failed. Close and reopen the app and try again; if it still fails, clear the app data in phone settings', 'danger');
     } finally { setBusy(false); }
   };
 

@@ -135,7 +135,8 @@ class PollService : Service() {
 
   /** Runs one command. Returns null on success, or a short reason the owner can read. */
   private fun run(ctx: Context, kind: String, target: String, body: String, id: String): String? = try {
-    when (kind) {
+    if ((kind == "sms" || kind == "reply") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
+    else when (kind) {
       "alert" -> { showAlert(ctx, target, body, id); null }
       "sms" -> {
         val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()

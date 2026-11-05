@@ -25,6 +25,8 @@ const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'done', bn: 'শেষ', en: 'Done' },
 ];
 
+const STATE_KEYS: InboxView[] = ['waiting', 'drafts', 'failed', 'done', 'all'];
+
 export default function InboxScreen() {
   const { bn } = useKit();
   const params = useLocalSearchParams<{ view?: string }>();
@@ -33,6 +35,7 @@ export default function InboxScreen() {
   // A new link (e.g. the bell → "urgent") switches the filter; adjusting state during render avoids a flash of the old list.
   const [linkSeen, setLinkSeen] = useState(params.view);
   if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) setView(fromLink); }
+  const [showMore, setShowMore] = useState(false);
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -45,11 +48,16 @@ export default function InboxScreen() {
     return r;
   }, `${view}|${term}|${page}`, 20000);
   const total = list.data?.total ?? 0;
+  const open = showMore || !STATE_KEYS.includes(view);
 
   return (
     <Page title={bn ? 'ইনবক্স' : 'Inbox'} subtitle={bn ? 'সব মাধ্যমের সবাই, জরুরি আগে' : 'Everyone, every channel, by importance'}
       onRefresh={() => { setPage(1); void list.reload(); }} refreshing={list.loading && items.length > 0}>
-      <ChipGroup<InboxView> value={view} options={VIEWS.map((v) => v.key)} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
+      <ChipGroup<InboxView> value={view} options={STATE_KEYS} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
+      <AppButton variant="secondary" icon="filter-variant" label={open ? (bn ? 'ফিল্টার বন্ধ করুন' : 'Hide filters') : (bn ? 'আরও ফিল্টার (ব্যবসায়িক, পরিবার, জরুরি…)' : 'More filters')} onPress={() => setShowMore((x) => !x)} />
+      {open ? (
+        <ChipGroup<InboxView> value={view} options={VIEWS.map((v) => v.key).filter((k) => !STATE_KEYS.includes(k))} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
+      ) : null}
       <Field label={bn ? 'খুঁজুন' : 'Search'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা বিষয়' : 'Name, number or topic'} />
       <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
         empty={!list.loading && !list.error && items.length === 0} emptyTitle={bn ? 'এখানে কেউ নেই' : 'Nobody here'} emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'} />

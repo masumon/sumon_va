@@ -23,7 +23,6 @@ export const primaryNavItems = [
   { href: '/', icon: 'view-dashboard-outline' as const, activeIcon: 'view-dashboard' as const, tone: 'green' as AccentName, en: 'Home', bn: 'হোম' },
   { href: '/inbox', icon: 'inbox-outline' as const, activeIcon: 'inbox' as const, tone: 'blue' as AccentName, en: 'Inbox', bn: 'ইনবক্স' },
   { href: '/tasks', icon: 'checkbox-marked-circle-outline' as const, activeIcon: 'checkbox-marked-circle' as const, tone: 'orange' as AccentName, en: 'Tasks', bn: 'কাজ' },
-  { href: '/channels', icon: 'apps' as const, activeIcon: 'apps' as const, tone: 'purple' as AccentName, en: 'Modules', bn: 'মডিউল' },
   { href: '/more', icon: 'dots-horizontal-circle-outline' as const, activeIcon: 'dots-horizontal-circle' as const, tone: 'yellow' as AccentName, en: 'More', bn: 'আরও' },
 ];
 
@@ -67,7 +66,7 @@ export function PrimaryNav() {
         style={barStyle}
       >
         {primaryNavItems.map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+          const active = item.href === '/' ? pathname === '/' : item.href === '/more' ? ['/more', '/channels', '/m/'].some((x) => pathname.startsWith(x)) : pathname.startsWith(item.href);
           const label = bn ? item.bn : item.en;
           return (
             <Pressable

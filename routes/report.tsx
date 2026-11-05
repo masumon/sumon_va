@@ -19,6 +19,13 @@ export default function ReportScreen() {
   const rep = useLoad(() => va.report(Number(days)), `report-${days}`, 60000);
   const n = (v: number) => formatBangladeshNumber(v, language);
   const d = rep.data;
+  const avgText = (s: number, b: boolean) => {
+    const m = Math.round(s / 60);
+    if (s < 90) return b ? `${n(Math.round(s))} সেকেন্ডে` : `${Math.round(s)}s`;
+    if (m < 90) return b ? `${n(m)} মিনিটে` : `${m} min`;
+    const h = Math.floor(m / 60), r = m % 60;
+    return b ? `${n(h)} ঘণ্টা${r ? ` ${n(r)} মিনিটে` : 'য়'}` : `${h} h${r ? ` ${r} min` : ''}`;
+  };
   const max = Math.max(1, ...(d?.per_day ?? []).map((x) => x.in + x.out));
 
   return (
@@ -27,7 +34,7 @@ export default function ReportScreen() {
       <Status loading={rep.loading && !d} error={d ? null : rep.error} onRetry={rep.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {d ? (
         <>
-          <Hero icon="chart-box-outline" title={bn ? `${n(d.counts.in ?? 0)}টি বার্তা এসেছে` : `${d.counts.in ?? 0} messages came in`} subtitle={d.avg_reply_seconds != null ? (bn ? `গড়ে ${n(d.avg_reply_seconds)} সেকেন্ডে উত্তর` : `Replied in ${d.avg_reply_seconds}s on average`) : undefined}>
+          <Hero icon="chart-box-outline" title={bn ? `${n(d.counts.in ?? 0)}টি বার্তা এসেছে` : `${d.counts.in ?? 0} messages came in`} subtitle={d.avg_reply_seconds != null ? (bn ? `গড়ে ${avgText(d.avg_reply_seconds, true)} উত্তর` : `Replied in ${avgText(d.avg_reply_seconds, false)} on average`) : undefined}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <HeroStat value={n(d.counts.sent ?? 0)} label={bn ? 'পাঠানো' : 'Sent'} />
               <HeroStat value={n(d.counts.draft ?? 0)} label={bn ? 'খসড়া' : 'Drafts'} />

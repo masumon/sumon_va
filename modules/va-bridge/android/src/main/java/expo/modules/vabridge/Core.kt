@@ -24,11 +24,16 @@ object Store {
       cached?.let { return it }
       val app = context.applicationContext
       val key = MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-      val p = EncryptedSharedPreferences.create(
+      fun open() = EncryptedSharedPreferences.create(
         app, "va_secure", key,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
       )
+      // A restored backup (or a lost Keystore key) leaves a file nobody can decrypt. Start clean = "not paired" instead of a dead app.
+      val p = try { open() } catch (e: Exception) {
+        app.deleteSharedPreferences("va_secure")
+        open()
+      }
       cached = p
       return p
     }

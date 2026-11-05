@@ -21,10 +21,10 @@ export default function WaHealthScreen() {
         <>
           <Hero icon={d.summary === 'ok' ? 'check-decagram-outline' : 'alert-outline'} title={d.summary === 'ok' ? (bn ? 'সব ঠিক আছে ✓' : 'All good ✓') : d.summary === 'bad' ? (bn ? 'সমস্যা আছে' : 'Problems found') : (bn ? 'কিছু কাজ বাকি' : 'Some steps left')} subtitle={r.loading ? (bn ? 'Meta-তে দেখা হচ্ছে…' : 'Checking with Meta…') : undefined}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <HeroStat value={String(d.ok)} label={bn ? 'ঠিক' : 'OK'} /><HeroStat value={String(d.bad)} label={bn ? 'সমস্যা' : 'Bad'} /><HeroStat value={String(d.todo)} label={bn ? 'বাকি' : 'To do'} />
+              <HeroStat value={String(d.ok ?? 0)} label={bn ? 'ঠিক' : 'OK'} /><HeroStat value={String(d.bad ?? 0)} label={bn ? 'সমস্যা' : 'Bad'} /><HeroStat value={String(d.todo ?? 0)} label={bn ? 'বাকি' : 'To do'} />
             </View>
           </Hero>
-          {d.items.map((i) => (
+          {(d.items ?? []).map((i) => (
             <Card key={i.key}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <AppIcon name={i.state === 'ok' ? 'check-circle' : i.state === 'bad' ? 'close-circle' : 'progress-clock'} size={24} color={i.state === 'ok' ? colors.success : i.state === 'bad' ? colors.danger : colors.warning} />

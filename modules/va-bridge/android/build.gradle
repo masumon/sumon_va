@@ -16,5 +16,5 @@ android {
 
 dependencies {
   // Android Keystore-backed storage: the device token never sits in plain text, and JavaScript never sees it.
-  implementation "androidx.security:security-crypto:1.1.0-alpha06"
+  implementation "androidx.security:security-crypto:1.1.0"
 }

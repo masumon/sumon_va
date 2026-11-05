@@ -9,6 +9,7 @@ import { formatBangladeshNumber, formatBangladeshWeekdayDate } from '../src/i18n
 import { va, type Contact, type Task, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
+import { HomeClock } from '../src/va/HomeClock';
 import { Page, Status } from '../src/va/Page';
 import { ContactRow } from '../src/va/ContactRow';
 import { StatTile, TileGrid } from '../src/va/StatTile';
@@ -70,7 +71,7 @@ export default function DashboardScreen() {
   const reloadAll = () => { void overview.reload(); void family.reload(); void urgent.reload(); void work.reload(); void biz.reload(); void tasks.reload(); void cfg.reload(); };
 
   return (
-    <Page title={bn ? 'ড্যাশবোর্ড' : 'Dashboard'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} onRefresh={reloadAll} refreshing={overview.loading && !!o}>
+    <Page title={bn ? 'ড্যাশবোর্ড' : 'Dashboard'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} right={<HomeClock />} onRefresh={reloadAll} refreshing={!!o && (overview.loading || family.loading || urgent.loading || work.loading || biz.loading || tasks.loading || cfg.loading)}>
       <Status loading={overview.loading && !o} error={o ? null : overview.error} onRetry={overview.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
 
       <Hero eyebrow={bn ? 'সুমনের ভার্চুয়াল জগতে স্বাগতম' : 'Welcome to Sumon’s virtual world'} title={welcome} subtitle={summary}>
@@ -78,15 +79,15 @@ export default function DashboardScreen() {
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {lens === 'personal' ? (
               <>
-                <HeroStat value={n(familyWaiting.length)} label={bn ? 'পরিবারের বার্তা' : 'Family waiting'} />
-                <HeroStat value={n(o.urgent)} label={bn ? 'জরুরি' : 'Urgent'} />
-                <HeroStat value={n(o.tasks_open)} label={bn ? 'কাজ বাকি' : 'Open tasks'} />
+                <HeroStat value={n(familyWaiting.length)} label={bn ? 'পরিবারের বার্তা' : 'Family waiting'} onPress={() => go('/inbox', { view: 'family' })} />
+                <HeroStat value={n(o.urgent)} label={bn ? 'জরুরি' : 'Urgent'} onPress={() => go('/inbox', { view: 'urgent' })} />
+                <HeroStat value={n(o.tasks_open)} label={bn ? 'কাজ বাকি' : 'Open tasks'} onPress={() => go('/tasks')} />
               </>
             ) : (
               <>
                 <HeroStat value={n(biz.data?.pending_orders ?? 0)} label={bn ? 'অর্ডার' : 'Orders'} />
                 <HeroStat value={n(biz.data?.pending_bookings ?? 0)} label={bn ? 'বুকিং' : 'Bookings'} />
-                <HeroStat value={n(biz.data?.new_leads ?? 0)} label={bn ? 'নতুন লিড' : 'New leads'} />
+                <HeroStat value={n(biz.data?.new_leads ?? 0)} label={bn ? 'নতুন লিড' : 'New leads'} onPress={() => go('/inbox', { view: 'work' })} />
               </>
             )}
           </View>
@@ -145,7 +146,7 @@ export default function DashboardScreen() {
           <TileGrid>
             <StatTile icon="cart-outline" label={bn ? 'বাকি অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
             <StatTile icon="briefcase-outline" label={bn ? 'বাকি বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
-            <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} />
+            <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} onPress={() => go('/inbox', { view: 'work' })} />
             <StatTile icon="file-account-outline" label={bn ? 'চাকরির আবেদন' : 'Applications'} value={n(biz.data?.new_applications ?? 0)} />
           </TileGrid>
           <AppSectionHeader title={bn ? 'নতুন কাজের খোঁজ' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
@@ -170,10 +171,10 @@ export default function DashboardScreen() {
 
       <AppSectionHeader title={bn ? 'দ্রুত কাজ' : 'Quick actions'} />
       <TileGrid>
-        <StatTile icon="plus-circle-outline" label={bn ? 'নতুন কাজ যোগ' : 'Add a task'} value="নতুন" onPress={() => go('/tasks')} />
-        <StatTile icon="brain" label={bn ? 'AI সংযোগ' : 'AI connections'} value="খুলুন" onPress={() => go('/ai')} />
-        <StatTile icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা' : 'Test urgent alarm'} value="বাজান" onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম বাজানো হয়েছে' : 'Alarm sent', 'info'); }} />
-        <StatTile icon="robot-outline" label={bn ? 'সহকারীর নিয়ম' : 'Assistant rules'} value="দেখুন" onPress={() => go('/rules')} />
+        <StatTile icon="plus-circle-outline" label={bn ? 'নতুন কাজ যোগ' : 'Add a task'} value={bn ? 'নতুন' : 'New'} onPress={() => go('/tasks')} />
+        <StatTile icon="brain" label={bn ? 'AI সংযোগ' : 'AI connections'} value={bn ? 'খুলুন' : 'Open'} onPress={() => go('/ai')} />
+        <StatTile icon="bell-ring-outline" label={bn ? 'জরুরি অ্যালার্ম পরীক্ষা' : 'Test urgent alarm'} value={bn ? 'বাজান' : 'Play'} onPress={() => { testAlert(); showSnackbar(bn ? 'অ্যালার্ম বাজানো হয়েছে' : 'Alarm sent', 'info'); }} />
+        <StatTile icon="robot-outline" label={bn ? 'সহকারীর নিয়ম' : 'Assistant rules'} value={bn ? 'দেখুন' : 'View'} onPress={() => go('/rules')} />
       </TileGrid>
     </Page>
   );

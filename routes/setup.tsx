@@ -6,7 +6,7 @@ import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppIcon } from '../src/ui/AppIcon';
 import { Card, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
-import { formatBangladeshDateTime } from '../src/i18n/date-time';
+import { formatBangladeshDateTime, formatBangladeshNumber } from '../src/i18n/date-time';
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { useLoad } from '../src/va/hooks';
@@ -53,7 +53,7 @@ export default function SetupScreen() {
   };
 
   return (
-    <Page title={bn ? 'অনুমতি' : 'Permissions'} subtitle={bn ? `জরুরি ${mustOk}/${must.length} ✓ · মোট ${allOk}/${PERMISSIONS.length}` : `Essential ${mustOk}/${must.length} ✓ · all ${allOk}/${PERMISSIONS.length}`} onRefresh={status.reload} bottomPadding={48}>
+    <Page title={bn ? 'অনুমতি' : 'Permissions'} subtitle={bn ? `জরুরি ${formatBangladeshNumber(mustOk, language)}/${formatBangladeshNumber(must.length, language)} ✓ · মোট ${formatBangladeshNumber(allOk, language)}/${formatBangladeshNumber(PERMISSIONS.length, language)}` : `Essential ${mustOk}/${must.length} ✓ · all ${allOk}/${PERMISSIONS.length}`} onRefresh={status.reload} bottomPadding={48}>
       <Card>
         <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.surfaceMuted, overflow: 'hidden' }}>
           <View style={{ width: `${Math.round((mustOk / must.length) * 100)}%`, height: 10, backgroundColor: mustOk === must.length ? colors.success : colors.warning }} />

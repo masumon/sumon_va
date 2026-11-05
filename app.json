@@ -64,7 +64,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Apon attaches where you are to a memory only at the moment you tap to add it."
+          "locationAlwaysAndWhenInUsePermission": "Sumon Virtual Assistant uses your location only for the routine and places feature."
         }
       ]
     ],

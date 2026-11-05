@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
@@ -31,15 +31,18 @@ export function Hero({ icon, eyebrow, title, subtitle, right, children }: { icon
 }
 
 /** A number inside a Hero ("12 waiting"). */
-export function HeroStat({ value, label }: { value: string; label: string }) {
+export function HeroStat({ value, label, onPress }: { value: string; label: string; onPress?: () => void }) {
   const { themeMode, colors } = useAppPreferences();
   const ink = themeMode === 'dim' ? colors.textPrimary : '#FFFFFF';
-  return (
-    <View style={styles.stat}>
+  const body = (
+    <>
       <Text style={[styles.statValue, { color: ink }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.75)' }]}>{label}</Text>
-    </View>
+    </>
   );
+  return onPress
+    ? <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} onPress={onPress} style={({ pressed }) => [styles.stat, { opacity: pressed ? 0.7 : 1, minHeight: 48 }]}>{body}</Pressable>
+    : <View style={styles.stat}>{body}</View>;
 }
 
 const styles = StyleSheet.create({

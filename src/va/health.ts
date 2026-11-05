@@ -2,6 +2,9 @@ import type { BridgeStatus } from '../../modules/va-bridge';
 import type { ChannelsInfo, HubSummary, Overview } from './api';
 import { PERMISSIONS } from './permissions';
 
+/** Bangla digits for the Bangla texts below. */
+const bd = (n: number | string) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!);
+
 /**
  * Everything that can go wrong, worked out from what the app already knows. Each problem says WHAT happened, WHY, and WHAT TO DO,
  * and carries a fix target. The banner, the Health screen and the problem notification all read this one function.
@@ -31,7 +34,7 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
     // Only slow, not down: a calm note, never a red alarm.
     out.push({ key: 'slow', severity: 'info', bn: 'সার্ভার একটু ধীরে সাড়া দিচ্ছে', en: 'The server is answering slowly', whyBn: 'ফ্রি সার্ভার মাঝে মাঝে ঘুম থেকে উঠতে সময় নেয়। অপেক্ষা করলেই ঠিক হয়ে যায়।', whyEn: 'The free server sometimes needs a moment to wake. It sorts itself out.', fix: { action: 'retry', bn: 'আবার দেখুন', en: 'Check again' } });
   } else if (overviewError) {
-    out.push({ key: 'offline', severity: 'critical', bn: 'সার্ভারের সাথে যোগ হচ্ছে না', en: 'Cannot reach the server', whyBn: `${overviewError}। হয় ইন্টারনেট বন্ধ, নয়তো সার্ভার ঘুমিয়ে আছে (ফ্রি সার্ভার মাঝে মাঝে ঘুমায়, আধ মিনিটের মধ্যে জেগে ওঠে)। ইন্টারনেট দেখে নিন, তারপর “আবার চেষ্টা” চাপুন।`, whyEn: `${overviewError} — the internet is off, or the (free) server is waking up; it takes about half a minute.`, fix: { action: 'retry', bn: 'আবার চেষ্টা', en: 'Try again' } });
+    out.push({ key: 'offline', severity: 'critical', bn: 'সার্ভারের সাথে যোগ হচ্ছে না', en: 'Cannot reach the server', whyBn: `${bd(overviewError)}। হয় ইন্টারনেট বন্ধ, নয়তো সার্ভার ঘুমিয়ে আছে (ফ্রি সার্ভার মাঝে মাঝে ঘুমায়, আধ মিনিটের মধ্যে জেগে ওঠে)। ইন্টারনেট দেখে নিন, তারপর “আবার চেষ্টা” চাপুন।`, whyEn: `${overviewError} — the internet is off, or the (free) server is waking up; it takes about half a minute.`, fix: { action: 'retry', bn: 'আবার চেষ্টা', en: 'Try again' } });
   }
 
   if (!bridge.serviceAlive) {
@@ -40,25 +43,25 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
     out.push({ key: 'sync-error', severity: 'warn', bn: 'সিঙ্কে সমস্যা', en: 'Sync problem', whyBn: bridge.lastError, whyEn: bridge.lastError, fix: { action: 'restart-sync', bn: 'সিঙ্ক আবার চালু', en: 'Restart sync' } });
   } else if (bridge.lastOk && now - bridge.lastOk > 2 * 60_000) {
     const mins = Math.round((now - bridge.lastOk) / 60_000);
-    out.push({ key: 'sync-stale', severity: 'warn', bn: 'অনেকক্ষণ ধরে সংযোগ নেই', en: 'No connection for a while', whyBn: `${mins} মিনিট আগে শেষবার সংযোগ হয়েছিল। ইন্টারনেট বন্ধ থাকতে পারে, নয়তো ব্যাটারির সীমার কারণে ফোন অ্যাপ থামিয়ে দিয়েছে। অনুমতির পাতায় ব্যাটারি “সীমাহীন” করুন।`, whyEn: `Last successful sync ${mins} min ago. Battery limits or no internet may be the reason.`, fix: { route: '/setup', bn: 'অনুমতি দেখুন', en: 'Check permissions' } });
+    out.push({ key: 'sync-stale', severity: 'warn', bn: 'অনেকক্ষণ ধরে সংযোগ নেই', en: 'No connection for a while', whyBn: `${bd(mins)} মিনিট আগে শেষবার সংযোগ হয়েছিল। ইন্টারনেট বন্ধ থাকতে পারে, নয়তো ব্যাটারির সীমার কারণে ফোন অ্যাপ থামিয়ে দিয়েছে। অনুমতির পাতায় ব্যাটারি “সীমাহীন” করুন।`, whyEn: `Last successful sync ${mins} min ago. Battery limits or no internet may be the reason.`, fix: { route: '/setup', bn: 'অনুমতি দেখুন', en: 'Check permissions' } });
   }
 
   if (bridge.queued > 0) {
-    out.push({ key: 'queued', severity: 'warn', bn: `${bridge.queued}টি বার্তা পাঠানো বাকি`, en: `${bridge.queued} messages waiting to upload`, whyBn: 'ইন্টারনেট ছিল না। ইন্টারনেট এলে বার্তাগুলো নিজে থেকেই চলে যাবে, কিছু হারাবে না।', whyEn: 'There was no internet. They go up by themselves when it returns; nothing is lost.', fix: { action: 'retry', bn: 'এখনই চেষ্টা করুন', en: 'Try now' } });
+    out.push({ key: 'queued', severity: 'warn', bn: `${bd(bridge.queued)}টি বার্তা পাঠানো বাকি`, en: `${bridge.queued} messages waiting to upload`, whyBn: 'ইন্টারনেট ছিল না। ইন্টারনেট এলে বার্তাগুলো নিজে থেকেই চলে যাবে, কিছু হারাবে না।', whyEn: 'There was no internet. They go up by themselves when it returns; nothing is lost.', fix: { action: 'retry', bn: 'এখনই চেষ্টা করুন', en: 'Try now' } });
   }
 
   const missing = PERMISSIONS.filter((p) => p.grade === 'must' && !p.ok(bridge));
   if (missing.length) {
-    out.push({ key: 'permissions', severity: 'critical', bn: `${missing.length}টি জরুরি অনুমতি বাকি`, en: `${missing.length} essential permissions missing`, whyBn: 'এগুলো দিন: ' + missing.map((m) => m.bn).join(', '), whyEn: missing.map((m) => m.en).join(', '), fix: { route: '/setup', bn: 'অনুমতি দিন', en: 'Grant permissions' } });
+    out.push({ key: 'permissions', severity: 'critical', bn: `${bd(missing.length)}টি জরুরি অনুমতি বাকি`, en: `${missing.length} essential permissions missing`, whyBn: 'এগুলো দিন: ' + missing.map((m) => m.bn).join(', '), whyEn: missing.map((m) => m.en).join(', '), fix: { route: '/setup', bn: 'অনুমতি দিন', en: 'Grant permissions' } });
   }
 
   // When the phone cannot reach the server at all, the AI list is old news; blaming the AI would send the owner to the wrong place.
   if (hub && !overviewError) {
     if (hub.connections.length === 0 || hub.working === 0) {
-      out.push({ key: 'ai-down', severity: 'critical', bn: 'কোনো AI চলছে না', en: 'No AI is working', whyBn: `সহকারী বার্তা ভালো করে বুঝতে পারছে না, শুধু সাধারণ নিয়মে চলছে। তাই উত্তরের মান কমে যাবে। “AI ঠিক করুন” চেপে চাবি বা সংযোগ দেখুন।${hub.last_error?.text ? ' শেষ সমস্যা: ' + hub.last_error.text : ''}`, whyEn: `The assistant cannot understand messages and falls back to plain rules.${hub.last_error?.text ? ' Last problem: ' + hub.last_error.text : ''}`, fix: { route: '/ai', bn: 'AI ঠিক করুন', en: 'Fix AI' } });
+      out.push({ key: 'ai-down', severity: 'critical', bn: 'কোনো AI চলছে না', en: 'No AI is working', whyBn: `সহকারী বার্তা ভালো করে বুঝতে পারছে না, শুধু সাধারণ নিয়মে চলছে। তাই উত্তরের মান কমে যাবে। “AI ঠিক করুন” চেপে চাবি বা সংযোগ দেখুন।${bd(hub.last_error?.text ? ' শেষ সমস্যা: ' + hub.last_error.text : '')}`, whyEn: `The assistant cannot understand messages and falls back to plain rules.${hub.last_error?.text ? ' Last problem: ' + hub.last_error.text : ''}`, fix: { route: '/ai', bn: 'AI ঠিক করুন', en: 'Fix AI' } });
     } else if (hub.connections.some((c) => c.enabled && (c.status === 'limit' || c.status === 'bad' || c.status === 'error'))) {
       const bad = hub.connections.filter((c) => c.enabled && (c.status === 'limit' || c.status === 'bad' || c.status === 'error')).map((c) => c.label || c.provider).join(', ');
-      out.push({ key: 'ai-partial', severity: 'warn', bn: 'কিছু AI সংযোগে সমস্যা আছে', en: 'Some AI connections have problems', whyBn: `${bad}: সীমা শেষ হয়ে গেছে, নয়তো কী (চাবি) কাজ করছে না। বাকিগুলো চলছে।`, whyEn: `${bad} — limit reached or key not working. Others still run.`, fix: { route: '/ai', bn: 'দেখুন', en: 'Review' } });
+      out.push({ key: 'ai-partial', severity: 'warn', bn: 'কিছু AI সংযোগে সমস্যা আছে', en: 'Some AI connections have problems', whyBn: `${bd(bad)}: সীমা শেষ হয়ে গেছে, নয়তো কী (চাবি) কাজ করছে না। বাকিগুলো চলছে।`, whyEn: `${bad} — limit reached or key not working. Others still run.`, fix: { route: '/ai', bn: 'দেখুন', en: 'Review' } });
     }
   }
 
@@ -72,9 +75,9 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
   }
 
   if (overview) {
-    if (overview.failed_24h > 0) out.push({ key: 'send-failed', severity: 'warn', bn: `${overview.failed_24h}টি উত্তর পাঠানো যায়নি`, en: `${overview.failed_24h} replies failed to send`, whyBn: 'গত ২৪ ঘণ্টায় এমন হয়েছে। কোন কোন চ্যাটে হয়েছে, নিচের বোতামে দেখুন। কারণ প্রতিটি বার্তার নিচে লেখা আছে, আর সেখান থেকে আবার পাঠানো যায়।', whyEn: 'In the last 24 hours. The button shows which chats; the reason is under each message.', fix: { route: '/inbox?view=failed', bn: 'কোথায় হয়েছে দেখুন', en: 'Show where' } });
+    if (overview.failed_24h > 0) out.push({ key: 'send-failed', severity: 'warn', bn: `${bd(overview.failed_24h)}টি উত্তর পাঠানো যায়নি`, en: `${overview.failed_24h} replies failed to send`, whyBn: 'গত ২৪ ঘণ্টায় এমন হয়েছে। কোন কোন চ্যাটে হয়েছে, নিচের বোতামে দেখুন। কারণ প্রতিটি বার্তার নিচে লেখা আছে, আর সেখান থেকে আবার পাঠানো যায়।', whyEn: 'In the last 24 hours. The button shows which chats; the reason is under each message.', fix: { route: '/inbox?view=failed', bn: 'কোথায় হয়েছে দেখুন', en: 'Show where' } });
     if (!overview.enabled) out.push({ key: 'assistant-off', severity: 'info', bn: 'সহকারী বন্ধ আছে', en: 'The assistant is switched off', whyBn: 'এখন কোনো বার্তার খসড়া বা উত্তর তৈরি হচ্ছে না। আবার চালাতে “চালু করুন” চাপুন।', whyEn: 'No drafts or replies are being made.', fix: { route: '/rules', bn: 'চালু করুন', en: 'Switch on' } });
-    if (overview.tasks_late > 0) out.push({ key: 'tasks-late', severity: 'info', bn: `${overview.tasks_late}টি কাজের সময় পেরিয়ে গেছে`, en: `${overview.tasks_late} tasks overdue`, whyBn: 'কাউকে কথা দিয়েছিলেন, কিন্তু সময় পেরিয়ে গেছে।', whyEn: 'You promised someone and the time has passed.', fix: { route: '/tasks', bn: 'কাজ দেখুন', en: 'Open tasks' } });
+    if (overview.tasks_late > 0) out.push({ key: 'tasks-late', severity: 'info', bn: `${bd(overview.tasks_late)}টি কাজের সময় পেরিয়ে গেছে`, en: `${overview.tasks_late} tasks overdue`, whyBn: 'কাউকে কথা দিয়েছিলেন, কিন্তু সময় পেরিয়ে গেছে।', whyEn: 'You promised someone and the time has passed.', fix: { route: '/tasks', bn: 'কাজ দেখুন', en: 'Open tasks' } });
   }
 
   return out.sort((a, b) => RANK[a.severity] - RANK[b.severity]);

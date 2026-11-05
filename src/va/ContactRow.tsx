@@ -45,7 +45,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
     </Pressable>
   );
   return (
-    <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} renderRightActions={finishPane}>
+    <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} dragOffsetFromRight={-36} dragOffsetFromLeft={36} renderRightActions={finishPane}>
     <Pressable accessibilityRole="button" accessibilityLabel={displayName(contact)} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
       <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />

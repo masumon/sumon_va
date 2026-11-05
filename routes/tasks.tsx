@@ -5,7 +5,7 @@ import { AppButton } from '../src/ui/AppSurface';
 import { AppIcon } from '../src/ui/AppIcon';
 import { Card, ChipGroup, EmptyNote, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
-import { formatBangladeshDateTime } from '../src/i18n/date-time';
+import { formatBangladeshDateTime, formatBangladeshNumber } from '../src/i18n/date-time';
 import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
@@ -36,8 +36,8 @@ export default function TasksScreen() {
     <Page title={bn ? 'কাজের তালিকা' : 'Tasks'} subtitle={bn ? 'কাকে কী কথা দিয়েছেন' : 'What you promised to whom'} onRefresh={() => { void list.reload(); void open.reload(); }} refreshing={list.loading && !!list.data}>
       <Hero icon="checkbox-marked-circle-outline" title={bn ? 'আপনার কাজ' : 'Your tasks'} subtitle={late ? (bn ? `${late}টির সময় পার হয়ে গেছে` : `${late} overdue`) : (bn ? 'সময়মতো চলছে ✓' : 'On track ✓')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <HeroStat value={String(open.data?.length ?? 0)} label={bn ? 'বাকি' : 'Open'} />
-          <HeroStat value={String(late)} label={bn ? 'দেরি' : 'Overdue'} />
+          <HeroStat value={formatBangladeshNumber(open.data?.length ?? 0, language)} label={bn ? 'বাকি' : 'Open'} />
+          <HeroStat value={formatBangladeshNumber(late, language)} label={bn ? 'দেরি' : 'Overdue'} />
         </View>
       </Hero>
       <Card title={bn ? 'নতুন কাজ' : 'New task'}>

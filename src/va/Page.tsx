@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { AppText as Text } from '../ui/AppText';
 import { AppState } from '../ui/AppSurface';
 import { ScreenHeader } from '../ui/AppKit';

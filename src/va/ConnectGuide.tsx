@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge, AppButton } from '../ui/AppSurface';
@@ -17,13 +17,14 @@ const WAIT_S = 90;
  * Connect a platform with no code: the steps in plain words, a live tick for every step, and a test that waits for a real message.
  * Success = a message from this platform actually reached the inbox. Failure names the step that is missing.
  */
-export function ConnectGuide({ mod, channels, received, onTested }: { mod: ModuleDef; channels: ChannelsInfo | null; received: number; onTested: () => void }) {
+export function ConnectGuide({ mod, channels, received, pending = false, onTested }: { mod: ModuleDef; channels: ChannelsInfo | null; received: number; pending?: boolean; onTested: () => void }) {
   const { bn, colors } = useKit();
   const { showSnackbar } = useAppFeedback();
   const [bridge, setBridge] = useState(getStatus());
   const [testing, setTesting] = useState(false);
   const [left, setLeft] = useState(0);
   const [result, setResult] = useState<'ok' | 'fail' | null>(null);
+  const [open, setOpen] = useState(false);
   const [baseline, setBaseline] = useState<{ total: number; time: number } | null>(null);
 
   // The phone's own state is re-read every few seconds so the ticks turn green as soon as a permission is granted.
@@ -65,14 +66,30 @@ export function ConnectGuide({ mod, channels, received, onTested }: { mod: Modul
   const tone = v === 'ok' ? 'success' : v === 'partial' ? 'warning' : 'danger';
   const label = v === 'ok' ? (bn ? 'সংযোগ ঠিক আছে ✓' : 'Connected ✓') : v === 'partial' ? (bn ? 'প্রায় হয়ে গেছে, পরীক্ষা বাকি' : 'Almost — test pending') : (bn ? 'সংযোগ হয়নি' : 'Not connected');
 
+  // Already working: one calm line, details one tap away. The full checklist appears again by itself if something breaks.
+  if (!pending && v === 'ok' && !open && !testing) {
+    return (
+      <Card>
+        <Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 }}>
+          <AppIcon name="check-circle" size={24} color={colors.success} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '700' }}>{bn ? 'সংযোগ ঠিক আছে ✓' : 'Connected ✓'}</Text>
+            <Text style={{ opacity: 0.7, fontSize: 12 }}>{bn ? 'বার্তা আসছে। বিস্তারিত ও পরীক্ষা দেখতে চাপুন।' : 'Messages are arriving. Tap for details and a test.'}</Text>
+          </View>
+          <AppIcon name="chevron-down" size={22} color={colors.textMuted} />
+        </Pressable>
+      </Card>
+    );
+  }
+
   return (
     <Card title={bn ? 'সংযোগ করুন' : 'Connect'}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <AppBadge tone={tone} label={label} />
+        <AppBadge tone={pending ? 'neutral' : tone} label={pending ? (bn ? 'দেখছি…' : 'Checking…') : label} />
       </View>
       {checks.map((c) => (
         <View key={c.key} style={{ flexDirection: 'row', gap: 10, paddingVertical: 6, alignItems: 'flex-start' }}>
-          <AppIcon name={c.ok ? 'check-circle' : 'close-circle-outline'} size={22} color={c.ok ? colors.success : c.key === 'received' || c.key === 'battery' ? colors.warning : colors.danger} />
+          <AppIcon name={pending && !c.ok ? 'progress-clock' : c.ok ? 'check-circle' : 'close-circle-outline'} size={22} color={pending && !c.ok ? colors.textMuted : c.ok ? colors.success : c.key === 'received' || c.key === 'battery' ? colors.warning : colors.danger} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700' }}>{bn ? c.bn : c.en}</Text>
             <Text style={{ opacity: 0.7, fontSize: 12 }}>{bn ? c.hintBn : c.hintEn}</Text>

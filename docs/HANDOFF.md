@@ -1,6 +1,6 @@
 # সুমনের ভার্চুয়াল সহকারী — HANDOFF (read this FIRST, before any work)
 
-Last updated: 2026-11-05 night. Branch `feature/design-2026-11` (local git, no remote), last commit `a749b4f`. `master` holds the older state.
+Last updated: 2026-11-05 05:30 (code fixes in 3b). Branch `feature/design-2026-11` (local git, no remote), last commit `a749b4f`. `master` holds the older state.
 Owner: Sumon, non-technical, writes Bangla. **Reply in short Bangla, one step at a time, save tokens, never repeat a step, never run the same check twice.**
 
 ## 1. What the project is
@@ -24,11 +24,23 @@ Read next: `docs/PROJECT_CHARTER.md`, `DESIGN.md`, `CLAUDE.md`.
 - Side menu now starts shut, closes on route change and on app resume (`src/va/Drawer.tsx`); NOT yet verified on a device.
 - Installed for the repo: Impeccable (project scope, no hooks, telemetry off via `.impeccable/config.json`), skill `vercel-react-native-skills`; both under `.claude/`.
 
+## 3b. Audit code fixes — DONE in the working tree, NOT committed (session 2026-11-05 05:30, installed on the phone, not yet seen by the owner)
+These are the ~24 uncommitted files in `git status`; they are REAL work, not stray edits: never revert, never discard. Commit them as ONE commit on `feature/design-2026-11` when the owner says so.
+- F-01: `va_secure.xml` excluded in `data_extraction_rules.xml` (cloud + device-transfer) and `backup_rules.xml`; `Core.kt` `Store.prefs()` deletes an unreadable file and starts clean.
+- F-02: `PollService.run` refuses blank / `enc1:` sms+reply text with a Bangla reason.
+- U-21 `pair.tsx` catch + Bangla message. U-10 `wa-health.tsx` defaults (0, empty list). C-05 import message without the missing number. U-11 report average in sec/min/hours.
+- U-09 `ModuleScreen` header uses `computeChecks`+`verdict` (same as the checklist). U-01 `HealthBanner` only on `/` and `/inbox`. U-03 inbox: 5 state chips + "more filters" button. U-04/U-17 header: theme, language and avatar buttons removed, buttons 48 dp (theme/language live in Settings). U-02 bottom bar = 4 tabs (Modules moved under "আরও", which stays active on /channels and /m/).
+- U-16 screenshots blocked by default (`AppPreferences` blockScreenshots=true). U-05/U-14 Bangla digits on tasks/health/setup/ai stats. U-12 AI note colour follows status.
+- C-01/C-02/C-03 chat import rejects zip and >3 MB, export of a private chat asks first and the cache file is deleted after sharing.
+- F-07 RECORD_AUDIO removed from the manifest. F-10 release build stops without `keystore.properties`. F-11 `security-crypto` 1.1.0 stable. F-06 "Apon" text removed from `app.json`. F-05 partly: `modules/device-state`, `modules/pdf-pages` (git rm, staged), `js-sha256`, dead npm scripts and `allowScripts` removed.
+- Checks: tsc 0, eslint (routes src modules) 0, Kotlin `:va-bridge:compileDebugKotlin` OK, `tools\ship.ps1` built and installed on the phone (`-r`, sign-in kept; process running, no crash in logcat).
+- NOT done / NOT verified: F-05 rest (`src/database`, `src/services/db-*`, `src/backup/crypto.ts` are NOT dead: preferences, lock and error log use them — keep); ProGuard rules kept on purpose; F-08 (CallReceiver/BootReceiver) untouched, test idea: send a forged `android.intent.action.PHONE_STATE` broadcast with adb and see whether Android refuses it; phone-side look of the new screens, backup→restore re-test, U-13 loading notes, A-01..A-04 accessibility, Silent-vs-Off test, revoke Audit-Emulator devices.
+
 ## 4. Verified vs NOT verified
 - Verified on the emulator (QA build): aurora design, light and dark: home, inbox, settings, WhatsApp page, side menu; section colours visible.
 - NOT verified: premium and warm designs visually, system and dim modes, English UI, 24-hour time, 1.5x font, the other screens, the side-menu fix.
 
-## 5. TODO, in this order
+## 5. TODO, in this order (items 2 and 3 are now coded: see 3b; they need commit + a look on the phone)
 1. Verify the three designs on the emulator in ONE pass (light/dark/system/dim, Bangla and English, 12/24h, 1.5x font). Force-stop and cold-start the app before each shot so the menu is shut. Fix only what is really wrong (readability on translucent cards first).
 2. Urgent safety fixes (audit P1): **F-01** (Android Auto Backup restores `va_secure.xml` without its Keystore key -> silent sign-out and pairing does nothing; exclude `va_secure` in `res/xml/data_extraction_rules.xml` + `backup_rules.xml`, and make `Store.prefs()` in `Core.kt` delete the unreadable file and start clean); **F-02** (reject blank or `enc1:` reply/SMS text in `PollService.run`); **U-21** (`routes/pair.tsx` try/finally has no catch: show a Bangla error).
 3. The 8 behaviour changes the owner ticked: one dismissible banner (not on every screen), 4 bottom tabs, 4–5 inbox state tabs + one filter button, fewer header buttons (theme/language to Settings), platform status must come from the checklist (13 of 14 say "সংযুক্ত" wrongly; LINE/Signal not installed) and fix the word "undefined" in `routes/wa-health.tsx:24`, Bangla digits and minutes/hours instead of raw seconds, confirm before exporting a private chat (and size limit/zip in import). Screenshot-blocking default was NOT ticked.

@@ -135,6 +135,10 @@ android {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             // Real release key when keystore.properties exists (never committed); otherwise the debug key, so a test build still installs.
+            // A release must never be signed with the debug key by accident: without keystore.properties a release build stops.
+            if (!rootProject.file('keystore.properties').exists() && gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+                throw new GradleException('keystore.properties is missing: refusing to sign a release with the debug key')
+            }
             signingConfig rootProject.file('keystore.properties').exists() ? signingConfigs.vaRelease : signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()

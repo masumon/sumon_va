@@ -4,7 +4,7 @@ import { AppText as Text, AppTextInput } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, EmptyNote, Field, ToggleRow, useKit } from '../src/ui/AppKit';
-import { formatBangladeshDateTime } from '../src/i18n/date-time';
+import { formatBangladeshDateTime, formatBangladeshNumber } from '../src/i18n/date-time';
 import { va, VaError, type HubConn } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
@@ -19,7 +19,7 @@ const STATUS: Record<HubConn['status'], { bn: string; en: string; tone: 'success
 
 /** AI connections, as in the admin: add keys, test them, set the order (free before paid), and try a real answer. */
 export default function AiScreen() {
-  const { bn, language } = useKit();
+  const { bn, language, colors } = useKit();
   const { showSnackbar } = useAppFeedback();
   const hub = useLoad(() => va.aiHub(), 'ai-hub', 60000);
   const [provider, setProvider] = useState<(typeof PROVIDERS)[number]>('auto');
@@ -53,9 +53,9 @@ export default function AiScreen() {
         <>
           <Hero icon="brain" title={h.working ? (bn ? `${h.working}টি AI চলছে ✓` : `${h.working} AI working ✓`) : (bn ? 'কোনো AI চলছে না' : 'No AI working')} subtitle={bn ? 'সহকারী, অনুবাদ ও লেখায় এগুলোই কাজ করে' : 'The assistant, translation and writing use these'}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <HeroStat value={String(h.today.count)} label={bn ? 'আজকের ব্যবহার' : 'Used today'} />
-              <HeroStat value={String(h.today.paid)} label={bn ? 'পেইড ব্যবহার' : 'Paid use'} />
-              <HeroStat value={String(h.connections.length)} label={bn ? 'সংযোগ' : 'Connections'} />
+              <HeroStat value={formatBangladeshNumber(h.today.count, language)} label={bn ? 'আজকের ব্যবহার' : 'Used today'} />
+              <HeroStat value={formatBangladeshNumber(h.today.paid, language)} label={bn ? 'পেইড ব্যবহার' : 'Paid use'} />
+              <HeroStat value={formatBangladeshNumber(h.connections.length, language)} label={bn ? 'সংযোগ' : 'Connections'} />
             </View>
           </Hero>
           {h.last_error?.text ? <Card title={bn ? 'শেষ সমস্যা' : 'Last problem'}><Text style={{ opacity: 0.85 }}>{h.last_error.text}</Text></Card> : null}
@@ -71,7 +71,7 @@ export default function AiScreen() {
                   <AppBadge tone="neutral" label={bn ? `আজ ${c.used_today}টি` : `${c.used_today} today`} />
                 </View>
                 <Text style={{ opacity: 0.7, fontSize: 12 }}>{c.hint}{c.checked_at ? ` · ${bn ? 'পরীক্ষা' : 'tested'} ${formatBangladeshDateTime(c.checked_at, language)}` : ''}</Text>
-                {c.note ? <Text style={{ color: '#C13B2E', fontSize: 12, marginTop: 4 }}>{c.note}</Text> : null}
+                {c.note ? <Text style={{ color: st.tone === 'danger' ? colors.danger : st.tone === 'success' ? colors.success : st.tone === 'warning' ? colors.warning : colors.textMuted, fontSize: 12, marginTop: 4 }}>{c.note}</Text> : null}
                 <ToggleRow label={bn ? 'চালু' : 'Enabled'} value={c.enabled} onChange={(v) => void act(c.id, () => va.aiPatch(c.id, { enabled: v }))} />
                 <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                   <AppButton variant="secondary" label={bn ? 'পরীক্ষা' : 'Test'} icon="flash-outline" loading={busy === c.id} onPress={() => void act(c.id, () => va.aiTest(c.id), bn ? 'পরীক্ষা হয়েছে' : 'Tested')} />

@@ -11,7 +11,6 @@ import { va } from './api';
 import { useLoad } from './hooks';
 import { titleFor } from './menu';
 import { useShell } from './shell';
-import { THEME_OPTIONS } from './labels';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 
@@ -33,50 +32,50 @@ export function AppHeader() {
   const urgent = overview.data?.urgent ?? 0;
   // One sync light instead of messages: green = running and in step with the server; red = not running or no contact for a
   // while (one short failed try is not shown); it spins while the screens reload.
-  const syncOk = bridge.serviceAlive && (!bridge.lastError || (!!bridge.lastOk && at - bridge.lastOk < 90_000));
+  const age = bridge.lastOk ? at - bridge.lastOk : Infinity;
+  // Three moods: red = sync is stopped (or silent for 5+ minutes); amber = running but with a problem (error, waiting messages, 90 s of silence); green = running and in step.
+  const mood: 'red' | 'amber' | 'green' = !bridge.serviceAlive || (!!bridge.lastError && age > 300_000) ? 'red'
+    : (!!bridge.lastError || bridge.queued > 0 || age > 90_000) ? 'amber' : 'green';
+  const syncOk = mood === 'green';
   const syncing = spin || (overview.loading && !overview.data);
-  const light = syncOk ? colors.success : colors.danger;
+  const light = mood === 'green' ? colors.success : mood === 'amber' ? colors.warning : colors.danger;
+  // The light breathes: slow and calm when fine, quicker when amber, a sharp blink when red.
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    const ms = mood === 'green' ? 1600 : mood === 'amber' ? 900 : 500;
+    pulse.value = 0;
+    pulse.value = withRepeat(withTiming(1, { duration: ms, easing: Easing.inOut(Easing.ease) }), -1, true);
+    return () => cancelAnimation(pulse);
+  }, [mood, pulse]);
+  const ringStyle = useAnimatedStyle(() => ({ opacity: 0.55 - pulse.value * 0.45, transform: [{ scale: 1 + pulse.value * 0.35 }] }));
+  const dotStyle = useAnimatedStyle(() => ({ opacity: mood === 'red' ? 1 - pulse.value * 0.6 : 1 - pulse.value * 0.25 }));
   const turn = useSharedValue(0);
   useEffect(() => {
     if (syncing) turn.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
     else { cancelAnimation(turn); turn.value = 0; }
   }, [syncing, turn]);
   const spinStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
-  const initial = (bridge.accountName || bridge.accountEmail || 'S').trim().charAt(0).toUpperCase();
 
-  const { themeSetting, setThemeMode, setLanguage } = useAppPreferences();
-  // One tap cycles the look: auto -> day -> night -> low light; the icon always shows the current one.
-  const order = ['system', 'light', 'dark', 'dim'] as const;
-  const themeIcon = themeSetting === 'light' ? 'white-balance-sunny' : themeSetting === 'dark' ? 'weather-night' : themeSetting === 'dim' ? 'moon-waning-crescent' : 'theme-light-dark';
-  const nextTheme = () => void setThemeMode(order[(order.indexOf(themeSetting as (typeof order)[number]) + 1) % order.length]!);
-  const themeLabel = THEME_OPTIONS.find((t) => t.value === themeSetting);
 
   return (
     <View style={styles.bar}>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মেনু খুলুন' : 'Open menu'} onPress={open} style={styles.iconBtn} hitSlop={4}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মেনু খুলুন' : 'Open menu'} onPress={open} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="menu" size={26} color={colors.textPrimary} />
       </Pressable>
       <Text numberOfLines={1} style={styles.title}>{titleFor(pathname, bn)}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? `রং: ${themeLabel?.bn ?? ''}, বদলান` : `Theme: ${themeLabel?.en ?? ''} — change`} onPress={nextTheme} style={styles.iconBtn} hitSlop={4}>
-        <AppIcon name={themeIcon} size={22} color={colors.textPrimary} />
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'ভাষা বদলান' : 'Change language'} onPress={() => void setLanguage(bn ? 'en' : 'bn')} style={styles.langBtn} hitSlop={4}>
-        <Text style={styles.langText}>{bn ? 'EN' : 'বাং'}</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'AI সংযোগ' : 'AI connections'} onPress={() => router.push('/ai' as never)} style={styles.iconBtn} hitSlop={4}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'AI সংযোগ' : 'AI connections'} onPress={() => router.push('/ai' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="brain" size={22} color={colors.textPrimary} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? (syncOk ? 'সিঙ্ক চালু আছে, চাপলে এখনই নতুন করে আনবে' : 'সিঙ্ক চলছে না, চাপলে কারণ দেখাবে') : (syncOk ? 'Sync is on; tap to refresh now' : 'Sync is not running; tap for the reason')}
-        onPress={() => { if (syncOk) doRefresh(); else router.push('/health' as never); }} style={styles.iconBtn} hitSlop={4}>
-        <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : 'sync-alert'} size={23} color={light} /></Animated.View>
+        onPress={() => { if (syncOk) doRefresh(); else router.push('/health' as never); }} style={styles.syncBtn}>
+        <Animated.View pointerEvents="none" style={[styles.syncRing, { backgroundColor: light }, ringStyle]} />
+        <Animated.View style={[styles.syncCore, { borderColor: light, backgroundColor: colors.surface }, dotStyle]}>
+          <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={26} color={light} /></Animated.View>
+        </Animated.View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'জরুরি বার্তা' : 'Urgent messages'} onPress={() => router.push({ pathname: '/inbox', params: { view: 'urgent' } } as never)} style={styles.iconBtn} hitSlop={4}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'জরুরি বার্তা' : 'Urgent messages'} onPress={() => router.push({ pathname: '/inbox', params: { view: 'urgent' } } as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={24} color={urgent ? colors.danger : colors.textPrimary} />
         {urgent ? <View style={styles.badge}><Text style={styles.badgeText}>{urgent > 9 ? '9+' : urgent}</Text></View> : null}
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'অ্যাকাউন্ট ও মেনু' : 'Account and menu'} onPress={open} style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
-        <View style={[styles.light, { backgroundColor: light }]} accessibilityLabel={bn ? 'সংযোগের অবস্থা' : 'Connection status'} />
       </Pressable>
     </View>
   );
@@ -84,7 +83,10 @@ export function AppHeader() {
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: spacing.sm, height: 56, marginHorizontal: 10, marginTop: 6, marginBottom: 6, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
-  iconBtn: { width: 36, height: 36, marginHorizontal: 1, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  syncBtn: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  syncRing: { position: 'absolute', width: 46, height: 46, borderRadius: 23 },
+  syncCore: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 48, height: 48, marginHorizontal: 1, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   langBtn: { minWidth: 34, height: 28, paddingHorizontal: 6, borderRadius: 8, borderWidth: border.thin, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
   langText: { color: colors.textPrimary, fontWeight: '700', fontSize: 12 },
   title: { flex: 1, color: colors.textPrimary, fontSize: 17, fontWeight: '700' },

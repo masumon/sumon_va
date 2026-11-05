@@ -6,8 +6,9 @@ import { AppButton } from '../ui/AppSurface';
 import { Card, ChipGroup, EmptyNote, Field, ToggleRow, useKit } from '../ui/AppKit';
 import { useAppFeedback } from '../ui/AppFeedback';
 import { formatBangladeshNumber } from '../i18n/date-time';
-import { getStatus, setPackages } from '../../modules/va-bridge';
-import { va, type Contact, type View as InboxView, errTone } from './api';
+import { getStatus, isInstalled, setPackages } from '../../modules/va-bridge';
+import { computeChecks, verdict } from './connect';
+import { va, type ChannelsInfo, type Contact, type View as InboxView, errTone } from './api';
 import { useLoad } from './hooks';
 import { Hero, HeroStat } from './Hero';
 import { BrandLogo } from './BrandLogo';
@@ -17,6 +18,10 @@ import type { ModuleDef } from './modules';
 import { PlatformSettings } from './PlatformSettings';
 import { ConnectGuide } from './ConnectGuide';
 import { EmailFilterCard } from './EmailFilterCard';
+
+/** Last known answers, kept while the app runs, so a page never flips back to "not connected" while it re-checks. */
+const LAST_RECEIVED = new Map<string, number>();
+const LAST: { channels: ChannelsInfo | null } = { channels: null };
 
 const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'all', bn: 'সবাই', en: 'Everyone' }, { key: 'urgent', bn: 'জরুরি', en: 'Urgent' }, { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
@@ -42,8 +47,14 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
   const waiting = useLoad(() => va.contacts('waiting', '', 1, mod.sources), `${mod.key}-waiting`, 20000);
   const urgent = useLoad(() => va.contacts('urgent', '', 1, mod.sources), `${mod.key}-urgent`, 20000);
   const info = useLoad(() => va.channels(), 'channels', 30000);
+  const everyone = useLoad(() => va.contacts('all', '', 1, mod.sources), `${mod.key}-everyone`, 30000);
   const watched = new Set(getStatus().packages);
-  const d = info.data;
+  useEffect(() => { if (info.data) LAST.channels = info.data; }, [info.data]);
+  useEffect(() => { if (everyone.data) LAST_RECEIVED.set(mod.key, everyone.data.total); }, [everyone.data, mod.key]);
+  const d = info.data ?? LAST.channels;
+  const receivedAll = everyone.data?.total ?? LAST_RECEIVED.get(mod.key);
+  // Until the first answer arrives we do not know: show "checking", never a false cross.
+  const checking = receivedAll === undefined || (!d && (mod.auto === 'telegram'));
   const n = (v: number) => formatBangladeshNumber(v, language);
 
   const save = async (patch: Record<string, unknown>) => {
@@ -58,11 +69,12 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
   };
 
   const total = list.data?.total ?? 0;
-  const connected = mod.auto === 'telegram' ? !!d?.telegram.configured && !!d?.settings.telegram.enabled : mod.auto === 'sms' ? getStatus().smsReceive : (mod.apps ?? []).some((a) => watched.has(a.pkg)) || mod.sources.includes('whatsapp');
+  const verdictNow = verdict(computeChecks(mod, { bridge: getStatus(), channels: d ?? null, received: receivedAll ?? 0, installed: isInstalled }));
+  const connected = !checking && verdictNow === 'ok';
 
   return (
     <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
-      <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={connected ? (bn ? '✓ সংযুক্ত, বার্তা আসছে' : '✓ Connected — messages arriving') : (bn ? 'এখনও সংযুক্ত নয়, নিচে দেখুন' : 'Not connected yet — see below')}>
+      <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={checking ? (bn ? 'দেখছি…' : 'Checking…') : connected ? (bn ? '✓ সংযুক্ত, বার্তা আসছে' : '✓ Connected — messages arriving') : verdictNow === 'partial' ? (bn ? 'প্রায় হয়ে গেছে, নিচে পরীক্ষা করুন' : 'Almost there — run the test below') : (bn ? 'এখনও সংযুক্ত নয়, নিচে দেখুন' : 'Not connected yet — see below')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
           <HeroStat value={n(urgent.data?.total ?? 0)} label={bn ? 'জরুরি' : 'Urgent'} />
@@ -70,7 +82,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
         </View>
       </Hero>
 
-      <ConnectGuide mod={mod} channels={d ?? null} received={total} onTested={() => { void list.reload(); void waiting.reload(); }} />
+      <ConnectGuide mod={mod} channels={d ?? null} received={receivedAll ?? 0} pending={checking} onTested={() => { void list.reload(); void waiting.reload(); }} />
 
       {mod.key === 'email' && d ? (
         <Card icon="email-outline" title={bn ? 'ইমেইল চালু করা' : 'Turn on e-mail'}>

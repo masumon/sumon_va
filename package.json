@@ -8,16 +8,7 @@
     "android": "expo run:android",
     "pretypecheck": "expo customize tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "test": "jest",
-    "verify:local": "powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1",
-    "icons": "node scripts/generate-icons.mjs",
-    "guide": "node scripts/generate-guide-pdf.mjs",
-    "legal": "node scripts/generate-legal-pdf.mjs",
-    "assets": "node scripts/generate-icons.mjs && node scripts/generate-guide-pdf.mjs && node scripts/generate-legal-pdf.mjs",
-    "test:components": "jest --config jest.components.config.js",
-    "prebuild": "expo prebuild --platform android --no-install && node scripts/after-prebuild.mjs",
-    "clean": "node scripts/clean.mjs"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -44,7 +35,6 @@
     "expo-sharing": "~57.0.15",
     "expo-splash-screen": "~57.0.7",
     "expo-sqlite": "57.0.1",
-    "js-sha256": "^1.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -74,9 +64,6 @@
   "overrides": {
     "react": "19.2.3",
     "react-dom": "19.2.3"
-  },
-  "allowScripts": {
-    "llama.rn@0.13.0-rc.3": true
   },
   "expo": {
     "autolinking": {

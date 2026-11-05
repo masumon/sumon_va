@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -30,7 +30,7 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
       if (r.need_consent) { setAsk(true); return; }
       if (r.need_owner) { setSpeakers(r.speakers ?? []); return; }
       setText(null); setSpeakers([]);
-      showSnackbar(bn ? `চেনা হয়েছে, ${r.messages ?? ''}টি বার্তা পড়া হয়েছে ✓` : `Learned (${r.messages ?? ''} messages read) ✓`, 'success');
+      showSnackbar(bn ? (r.messages ? `চেনা হয়েছে, ${r.messages}টি বার্তা পড়া হয়েছে ✓` : 'চেনা হয়েছে ✓') : (r.messages ? `Learned (${r.messages} messages read) ✓` : 'Learned ✓'), 'success');
       onLearned();
     } catch (e) { fail(e); } finally { setBusy(null); }
   };
@@ -40,9 +40,13 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
     try {
       const res = await DocumentPicker.getDocumentAsync({ type: ['text/plain', 'application/zip', '*/*'], copyToCacheDirectory: true });
       if (res.canceled || !res.assets?.[0]) return;
-      const chat = await FileSystem.readAsStringAsync(res.assets[0].uri);
+      const asset = res.assets[0];
+      if (/\.zip$/i.test(asset.name ?? '') || asset.mimeType === 'application/zip') { showSnackbar(bn ? 'এটি ZIP ফাইল। WhatsApp থেকে “মিডিয়া ছাড়া” এক্সপোর্ট করে .txt ফাইলটি বেছে নিন' : 'That is a ZIP. Export from WhatsApp “without media” and pick the .txt file', 'info'); return; }
+      if ((asset.size ?? 0) > 3_000_000) { showSnackbar(bn ? 'ফাইলটি অনেক বড় (৩ MB-র বেশি)। ছোট অংশ বেছে নিন' : 'The file is too large (over 3 MB). Pick a smaller part', 'info'); return; }
+      const chat = await FileSystem.readAsStringAsync(asset.uri);
       setText(chat);
       await learn(chat);
+      void FileSystem.deleteAsync(asset.uri, { idempotent: true });
     } catch (e) { fail(e); } finally { setBusy(null); }
   };
 
@@ -51,10 +55,21 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
     try {
       const r = await va.exportChat(contactId);
       if (!r.messages) { showSnackbar(bn ? 'এই ব্যক্তির সাথে এখনও কোনো চ্যাট জমা হয়নি' : 'No chat saved with this person yet', 'info'); return; }
+      if (isPrivate) {
+        const go = await new Promise<boolean>((resolve) => Alert.alert(
+          bn ? 'ব্যক্তিগত চ্যাট পাঠাবেন?' : 'Share a private chat?',
+          bn ? 'এটি ব্যক্তিগত বা পরিবারের চ্যাট। শেয়ার মেনুতে ভুল মানুষকে চাপলে চ্যাটটি তার কাছে চলে যাবে।' : 'This is a private or family chat. Tapping the wrong person in the share menu sends it to them.',
+          [{ text: bn ? 'বাতিল' : 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: bn ? 'চালিয়ে যান' : 'Continue', onPress: () => resolve(true) }],
+          { cancelable: true, onDismiss: () => resolve(false) },
+        ));
+        if (!go) return;
+      }
       const path = `${FileSystem.cacheDirectory}${r.filename}`;
       await FileSystem.writeAsStringAsync(path, r.text);
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(path, { mimeType: 'text/plain', dialogTitle: bn ? 'চ্যাট এক্সপোর্ট' : 'Export chat' });
-      else showSnackbar(bn ? 'এই ফোনে শেয়ার করা যাচ্ছে না' : 'Sharing is not available on this phone', 'danger');
+      try {
+        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(path, { mimeType: 'text/plain', dialogTitle: bn ? 'চ্যাট এক্সপোর্ট' : 'Export chat' });
+        else showSnackbar(bn ? 'এই ফোনে শেয়ার করা যাচ্ছে না' : 'Sharing is not available on this phone', 'danger');
+      } finally { void FileSystem.deleteAsync(path, { idempotent: true }); }
     } catch (e) { fail(e); } finally { setBusy(null); }
   };
 

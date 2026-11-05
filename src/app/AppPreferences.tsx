@@ -200,7 +200,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
   // ledgers, debts and health records to anyone with the phone unlocked, before the user
   // ever visits Settings to notice the toggle exists. Anyone who wants screenshots back
   // can still turn it off from Settings → Privacy & lock.
-  const [blockScreenshots, setBlockScreenshotsState] = useState(false);
+  const [blockScreenshots, setBlockScreenshotsState] = useState(true);
   const [autoBackup, setAutoBackupState] = useState(false);
   const [autoBackupFolderUri, setAutoBackupFolderUriState] = useState<string | null>(null);
   const [appLockHash, setAppLockHash] = useState<string | null>(null);
