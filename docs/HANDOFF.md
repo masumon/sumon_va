@@ -17,7 +17,7 @@ Sumon VA is now **separate from ABO**. Full checklist and decisions: `docs/TRANS
 
 ### Open list (see TRANSFER.md for the full table)
 1. Owner: add AI keys in the app; set channel/platform settings; decide "সহকারী চালু" (assistant switch is OFF on the fresh server, auto-reply OFF).
-2. DB backup: Supabase free has none. The GitHub Actions workflow was NOT created (the safety check blocked the write); owner must decide, then secret `BACKUP_DATABASE_URL`.
+2. **DB backup: DEFERRED by the owner (2026-11-06, option "খ": skip for now). Remind him from time to time.** Supabase free has no backups, so the database currently has NO backup. When he agrees: add `.github/workflows/db-backup.yml` (daily `pg_dump`, private Actions artifact, 14 days) + repository secret `BACKUP_DATABASE_URL`. The assistant's first attempt to write that file was blocked by Claude Code's safety check, so the owner may have to save the file himself.
 3. Next build (after the owner's OK): includes items from "App" above. Then real tests on the phone: notification/SMS/call capture reaches the new server, replies, alerts, Google passkey.
 4. Screenshot blocking: default is ON in code (`routes/_layout.tsx`, `routes/settings.tsx` switch) but a screenshot was possible on the phone after install: check the Settings switch and the window flag; owner wants default blocked, allowed only when he switches it on.
 5. ABO side: agent steps 1-4; `VA_INTEGRATION_TOKEN` on both Renders; ABO summary API for business numbers.

@@ -57,7 +57,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [x] 2026-11-06 `va-api.aboenterprise.com` verified, HTTPS চালু, `/health` ও `assetlinks.json` ok |
 | S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
 | S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | বাদ: সার্ভারের ভেতরের লুপ (`server/app/core/scheduler.py`) করবে |
-| S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] workflow এখনো বানানো হয়নি (Claude Code এর নিরাপত্তা-ব্লক আটকেছে); সুমনের সিদ্ধান্ত বাকি |
+| S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] **স্থগিত (সুমনের সিদ্ধান্ত 2026-11-06: খ, আপাতত বাদ)।** এখন ডাটাবেসের কোনো ব্যাকআপ নেই (Supabase ফ্রিতে নেই)। পরে: GitHub Actions workflow `db-backup.yml` + secret `BACKUP_DATABASE_URL`। Claude মাঝে মাঝে মনে করিয়ে দেবে |
 | S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [~] 2026-11-06 মূল ৯টি বসানো (DATABASE_URL, SECRET_KEY, APP_ENV, STARTUP_BOOTSTRAP_ENABLED, ADMIN_*, FRONTEND_URL, DEVICE_PASSKEY_RP_ID); বাকি: TELEGRAM_*, ABO_*, VA_INTEGRATION_TOKEN, EMAIL_INBOUND_SECRET |
 | S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [~] AI কোড ABO এর সঙ্গে হুবহু একই (diff যাচাই, ৭ ফাইল); সুমন নিজে অ্যাপের AI স্ক্রিনে কী বসাবে |
 | S11 | ABO তে ছোট API PR (§৮) দেখে merge | [ ] |
@@ -118,3 +118,4 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 2026-11-06 | Claude | কোড ঘেঁটে দেখা: নতুন সার্ভারে লাগে না: Supabase কী, Cloudinary, SMS, bKash/Nagad, GA4, VAPID, Sentry, IMAP, Resend। লাগে: DATABASE_URL, SECRET_KEY, ADMIN_*, TELEGRAM_*, EMAIL_INBOUND_SECRET, FRONTEND_URL, DEVICE_PASSKEY_RP_ID; পরে ABO_* ও VA_INTEGRATION_TOKEN। cron: সার্ভারের ভেতরের লুপ (cron-job.org লাগবে না) |
 | 2026-11-06 | সুমন | ইমেইল: `info@aboenterprise.com` → Worker `abo-mail-to-inbox` → `va-api` (ABO এর কাস্টমার-মেইলও Sumon VA ইনবক্সে চাই, সিদ্ধান্ত); Gmail ফরোয়ার্ড আগের মতো; ইমেইল চ্যানেল অ্যাপ সরার পর চালু হবে |
 | 2026-11-06 | Claude | AI কোড যাচাই (৭ ফাইল হুবহু ABO); S12 সুমনের কথায় সম্পন্ন; ব্যাকআপ workflow নিরাপত্তা-ব্লকে আটকা; HANDOFF নতুন করে লেখা |
+| 2026-11-06 | সুমন | ডাটাবেস ব্যাকআপ workflow: খ (আপাতত বাদ), নোট রাখা হয়েছে |
