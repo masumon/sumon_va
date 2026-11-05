@@ -3,16 +3,21 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
-import { AppBadge, AppButton } from '../src/ui/AppSurface';
+import { AppButton } from '../src/ui/AppSurface';
 import { Card, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { BrandMark, PoweredBy } from '../src/va/BrandMark';
-import { loginPassword, loginRequest, loginTelegramPoll, loginTelegramRequest, loginVerify } from '../modules/va-bridge';
+import { loginPassword, loginRequest, loginTelegramPoll, loginTelegramRequest, loginVerify, passkeyLogin } from '../modules/va-bridge';
 import { SERVER } from '../src/va/config';
+import { bd } from '../src/va/bd';
 
-type Step = 'choose' | 'telegram' | 'mail' | 'mailcode' | 'password' | 'totp';
+type Step = 'choose' | 'telegram' | 'mail' | 'mailcode' | 'password' | 'totp' | 'phone' | 'phonecode' | 'phonetotp';
+
+/** Bangla digits to Latin, so a number typed as ০১৭… is read like 017…. */
+const latin = (v: string) => v.replace(/[০-৯]/gu, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
+const BD_PHONE = /^(?:\+?88)?01[3-9]\d{8}$/;
 type TgState = 'asking' | 'waiting' | 'denied' | 'expired' | 'error';
 
 /**
@@ -39,6 +44,8 @@ export default function LoginScreen() {
   const [totp, setTotp] = useState('');
   const [mailCode, setMailCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [pkNone, setPkNone] = useState(false);
   const fail = (msg?: string) => showSnackbar(msg || (bn ? 'কাজটি হয়নি' : 'That did not work'), 'danger');
   const name = bn ? 'আমার ফোন' : 'My phone';
 
@@ -112,6 +119,38 @@ export default function LoginScreen() {
     } finally { setBusy(false); }
   };
 
+  // ── passkey / fingerprint ──
+  const signInPasskey = async () => {
+    setBusy(true); setPkNone(false);
+    try {
+      const r = await passkeyLogin(SERVER, name);
+      if (r.ok) { router.replace('/lock-setup' as never); return; }
+      if (r.cancelled) return;
+      if (/no passkey|no credential|not registered|not found|পাসকি নেই|কোনো পাসকি|NoCredential/i.test(r.error ?? '')) setPkNone(true);
+      fail(r.error);
+    } catch { fail(); } finally { setBusy(false); }
+  };
+
+  // ── phone number: the 6-digit code goes to the owner's e-mail and Telegram ──
+  const phoneClean = latin(phone).replace(/[\s-]/g, '');
+  const phoneOk = BD_PHONE.test(phoneClean);
+  const sendPhone = async () => {
+    setBusy(true);
+    try {
+      const r = await loginRequest(SERVER, phoneClean);
+      if (r.ok) { setStep('phonecode'); showSnackbar(bn ? 'কোড পাঠানো হয়েছে, ইমেইল ও Telegram দেখুন' : 'Code sent — check your e-mail and Telegram', 'success'); } else fail(r.error);
+    } catch { fail(); } finally { setBusy(false); }
+  };
+  const verifyPhone = async () => {
+    setBusy(true);
+    try {
+      const r = await loginVerify(SERVER, phoneClean, mailCode, step === 'phonetotp' ? totp : null, name);
+      if (r.ok) { router.replace('/lock-setup' as never); return; }
+      if (r.needTotp && step !== 'phonetotp') { setStep('phonetotp'); showSnackbar(bn ? 'এবার অথেনটিকেটর কোড দিন' : 'Now enter your authenticator code', 'info'); return; }
+      fail(r.error);
+    } catch { fail(); } finally { setBusy(false); }
+  };
+
   const isEmail = /.+@.+\..+/.test(email.trim());
   const isPhone = !isEmail && email.replace(/\D/g, '').length >= 10;
   const back = <AppButton variant="ghost" icon="arrow-left" label={bn ? 'অন্যভাবে ঢুকুন' : 'Choose another way'} onPress={() => { setStep('choose'); setMailCode(''); setTotp(''); }} />;
@@ -124,12 +163,13 @@ export default function LoginScreen() {
       {step === 'choose' ? (
         <View style={{ gap: 10 }}>
           <AppButton label={bn ? 'Telegram-এ অনুমোদন (পাসওয়ার্ড ছাড়া)' : 'Approve in Telegram (no password)'} icon="send" onPress={() => void startTelegram()} />
-          <AppButton variant="secondary" label={bn ? 'জোড়া লাগানোর কোড (অ্যাডমিন সাইট থেকে)' : 'Pairing code (from the admin site)'} icon="link-variant" onPress={() => router.push('/pair' as never)} />
-          <View style={{ opacity: 0.6, gap: 6 }}>
-            <AppButton variant="secondary" disabled label={bn ? 'Google পাসকি / আঙুলের ছাপ' : 'Google passkey / fingerprint'} icon="fingerprint" onPress={() => {}} />
-            <View style={{ alignItems: 'center' }}><AppBadge tone="warning" label={bn ? 'শীঘ্রই আসছে' : 'Coming soon'} /></View>
+          <View style={{ gap: 6 }}>
+            <AppButton variant="secondary" loading={busy} label={bn ? 'Google পাসকি / আঙুলের ছাপ' : 'Google passkey / fingerprint'} icon="fingerprint" accessibilityLabel={bn ? 'Google পাসকি বা আঙুলের ছাপ দিয়ে ঢুকুন' : 'Sign in with Google passkey or fingerprint'} onPress={() => void signInPasskey()} />
+            {pkNone ? <Text style={{ opacity: 0.8, fontSize: 13, lineHeight: 19, textAlign: 'center' }}>প্রথমবার? অন্যভাবে ঢুকে “পাসকি বানান” চাপুন (লক-সেটআপ পাতায় বা সেটিংসে)</Text> : null}
           </View>
+          <AppButton variant="secondary" label={bn ? 'ফোন নম্বর দিয়ে ঢুকুন' : 'Sign in with phone number'} icon="phone-outline" accessibilityLabel={bn ? 'ফোন নম্বর দিয়ে ঢুকুন' : 'Sign in with phone number'} onPress={() => setStep('phone')} />
           <AppButton variant="secondary" label={bn ? 'ইমেইলে ৬ সংখ্যার কোড' : 'A 6-digit code by e-mail'} icon="email-outline" onPress={() => setStep('mail')} />
+          <AppButton variant="secondary" label={bn ? 'জোড়া লাগানোর কোড (অ্যাডমিন সাইট থেকে)' : 'Pairing code (from the admin site)'} icon="link-variant" onPress={() => router.push('/pair' as never)} />
           <AppButton variant="secondary" label={bn ? 'ইমেইল ও পাসওয়ার্ড' : 'E-mail and password'} icon="lock-outline" onPress={() => setStep('password')} />
           <InfoHint text={bn ? 'একবার ঢুকলে এই ফোন মনে রাখবে। পরের বার শুধু PIN বা আঙুলের ছাপ লাগবে। ফোন হারালে অ্যাডমিন সাইট থেকে এক চাপে এর ঢোকা বন্ধ করা যায়।' : 'Once signed in, this phone is remembered; next time only your PIN or fingerprint is needed. If the phone is lost, you can cut it off from the admin site with one tap.'} />
         </View>
@@ -173,6 +213,35 @@ export default function LoginScreen() {
             <Field label={bn ? '৬ সংখ্যার কোড' : '6-digit code'} value={mailCode} onChangeText={(v) => setMailCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="numeric" autofill="otp" autoFocus />
           </Card>
           <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" loading={busy} disabled={mailCode.length !== 6} onPress={() => void verifyMail()} />
+          {back}
+        </View>
+      ) : null}
+
+      {step === 'phone' ? (
+        <View style={{ gap: 10 }}>
+          <Card>
+            <Field label={bn ? 'আপনার সেভ করা মোবাইল নম্বর' : 'Your saved mobile number'} value={phone} onChangeText={setPhone} placeholder="01XXXXXXXXX" keyboardType="numeric" autoFocus />
+            {phone.length > 0 && !phoneOk ? <Text style={{ color: '#C13B2E', marginTop: 6 }}>{bn ? 'নম্বরটি ১১ সংখ্যার হতে হবে, যেমন ০১৭XXXXXXXX' : 'It must be an 11-digit number like 017XXXXXXXX'}</Text> : null}
+            <View style={{ marginTop: 6 }}><InfoHint text={bn ? 'মালিকের ইমেইল ও Telegram-এ একটা ৬ সংখ্যার কোড যাবে। পাসওয়ার্ড লাগবে না।' : 'A 6-digit code is sent to the owner’s e-mail and Telegram. No password needed.'} /></View>
+          </Card>
+          <AppButton label={bn ? 'কোড পাঠান' : 'Send the code'} icon="message-text-outline" accessibilityLabel={bn ? 'ফোন নম্বরে কোড পাঠান' : 'Send the code for this phone number'} loading={busy} disabled={!phoneOk} onPress={() => void sendPhone()} />
+          {back}
+        </View>
+      ) : null}
+
+      {step === 'phonecode' || step === 'phonetotp' ? (
+        <View style={{ gap: 10 }}>
+          <Card>
+            <Text style={{ marginBottom: 6 }}>{bn ? `${bd(phoneClean)} নম্বরের কোড মালিকের ইমেইল ও Telegram-এ পাঠানো হয়েছে।` : `The code for ${phoneClean} was sent to the owner’s e-mail and Telegram.`}</Text>
+            <Field label={bn ? '৬ সংখ্যার কোড' : '6-digit code'} value={mailCode} onChangeText={(v) => setMailCode(latin(v).replace(/\D/g, '').slice(0, 6))} keyboardType="numeric" autofill="otp" autoFocus={step === 'phonecode'} />
+            {step === 'phonetotp' ? (
+              <>
+                <Text style={{ marginTop: 6, marginBottom: 4 }}>{bn ? 'আপনার অ্যাকাউন্টে Google Authenticator চালু আছে। সেখানকার ৬ সংখ্যার কোডটি লিখুন।' : 'Your account uses Google Authenticator. Enter its 6-digit code.'}</Text>
+                <Field label={bn ? 'অথেনটিকেটর কোড' : 'Authenticator code'} value={totp} onChangeText={(v) => setTotp(latin(v).replace(/\D/g, '').slice(0, 6))} keyboardType="numeric" autofill="otp" autoFocus />
+              </>
+            ) : null}
+          </Card>
+          <AppButton label={bn ? 'ঢুকুন' : 'Sign in'} icon="login" accessibilityLabel={bn ? 'কোড দিয়ে ঢুকুন' : 'Sign in with the code'} loading={busy} disabled={mailCode.length !== 6 || (step === 'phonetotp' && totp.length !== 6)} onPress={() => void verifyPhone()} />
           {back}
         </View>
       ) : null}

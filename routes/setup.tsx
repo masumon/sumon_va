@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
@@ -10,7 +10,8 @@ import { formatBangladeshDateTime, formatBangladeshNumber } from '../src/i18n/da
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { useLoad } from '../src/va/hooks';
-import { GROUPS, PERMISSIONS, reasonFor, requestRuntime, type Outcome, type PermDef } from '../src/va/permissions';
+import { bd } from '../src/va/bd';
+import { GROUPS, PERMISSIONS, reasonFor, requestRuntime, specialDefs, type Outcome, type PermDef } from '../src/va/permissions';
 import { getStatus, openAppSettings, startService, testAlert } from '../modules/va-bridge';
 
 /** Permission centre: every permission with the phone's own real answer — a tick when it works, and the exact reason when it does not. */
@@ -40,6 +41,18 @@ export default function SetupScreen() {
     } finally { setBusy(null); }
   };
 
+  // After the system dialogs, the special-access screens are walked through one by one; coming back to the app re-checks them.
+  const [walking, setWalking] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void status.reload(); });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const special = specialDefs();
+  const nextSpecial = walking ? special.find((d) => !d.ok(s) && !skipped.includes(d.key)) : undefined;
+  const specialDone = special.filter((d) => d.ok(s)).length;
+
   const grantAllRuntime = async () => {
     setBusy('all');
     try {
@@ -48,7 +61,10 @@ export default function SetupScreen() {
         setLast((m) => ({ ...m, [def.key]: out }));
       }
       await status.reload();
-      showSnackbar(bn ? 'প্রতিটি অনুমতির অবস্থা নিচে দেখুন' : 'See each permission below', 'info');
+      setSkipped([]); setWalking(true);
+      showSnackbar(bn ? 'এবার বিশেষ অনুমতিগুলো একটা একটা করে চালু করুন' : 'Now switch on the special accesses one by one', 'info');
+    } catch {
+      showSnackbar(bn ? 'অনুমতি চাওয়া যায়নি, নিচে একটা একটা করে চেষ্টা করুন' : 'Could not ask; try them one by one below', 'danger');
     } finally { setBusy(null); }
   };
 
@@ -59,8 +75,27 @@ export default function SetupScreen() {
           <View style={{ width: `${Math.round((mustOk / must.length) * 100)}%`, height: 10, backgroundColor: mustOk === must.length ? colors.success : colors.warning }} />
         </View>
         <Text style={{ marginTop: 8 }}>{mustOk === must.length ? (bn ? '✓ সব জরুরি অনুমতি ঠিক আছে।' : '✓ All essential permissions are fine.') : (bn ? 'কিছু জরুরি অনুমতি বাকি আছে। নিচে লাল চিহ্ন দেওয়াগুলো ঠিক করুন।' : 'Some essential permissions are missing — fix the red ones below.')}</Text>
-        <View style={{ marginTop: 10 }}><AppButton label={bn ? 'সব অনুমতি একসাথে দিন' : 'Ask for all at once'} icon="shield-check-outline" loading={busy === 'all'} onPress={() => void grantAllRuntime()} /></View>
+        <Text style={{ marginTop: 8, opacity: 0.75, fontSize: 13, lineHeight: 19 }}>{bn ? 'এই অ্যাপ শুধু আপনার নিজের ফোনে চলে, তাই সব অনুমতি দিলে ভালো কাজ করবে' : 'This app runs only on your own phone, so it works best when you allow everything'}</Text>
+        <View style={{ marginTop: 10 }}><AppButton label={bn ? 'সব অনুমতি একসাথে দিন' : 'Ask for all at once'} icon="shield-check-outline" accessibilityLabel={bn ? 'সব অনুমতি একসাথে দিন' : 'Ask for all permissions at once'} loading={busy === 'all'} onPress={() => void grantAllRuntime()} /></View>
       </Card>
+
+      {walking ? (
+        <Card icon="stairs" title={bn ? `বিশেষ অনুমতি (${bd(specialDone)}/${bd(special.length)})` : `Special access (${specialDone}/${special.length})`}>
+          {nextSpecial ? (
+            <>
+              <Text style={{ fontWeight: '700' }}>{bn ? nextSpecial.bn : nextSpecial.en}</Text>
+              <Text style={{ opacity: 0.75, fontSize: 13, lineHeight: 19, marginTop: 4 }}>{bn ? nextSpecial.whyBn : nextSpecial.whyEn}</Text>
+              <Text style={{ opacity: 0.75, fontSize: 13, marginTop: 6 }}>{bn ? 'সেটিংস খুলবে। চালু করে পিছনের তীর চাপলে এখানে ফিরে আসবেন।' : 'Settings will open. Switch it on, then press back to return here.'}</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <AppButton label={bn ? 'সেটিংস খুলুন' : 'Open settings'} icon="open-in-new" accessibilityLabel={bn ? `${nextSpecial.bn} চালু করতে সেটিংস খুলুন` : `Open settings for ${nextSpecial.en}`} onPress={() => { try { nextSpecial.open?.(); } catch { openAppSettings(); } }} />
+                <AppButton variant="secondary" label={bn ? 'এটা বাদ দিন' : 'Skip this'} accessibilityLabel={bn ? 'এই ধাপ বাদ দিন' : 'Skip this step'} onPress={() => setSkipped((k) => [...k, nextSpecial.key])} />
+              </View>
+            </>
+          ) : (
+            <Text style={{ lineHeight: 22 }}>{special.every((d) => d.ok(s)) ? (bn ? '✓ সব বিশেষ অনুমতি চালু আছে।' : '✓ All special accesses are on.') : (bn ? 'বাদ দেওয়াগুলো নিচের তালিকা থেকে যেকোনো সময় চালু করা যাবে।' : 'The skipped ones can be switched on from the list below any time.')}</Text>
+          )}
+        </Card>
+      ) : null}
 
       {GROUPS.map((g) => (
         <View key={g.key} style={{ gap: 10 }}>
@@ -74,12 +109,12 @@ export default function SetupScreen() {
             return (
               <Card key={def.key}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <AppIcon name={ok ? 'check-circle' : def.grade === 'optional' ? 'minus-circle-outline' : 'close-circle'} size={26} color={ok ? colors.success : def.grade === 'optional' ? colors.textMuted : colors.danger} />
+                  <AppIcon name={ok ? 'check-circle' : def.grade === 'optional' ? 'minus-circle-outline' : def.grade === 'good' ? 'alert-circle' : 'close-circle'} size={26} color={ok ? colors.success : def.grade === 'optional' ? colors.textMuted : def.grade === 'good' ? colors.warning : colors.danger} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '700' }}>{bn ? def.bn : def.en}</Text>
                     {(bn ? def.whyBn : def.whyEn).length > 90 ? <InfoHint text={bn ? def.whyBn : def.whyEn} /> : <Text style={{ opacity: 0.7, fontSize: 13, lineHeight: 19 }}>{bn ? def.whyBn : def.whyEn}</Text>}
                   </View>
-                  <AppBadge tone={ok ? 'success' : def.grade === 'optional' ? 'neutral' : 'danger'} label={ok ? (bn ? 'চালু ✓' : 'On ✓') : def.grade === 'optional' ? (bn ? 'ঐচ্ছিক' : 'Optional') : (bn ? 'বাকি' : 'Missing')} />
+                  <AppBadge tone={ok ? 'success' : def.grade === 'optional' ? 'neutral' : def.grade === 'good' ? 'warning' : 'danger'} label={ok ? (bn ? 'চালু ✓' : 'On ✓') : def.grade === 'optional' ? (bn ? 'ঐচ্ছিক' : 'Optional') : def.grade === 'good' ? (bn ? 'দিলে ভালো' : 'Recommended') : (bn ? 'বাকি' : 'Missing')} />
                 </View>
                 {reason ? (
                   <View style={{ marginTop: 8, padding: 10, borderRadius: 10, backgroundColor: colors.surfaceMuted }}>
@@ -89,7 +124,7 @@ export default function SetupScreen() {
                 ) : null}
                 {!ok ? (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                    <AppButton label={def.runtime ? (bn ? 'অনুমতি দিন' : 'Allow') : (bn ? 'সেটিংসে চালু করুন' : 'Turn on in Settings')} loading={busy === def.key} onPress={() => void grant(def)} />
+                    <AppButton accessibilityLabel={bn ? `${def.bn}: ${def.runtime ? 'অনুমতি দিন' : 'সেটিংসে চালু করুন'}` : `${def.en}: ${def.runtime ? 'Allow' : 'Turn on in Settings'}`} label={def.runtime ? (bn ? 'অনুমতি দিন' : 'Allow') : (bn ? 'সেটিংসে চালু করুন' : 'Turn on in Settings')} loading={busy === def.key} onPress={() => void grant(def)} />
                     {reason ? <AppButton variant="secondary" label={bn ? 'অ্যাপের তথ্য খুলুন' : 'Open app info'} onPress={() => { openAppSettings(); }} /> : null}
                   </View>
                 ) : null}

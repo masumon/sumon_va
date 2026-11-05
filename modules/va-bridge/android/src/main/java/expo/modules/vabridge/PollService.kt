@@ -222,10 +222,12 @@ class PollService : Service() {
       return Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(ctx, smallIcon(ctx)), "খুলুন", pi).build()
     }
 
+    private fun healthy(ctx: Context) = try { Store.prefs(ctx).getString("last_error", null) == null } catch (_: Exception) { true }
+
     /** The quiet "running" notification the foreground service must show. */
     fun serviceNote(ctx: Context): Notification {
       val b = Notification.Builder(ctx, CH_SERVICE).setContentTitle("সহকারী চলছে")
-        .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setOngoing(true).setOnlyAlertOnce(true)
+        .setContentText("বার্তার দিকে নজর রাখছি").setSmallIcon(smallIcon(ctx)).setColor(if (healthy(ctx)) 0xFF2E7D32.toInt() else 0xFFB26A00.toInt()).setOngoing(true).setOnlyAlertOnce(true)
       openIntent(ctx, 0)?.let { b.setContentIntent(it) }
       openAction(ctx)?.let { b.addAction(it) }
       return b.build()
@@ -239,7 +241,7 @@ class PollService : Service() {
      * Family: "👪 পরিবার · <who> — <label> (ভেতরের কথা ...)". App problems start with the warning sign.
      */
     fun parse(urgent: Boolean, text: String): Parsed {
-      val fallbackTitle = if (urgent) "🔴 জরুরি বার্তা" else "নতুন বার্তা"
+      val fallbackTitle = if (urgent) "জরুরি বার্তা" else "নতুন বার্তা"
       val first = text.lineSequence().first().trim()
       val fb = Parsed(fallbackTitle, first.take(120), "", first.take(120), false)
       try {
@@ -276,29 +278,89 @@ class PollService : Service() {
       val open = openIntent(ctx, 0)
       val p = parse(urgent, text)
       val family = text.startsWith("👪")
+      val zone = zoneOf(target, id)
+      val color = zoneColor(zone)
+      val plainFamily = if (p.ok) p.plain else "পরিবারের বার্তা"
+      val shownText = if (family) plainFamily else if (p.ok) p.text else text.lineSequence().first().take(120)
+      val bigText = if (family) plainFamily else if (p.ok) p.text else text
+      val title = if (p.ok) p.title else if (urgent) "জরুরি বার্তা" else "নতুন বার্তা"
+      val chip = zoneWord(zone) + (if (p.ok && p.sub.isNotEmpty()) " · " + p.sub else "")
+      val letter = if (family) "প" else if (problem) "!" else (title.firstOrNull { it.isLetterOrDigit() }?.toString() ?: "ব")
       val b = Notification.Builder(ctx, channel)
-        .setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setShowWhen(true).setWhen(System.currentTimeMillis())
-        .setContentTitle(if (p.ok) p.title else if (urgent) "🔴 জরুরি বার্তা" else "নতুন বার্তা")
-        .setContentText(if (p.ok) p.text else text.lineSequence().first().take(120))
-        .setStyle(Notification.BigTextStyle().bigText(if (p.ok && !family && !problem) p.text else text))
+        .setSmallIcon(smallIcon(ctx)).setColor(color).setShowWhen(true).setWhen(System.currentTimeMillis())
+        .setContentTitle(title)
+        .setContentText(shownText)
+        .setSubText(chip)
+        .setStyle(Notification.BigTextStyle().bigText(bigText))
         .setAutoCancel(true).setCategory(if (urgent) Notification.CATEGORY_ALARM else Notification.CATEGORY_MESSAGE)
         .setVisibility(Notification.VISIBILITY_PRIVATE)
-        .setPublicVersion(Notification.Builder(ctx, channel).setSmallIcon(smallIcon(ctx)).setColor(ACCENT).setContentTitle(if (urgent) "জরুরি বার্তা" else if (problem) "অ্যাপের সমস্যা" else "নতুন বার্তা").build())
-      if (p.ok && p.sub.isNotEmpty()) b.setSubText(p.sub).setGroup("va_" + p.sub)
+        .setPublicVersion(Notification.Builder(ctx, channel).setSmallIcon(smallIcon(ctx)).setColor(color).setContentTitle(if (urgent) "জরুরি বার্তা" else if (problem) "অ্যাপের সমস্যা" else "নতুন বার্তা").build())
+      letterIcon(letter, color)?.let { b.setLargeIcon(it) }
+      val groupKey = if (p.ok && p.sub.isNotEmpty()) "va_" + p.sub else null
+      if (groupKey != null) b.setGroup(groupKey)
       if (open != null) b.setContentIntent(open)
       openAction(ctx)?.let { b.addAction(it) }
+      if (zone != "info") inboxAction(ctx)?.let { b.addAction(it) }
       if (urgent && open != null) b.setFullScreenIntent(open, true)
-      ctx.getSystemService(NotificationManager::class.java).notify(id.hashCode(), b.build())
-      try { addHistory(ctx, id, p, if (family) p.plain else p.text, target) } catch (_: Exception) {}
+      val nm = ctx.getSystemService(NotificationManager::class.java)
+      nm.notify(id.hashCode(), b.build())
+      if (groupKey != null) postSummary(ctx, nm, groupKey, p.sub, open)
+      try { addHistory(ctx, id, p, if (family) plainFamily else p.text, target, zone) } catch (_: Exception) {}
       Alert.fire(ctx, target)
+    }
+
+    // ---- colour zones: the colour always says how serious it is ----
+    private const val RED = 0xFFC62828.toInt()
+    private const val AMBER = 0xFFB26A00.toInt()
+    private const val BLUE = 0xFF1565C0.toInt()
+    private const val GREEN = 0xFF2E7D32.toInt()
+
+    private fun zoneOf(target: String, id: String): String =
+      if (target == "p1" || id == "problem-401") "danger" else if (target == "p2" || id.startsWith("problem-")) "warning" else "info"
+    private fun zoneColor(zone: String) = when (zone) { "danger" -> RED; "warning" -> AMBER; else -> BLUE }
+    private fun zoneWord(zone: String) = when (zone) { "danger" -> "জরুরি"; "warning" -> "গুরুত্বপূর্ণ"; else -> "নতুন বার্তা" }
+
+    /** A round picture in the zone colour with one white letter (never message words). */
+    private fun letterIcon(letter: String, color: Int): android.graphics.Bitmap? = try {
+      val size = 128
+      val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+      val cv = android.graphics.Canvas(bmp)
+      val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+      paint.color = color
+      cv.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+      paint.color = android.graphics.Color.WHITE
+      paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+      paint.textSize = 66f
+      paint.textAlign = android.graphics.Paint.Align.CENTER
+      val fm = paint.fontMetrics
+      cv.drawText(letter, size / 2f, size / 2f - (fm.ascent + fm.descent) / 2f, paint)
+      bmp
+    } catch (_: Throwable) { null }
+
+    private fun inboxAction(ctx: Context): Notification.Action? = try {
+      val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("sumonva://inbox")).setPackage(ctx.packageName)
+      val pi = PendingIntent.getActivity(ctx, 2, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+      Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(ctx, smallIcon(ctx)), "ইনবক্স", pi).build()
+    } catch (_: Exception) { null }
+
+    /** One quiet summary per group so Android really stacks the alerts of one app. It never alerts and holds no message words. */
+    private fun postSummary(ctx: Context, nm: NotificationManager, groupKey: String, platform: String, open: PendingIntent?) {
+      try {
+        val sb = Notification.Builder(ctx, CH_NORMAL)
+          .setSmallIcon(smallIcon(ctx)).setColor(BLUE).setContentTitle(platform).setContentText("নতুন বার্তা")
+          .setGroup(groupKey).setGroupSummary(true).setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN)
+          .setOnlyAlertOnce(true).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE)
+        if (open != null) sb.setContentIntent(open)
+        nm.notify(("summary:" + groupKey).hashCode(), sb.build())
+      } catch (_: Exception) {}
     }
 
     // ---- alert history (for the in-app notification centre) ----
     private val historyLock = Any()
 
-    private fun addHistory(ctx: Context, id: String, p: Parsed, text: String, target: String) = synchronized(historyLock) {
+    private fun addHistory(ctx: Context, id: String, p: Parsed, text: String, target: String, zone: String) = synchronized(historyLock) {
       val arr = loadHistory(ctx)
-      arr.put(JSONObject().put("id", id.take(80)).put("title", p.title.take(200)).put("text", text.take(200)).put("sub", p.sub.take(200)).put("target", target).put("at", System.currentTimeMillis()))
+      arr.put(JSONObject().put("id", id.take(80)).put("title", p.title.take(200)).put("text", text.take(200)).put("sub", p.sub.take(200)).put("target", target).put("zone", zone).put("at", System.currentTimeMillis()))
       val out = JSONArray()
       for (i in maxOf(0, arr.length() - 50) until arr.length()) out.put(arr.get(i))
       Store.prefs(ctx).edit().putString("alert_history", out.toString()).apply()
@@ -344,10 +406,33 @@ object Alert {
     intArrayOf(0, 255, 0, 255, 0, 255, 0, 255),
   )
 
+  /** Danger: SOS-like (three short, three long, three short), twice, at full strength — about 8 seconds. */
+  private fun sosTimings(): LongArray {
+    val l = ArrayList<Long>()
+    l.add(0L)
+    repeat(2) {
+      repeat(3) { l.add(140L); l.add(100L) }; l[l.size - 1] = 260L
+      repeat(3) { l.add(440L); l.add(120L) }; l[l.size - 1] = 260L
+      repeat(3) { l.add(140L); l.add(100L) }; l[l.size - 1] = 400L
+    }
+    return l.toLongArray()
+  }
+
+  private fun vibrateDanger(ctx: Context, level: Int) {
+    try {
+      val v = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(android.os.VibratorManager::class.java)).defaultVibrator else @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+      if (!v.hasVibrator()) return
+      val t = sosTimings()
+      val amp = if (level >= 3) 255 else 200
+      val effect = if (v.hasAmplitudeControl()) android.os.VibrationEffect.createWaveform(t, IntArray(t.size) { if (it % 2 == 1) amp else 0 }, -1) else android.os.VibrationEffect.createWaveform(t, -1)
+      @Suppress("DEPRECATION") v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+    } catch (_: Exception) {}
+  }
+
   fun fire(ctx: Context, target: String) {
     val key = when (target) { "p1" -> "p1"; "p2" -> "p2"; else -> "other" }
-    val level = Store.level(ctx, key, if (key == "p1") 3 else if (key == "p2") 2 else 1)
-    vibrate(ctx, level)
+    val level = Store.level(ctx, key, if (key == "p1") 3 else if (key == "p2") 2 else 1).let { if (key == "p1") it.coerceAtLeast(2) else it }
+    if (key == "p1") vibrateDanger(ctx, level) else vibrate(ctx, level)
     if (key == "p1") louder(ctx, level, Store.prefs(ctx).getInt("alert_vol", 3))
   }
 

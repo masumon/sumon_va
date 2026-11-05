@@ -164,3 +164,33 @@ export const alertHistory = (): AlertHistoryItem[] => {
 export const clearAlertHistory = (): boolean => {
   try { return !!(native as unknown as AlertNative | null)?.clearAlertHistory?.(); } catch { return false; }
 };
+
+/** Passkey (Google Credential Manager / fingerprint) sign-in and registration. Never throws: a failure comes back as { ok: false, error }. */
+export type PasskeyResult = { ok: boolean; name?: string; error?: string; cancelled?: boolean };
+type PasskeyNative = {
+  passkeyLogin?: (base: string, name: string) => Promise<PasskeyResult>;
+  passkeyRegister?: (base: string) => Promise<PasskeyResult>;
+};
+const NO_PASSKEY = 'এই ফোনে পাসকির অংশ নেই / Passkey is not available in this build';
+
+export const passkeyLogin = async (base: string, name: string): Promise<PasskeyResult> => {
+  try {
+    const fn = (native as unknown as PasskeyNative | null)?.passkeyLogin;
+    if (!fn) return { ok: false, error: NO_PASSKEY };
+    const r = await (native as unknown as PasskeyNative).passkeyLogin!(base, name);
+    return r && typeof r === 'object' ? r : { ok: false, error: NO_PASSKEY };
+  } catch (e) {
+    return { ok: false, error: `পাসকি দিয়ে ঢোকা যায়নি / Passkey sign-in failed${e instanceof Error && e.message ? `: ${e.message}` : ''}` };
+  }
+};
+
+export const passkeyRegister = async (base: string): Promise<PasskeyResult> => {
+  try {
+    const fn = (native as unknown as PasskeyNative | null)?.passkeyRegister;
+    if (!fn) return { ok: false, error: NO_PASSKEY };
+    const r = await (native as unknown as PasskeyNative).passkeyRegister!(base);
+    return r && typeof r === 'object' ? r : { ok: false, error: NO_PASSKEY };
+  } catch (e) {
+    return { ok: false, error: `পাসকি বানানো যায়নি / Could not create the passkey${e instanceof Error && e.message ? `: ${e.message}` : ''}` };
+  }
+};

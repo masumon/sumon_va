@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
-import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
+import { useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppPreferences } from '../src/app/AppPreferences';
 import { va, type Limits, errTone } from '../src/va/api';
@@ -12,8 +12,8 @@ import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { DesignPicker } from '../src/va/DesignPicker';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
-import { getStatus, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
-import { APP_VERSION } from '../src/va/config';
+import { getStatus, passkeyRegister, setAlertLevels, testAlertLevel } from '../modules/va-bridge';
+import { APP_VERSION, SERVER } from '../src/va/config';
 import { num } from '../src/va/bd';
 
 type Lang = 'bn' | 'en';
@@ -23,6 +23,27 @@ const FROM = ['21:00', '22:00', '23:00', '00:00'] as const;
 const TO = ['05:00', '06:00', '07:00', '08:00'] as const;
 
 const LEVELS = ['0', '1', '2', '3'] as const;
+
+/** Fingerprint / face sign-in: the phone makes its own passkey once (kept in the owner's Google account), then login needs only a touch. */
+function PasskeyCard() {
+  const { bn } = useKit();
+  const { showSnackbar } = useAppFeedback();
+  const [busy, setBusy] = useState(false);
+  const make = async () => {
+    setBusy(true);
+    try {
+      const r = await passkeyRegister(SERVER);
+      if (r.ok) showSnackbar(bn ? 'পাসকি বানানো হয়েছে ✓ — পরের বার আঙুলের ছাপ/ফেস দিয়ে ঢুকতে পারবেন' : 'Passkey created ✓ — next time sign in with fingerprint or face', 'success');
+      else if (!r.cancelled) showSnackbar(r.error || (bn ? 'পাসকি বানানো যায়নি' : 'Could not create the passkey'), 'danger');
+    } finally { setBusy(false); }
+  };
+  return (
+    <Card icon="fingerprint" title={bn ? 'পাসকি (আঙুলের ছাপ / ফেস)' : 'Passkey (fingerprint / face)'}>
+      <Text style={{ lineHeight: 22, marginBottom: 8 }}>{bn ? 'একবার বানিয়ে নিলে লগইনে শুধু আঙুলের ছাপ বা ফেস লাগবে। পাসকি আপনার গুগল অ্যাকাউন্টে নিরাপদে থাকে।' : 'Create it once and sign in with just a fingerprint or face. The passkey stays safely in your Google account.'}</Text>
+      <AppButton icon="fingerprint" label={bn ? 'এই ফোনে পাসকি বানান' : 'Create a passkey on this phone'} loading={busy} onPress={() => void make()} accessibilityLabel={bn ? 'এই ফোনে পাসকি বানান' : 'Create a passkey on this phone'} />
+    </Card>
+  );
+}
 
 /** Sign in with a phone number as well as the e-mail: the number is saved on the server and only replaces the username. */
 function LoginPhone() {
@@ -85,7 +106,6 @@ export default function SettingsScreen() {
   const channels = useLoad(() => va.channels(), 'channels');
   const limits = channels.data?.limits;
   const [pin, setPin] = useState('');
-  const [confirm, setConfirm] = useState(false);
 
   const saveLimits = async (patch: Partial<Limits>) => {
     try { await va.saveConfig({ limits: patch }); await channels.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
@@ -122,6 +142,7 @@ export default function SettingsScreen() {
       <AlertStrength />
 
       <LoginPhone />
+      <PasskeyCard />
 
       <Card icon="bell-alert-outline" title={bn ? 'জরুরি অ্যালার্টের সীমা' : 'Urgent alert limits'}>
         {limits ? (
@@ -139,14 +160,10 @@ export default function SettingsScreen() {
       </Card>
 
       <Card icon="cellphone" title={bn ? 'এই ফোন' : 'This phone'}>
-        <AppButton variant="danger" icon="link-off" label={bn ? 'এই ফোনের সংযোগ বিচ্ছিন্ন করুন' : 'Unpair this phone'} onPress={() => setConfirm(true)} />
+        <Text style={{ lineHeight: 22 }}>{bn ? 'এই ফোনের সংযোগ ফোন থেকে বিচ্ছিন্ন করা যায় না। শুধু অ্যাডমিন (ওয়েবসাইটের সুমন প্যানেল) থেকে এই ফোন সরালে সংযোগ শেষ হবে, গুগল Find Hub-এর মতো। ফোন হারালেও কেউ এখান থেকে সাইন-আউট করতে পারবে না।' : 'This phone cannot be disconnected from the phone itself. Only removing it in the admin (Sumon panel on the website) ends the link, like Google Find Hub. A thief cannot sign out from here.'}</Text>
         <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {num(APP_VERSION, bn)}</Text>
       </Card>
 
-      <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
-        description={bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
-        cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
-        onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } unpair(); router.replace('/login' as never); }} />
     </Page>
   );
 }

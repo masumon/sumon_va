@@ -52,8 +52,13 @@ export const PERMISSIONS: PermDef[] = [
   { key: 'contacts', group: 'optional', grade: 'optional', bn: 'কন্টাক্টস (নাম চেনার জন্য)', en: 'Contacts (know names)', whyBn: 'SMS ও কলের নম্বরের পাশে আপনার ফোনে সেভ করা নাম দেখাতে।', whyEn: 'Shows the name saved on your phone next to SMS and call numbers.', ok: (s) => s.contacts, runtime: [P.READ_CONTACTS] },
   { key: 'location', group: 'optional', grade: 'optional', bn: 'লোকেশন', en: 'Location', whyBn: '“রুটিন ও জায়গা” পাতায় এখনকার জায়গা সেভ করতে (যেমন অফিস, বাসা), যাতে সহকারী জানে আপনি কোথায় আছেন। না দিলেও বাকি সব চলবে।', whyEn: 'To save your current place (office, home) on the Routine page so the assistant knows where you are. Everything else works without it.', ok: (s) => s.location, runtime: [P.ACCESS_FINE_LOCATION, P.ACCESS_COARSE_LOCATION] },
   { key: 'storage', group: 'optional', grade: 'optional', bn: 'ছবি ও মেমোরি', en: 'Photos and storage', whyBn: 'বার্তায় ছবি বা ফাইল জুড়তে আর ব্যাকআপ রাখতে।', whyEn: 'To attach photos/files and keep backups.', ok: (s) => s.storage, runtime: [media] },
-  { key: 'mic', group: 'optional', grade: 'optional', bn: 'মাইক্রোফোন', en: 'Microphone', whyBn: 'পরে ভয়েসে উত্তর দিতে। এখন এটা ব্যবহার হয় না।', whyEn: 'Later, to answer by voice. Not used yet.', ok: (s) => s.microphone, runtime: [P.RECORD_AUDIO] },
 ];
+
+/** The microphone entry was removed: RECORD_AUDIO is not declared in the manifest and nothing uses it, so it could never be granted. */
+
+/** Switches that live only in system Settings (no runtime dialog): the walk-through opens them one by one. */
+export const SPECIAL_ORDER = ['access', 'battery', 'dnd', 'exact', 'fullscreen'];
+export const specialDefs = (): PermDef[] => SPECIAL_ORDER.map((k) => PERMISSIONS.find((p) => p.key === k)).filter((d): d is PermDef => !!d && !!d.open);
 
 export type Outcome = { ok: boolean; reasonBn: string; reasonEn: string };
 

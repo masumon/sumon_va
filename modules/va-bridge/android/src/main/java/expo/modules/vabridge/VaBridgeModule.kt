@@ -188,6 +188,20 @@ class VaBridgeModule : Module() {
       } else mapOf("ok" to true, "status" to status)
     }
 
+    /** Sign in with a passkey (Google Password Manager). Returns ok/name/error/cancelled; the token stays native. */
+    AsyncFunction("passkeyLogin") { base: String, name: String ->
+      val act = appContext.currentActivity ?: return@AsyncFunction mapOf("ok" to false, "error" to "অ্যাপটি সামনে খুলে আবার চেষ্টা করুন")
+      if (!base.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
+      PasskeyHelper.login(ctx, act, base, name)
+    }
+
+    /** Create a passkey for this account (needs an existing sign-in). */
+    AsyncFunction("passkeyRegister") { base: String ->
+      val act = appContext.currentActivity ?: return@AsyncFunction mapOf("ok" to false, "error" to "অ্যাপটি সামনে খুলে আবার চেষ্টা করুন")
+      if (!base.startsWith("https://")) return@AsyncFunction mapOf("ok" to false, "error" to "https ঠিকানা লাগবে")
+      PasskeyHelper.register(ctx, act, base)
+    }
+
     /** The apps on this phone that have an icon (so the owner can add any chat app as a new platform). */
     Function("installedApps") {
       val pm = ctx.packageManager
@@ -242,7 +256,7 @@ class VaBridgeModule : Module() {
     Function("alertHistory") {
       PollService.history(ctx).reversed().map {
         mapOf("id" to it.optString("id"), "title" to it.optString("title"), "text" to it.optString("text"), "sub" to it.optString("sub"),
-          "target" to it.optString("target"), "at" to it.optDouble("at", 0.0))
+          "target" to it.optString("target"), "zone" to it.optString("zone", "info"), "at" to it.optDouble("at", 0.0))
       }
     }
     Function("clearAlertHistory") { PollService.clearHistory(ctx); true }

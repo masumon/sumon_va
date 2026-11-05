@@ -7,6 +7,8 @@ import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { useAppPreferences } from '../src/app/AppPreferences';
 import { Page } from '../src/va/Page';
+import { SERVER } from '../src/va/config';
+import { passkeyRegister } from '../modules/va-bridge';
 
 /** Right after sign-in: lock the app with a PIN (and the fingerprint/face the phone already has). Skippable, but recommended. */
 export default function LockSetupScreen() {
@@ -19,6 +21,16 @@ export default function LockSetupScreen() {
   useEffect(() => {
     void (async () => setBio((await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync())))();
   }, []);
+
+  const [pkBusy, setPkBusy] = useState(false);
+  const makePasskey = async () => {
+    setPkBusy(true);
+    try {
+      const r = await passkeyRegister(SERVER);
+      if (r.ok) showSnackbar(bn ? 'পাসকি বানানো হয়েছে ✓' : 'Passkey created ✓', 'success');
+      else if (!r.cancelled) showSnackbar(r.error || (bn ? 'পাসকি বানানো যায়নি' : 'Could not create the passkey'), 'danger');
+    } catch { showSnackbar(bn ? 'পাসকি বানানো যায়নি' : 'Could not create the passkey', 'danger'); } finally { setPkBusy(false); }
+  };
 
   const ok = pin.length >= 4 && pin === again;
   const save = async () => {
@@ -39,6 +51,10 @@ export default function LockSetupScreen() {
         <ToggleRow icon="fingerprint" label={bn ? 'আঙুলের ছাপ বা মুখ দিয়ে খোলা' : 'Open with fingerprint / face'}
           hint={bio === false ? (bn ? 'এই ফোনে আঙুলের ছাপ বা ফেস আনলক সেট করা নেই। আগে ফোনের সেটিংসে গিয়ে সেট করুন।' : 'No fingerprint or face is set up on this phone yet.') : (bn ? 'PIN চালু থাকলে ফোনের আঙুলের ছাপ বা ফেস আনলকও কাজ করবে।' : 'With a PIN on, the phone’s own fingerprint/face works too.')}
           value={bio === true && p.appLockEnabled} onChange={() => { /* biometrics follow the PIN lock automatically */ }} />
+      </Card>
+      <Card title={bn ? 'পাসকি (ঐচ্ছিক)' : 'Passkey (optional)'}>
+        <Text style={{ opacity: 0.75, marginBottom: 8 }}>{bn ? 'এই ফোনে পাসকি বানান (পরের বার আঙুলের ছাপ/ফেস দিয়ে ঢুকবেন)' : 'Create a passkey on this phone (next time you sign in with fingerprint/face)'}</Text>
+        <AppButton variant="secondary" icon="fingerprint" loading={pkBusy} label={bn ? 'পাসকি বানান' : 'Create passkey'} accessibilityLabel={bn ? 'এই ফোনে পাসকি বানান' : 'Create a passkey on this phone'} onPress={() => void makePasskey()} />
       </Card>
       <AppButton label={bn ? 'লক চালু করুন' : 'Turn on lock'} icon="shield-lock-outline" disabled={!ok} onPress={() => void save()} />
       <AppButton variant="ghost" label={bn ? 'এখন নয়' : 'Not now'} onPress={() => router.replace('/tour' as never)} />

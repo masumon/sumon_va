@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AppState, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -6,13 +6,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
-import { AppButton } from '../ui/AppSurface';
-import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
-import { getStatus, unpair } from '../../modules/va-bridge';
-import { va } from './api';
+import { getStatus } from '../../modules/va-bridge';
 import { MENU } from './menu';
 import { useShell } from './shell';
 import { PoweredBy } from './BrandMark';
@@ -27,11 +24,9 @@ export function Drawer() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { showSnackbar } = useAppFeedback();
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const panel = Math.min(320, width * 0.86);
   const x = useSharedValue(-panel);
-  const [confirm, setConfirm] = useState(false);
   const bridge = getStatus();
 
   // The menu always starts shut and shuts whenever the screen changes or the app comes back (owner bug, 2026-11-05).
@@ -49,14 +44,6 @@ export function Drawer() {
   const veil = useAnimatedStyle(() => ({ opacity: 1 + x.value / panel }));
 
   const go = (href: string) => { close(); router.push(href as never); };
-  const signOut = async () => {
-    setConfirm(false);
-    close();
-    try { await va.logout(); } catch { /* the phone signs out locally even if the server cannot be reached */ }
-    unpair();
-    showSnackbar(bn ? 'সাইন আউট হয়েছে' : 'Signed out', 'info');
-    router.replace('/login' as never);
-  };
   // Every menu entry gets its own coloured icon tile, cycling through the theme's accent families.
   const TILE = ['blue', 'green', 'orange', 'purple', 'yellow', 'red'] as const;
   let tileIndex = 0;
@@ -96,13 +83,10 @@ export function Drawer() {
           ))}
         </ScrollView>
         <View style={{ gap: spacing.sm }}>
-          <AppButton variant="secondary" icon="logout" label={bn ? 'সাইন আউট' : 'Sign out'} onPress={() => setConfirm(true)} />
+          <Text style={{ textAlign: 'center', fontSize: 12, opacity: 0.7, paddingHorizontal: spacing.sm }}>{bn ? 'এই ফোন শুধু অ্যাডমিন থেকে সরানো যায় (Find Hub-এর মতো)' : 'This phone can only be removed from the admin (like Find Hub)'}</Text>
           <PoweredBy />
         </View>
       </Animated.View>
-      <AppConfirmDialog visible={confirm} danger icon="logout" title={bn ? 'সাইন আউট করবেন?' : 'Sign out?'}
-        description={bn ? 'এই ফোন থেকে আর বার্তা সার্ভারে যাবে না, জরুরি অ্যালার্মও বাজবে না। আবার ঢুকতে ইমেইলে আসা কোড লাগবে।' : 'This phone will stop syncing and will not ring for urgent alerts. You will need an e-mailed code to sign in again.'}
-        cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'সাইন আউট' : 'Sign out'} onCancel={() => setConfirm(false)} onConfirm={() => void signOut()} />
     </View>
   );
 }

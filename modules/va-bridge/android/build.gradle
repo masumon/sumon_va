@@ -17,4 +17,7 @@ android {
 dependencies {
   // Android Keystore-backed storage: the device token never sits in plain text, and JavaScript never sees it.
   implementation "androidx.security:security-crypto:1.1.0"
+  // Passkey sign-in (Google Password Manager) through Android Credential Manager.
+  implementation "androidx.credentials:credentials:1.3.0"
+  implementation "androidx.credentials:credentials-play-services-auth:1.3.0"
 }
