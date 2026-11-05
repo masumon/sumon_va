@@ -116,3 +116,4 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 
 | 2026-11-06 | সুমন | Telegram: `@SumonVA_bot` আগের বটই (নতুন নয়); token ও secret `sumon-va-api` এ বসানো; webhook এখন `va-api.aboenterprise.com` এ বাঁধা (ইচ্ছাকৃত; ABO আর এই বট ব্যবহার করে না) |
 | 2026-11-06 | Claude | কোড ঘেঁটে দেখা: নতুন সার্ভারে লাগে না: Supabase কী, Cloudinary, SMS, bKash/Nagad, GA4, VAPID, Sentry, IMAP, Resend। লাগে: DATABASE_URL, SECRET_KEY, ADMIN_*, TELEGRAM_*, EMAIL_INBOUND_SECRET, FRONTEND_URL, DEVICE_PASSKEY_RP_ID; পরে ABO_* ও VA_INTEGRATION_TOKEN। cron: সার্ভারের ভেতরের লুপ (cron-job.org লাগবে না) |
+| 2026-11-06 | সুমন | ইমেইল: `info@aboenterprise.com` → Worker `abo-mail-to-inbox` → `va-api` (ABO এর কাস্টমার-মেইলও Sumon VA ইনবক্সে চাই, সিদ্ধান্ত); Gmail ফরোয়ার্ড আগের মতো; ইমেইল চ্যানেল অ্যাপ সরার পর চালু হবে |
