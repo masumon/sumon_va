@@ -153,18 +153,27 @@ object PasskeyHelper {
     }
   }
 
+  /** Google answers "RP ID cannot be validated" while it has not (yet) accepted the app-to-server link: say so plainly. */
+  private fun why(e: Exception, fallback: String): String {
+    val msg = ((e as? GetCredentialException)?.errorMessage ?: (e as? CreateCredentialException)?.errorMessage ?: e.message ?: "").toString()
+    return if (msg.contains("RP ID", ignoreCase = true) || msg.contains("50152"))
+      "গুগল এখনও সার্ভারের সাথে অ্যাপের যোগ যাচাই করতে পারেনি। ৩০-৬০ মিনিট পর আবার চেষ্টা করুন, না হলে ফোনের Google Play services-এর ক্যাশ পরিষ্কার করুন"
+    else if (msg.isNotBlank()) fallback + " (" + msg.take(70) + ")"
+    else fallback
+  }
+
   private fun mapGetError(e: Exception): Map<String, Any> = when (e) {
     is GetCredentialCancellationException -> cancelled()
     is NoCredentialException -> fail(NO_PASSKEY)
-    is GetCredentialException -> fail("পাসকি দিয়ে ঢোকা যায়নি, আবার চেষ্টা করুন")
+    is GetCredentialException -> fail(why(e, "পাসকি দিয়ে ঢোকা যায়নি, আবার চেষ্টা করুন"))
     else -> fail("পাসকি দিয়ে ঢোকা যায়নি")
   }
 
   private fun mapCreateError(e: Exception): Map<String, Any> = when (e) {
     is CreateCredentialCancellationException -> cancelled()
     is CreatePublicKeyCredentialDomException ->
-      if (e.domError is InvalidStateError) fail("এই ফোনে পাসকি আগেই বানানো আছে") else fail("পাসকি বানানো যায়নি, আবার চেষ্টা করুন")
-    is CreateCredentialException -> fail("পাসকি বানানো যায়নি, আবার চেষ্টা করুন")
+      if (e.domError is InvalidStateError) fail("এই ফোনে পাসকি আগেই বানানো আছে") else fail(why(e, "পাসকি বানানো যায়নি"))
+    is CreateCredentialException -> fail(why(e, "পাসকি বানানো যায়নি, আবার চেষ্টা করুন"))
     else -> fail("পাসকি বানানো যায়নি")
   }
 }

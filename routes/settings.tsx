@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
-import { useAppFeedback } from '../src/ui/AppFeedback';
+import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppPreferences } from '../src/app/AppPreferences';
 import { va, type Limits, errTone } from '../src/va/api';
@@ -12,7 +12,7 @@ import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { DesignPicker } from '../src/va/DesignPicker';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
-import { getStatus, passkeyRegister, setAlertLevels, testAlertLevel } from '../modules/va-bridge';
+import { getStatus, passkeyRegister, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
 import { APP_VERSION, SERVER } from '../src/va/config';
 import { num } from '../src/va/bd';
 
@@ -100,6 +100,7 @@ function AlertStrength() {
 }
 
 export default function SettingsScreen() {
+  const [confirm, setConfirm] = useState(false);
   const { bn } = useKit();
   const p = useAppPreferences();
   const { showSnackbar } = useAppFeedback();
@@ -160,10 +161,14 @@ export default function SettingsScreen() {
       </Card>
 
       <Card icon="cellphone" title={bn ? 'এই ফোন' : 'This phone'}>
-        <Text style={{ lineHeight: 22 }}>{bn ? 'এই ফোনের সংযোগ ফোন থেকে বিচ্ছিন্ন করা যায় না। শুধু অ্যাডমিন (ওয়েবসাইটের সুমন প্যানেল) থেকে এই ফোন সরালে সংযোগ শেষ হবে, গুগল Find Hub-এর মতো। ফোন হারালেও কেউ এখান থেকে সাইন-আউট করতে পারবে না।' : 'This phone cannot be disconnected from the phone itself. Only removing it in the admin (Sumon panel on the website) ends the link, like Google Find Hub. A thief cannot sign out from here.'}</Text>
+        <AppButton variant="danger" icon="link-off" label={bn ? 'এই ফোনের সংযোগ বিচ্ছিন্ন করুন' : 'Unpair this phone'} onPress={() => setConfirm(true)} />
         <Text style={{ marginTop: 10, opacity: 0.7, fontSize: 13 }}>{bn ? 'সংস্করণ' : 'Version'} {num(APP_VERSION, bn)}</Text>
       </Card>
 
+      <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
+        description={bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
+        cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
+        onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } unpair(); router.replace('/login' as never); }} />
     </Page>
   );
 }
