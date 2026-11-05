@@ -39,7 +39,12 @@ async def lifespan(app: FastAPI):
 
     await ensure_admin_security_columns(_engine)
     await ensure_wa_tables(_engine)
+    from app.core import scheduler
+
+    job = scheduler.start() if settings.APP_ENV == "production" else None  # tests never start it
     yield
+    if job:
+        job.cancel()
     logger.info("Shutting down %s", settings.APP_NAME)
 
 

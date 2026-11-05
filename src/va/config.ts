@@ -1,5 +1,5 @@
 /** The server this private app talks to. Fixed on purpose: the app can never be pointed somewhere else. */
-export const SERVER = 'https://api.aboenterprise.com';
+export const SERVER = 'https://va-api.aboenterprise.com';
 
 export const APP_VERSION = '0.1.0';
 
