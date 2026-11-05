@@ -57,12 +57,12 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [x] 2026-11-06 `va-api.aboenterprise.com` verified, HTTPS চালু, `/health` ও `assetlinks.json` ok |
 | S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
 | S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | বাদ: সার্ভারের ভেতরের লুপ (`server/app/core/scheduler.py`) করবে |
-| S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] |
+| S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] workflow এখনো বানানো হয়নি (Claude Code এর নিরাপত্তা-ব্লক আটকেছে); সুমনের সিদ্ধান্ত বাকি |
 | S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [~] 2026-11-06 মূল ৯টি বসানো (DATABASE_URL, SECRET_KEY, APP_ENV, STARTUP_BOOTSTRAP_ENABLED, ADMIN_*, FRONTEND_URL, DEVICE_PASSKEY_RP_ID); বাকি: TELEGRAM_*, ABO_*, VA_INTEGRATION_TOKEN, EMAIL_INBOUND_SECRET |
-| S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [ ] |
+| S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [~] AI কোড ABO এর সঙ্গে হুবহু একই (diff যাচাই, ৭ ফাইল); সুমন নিজে অ্যাপের AI স্ক্রিনে কী বসাবে |
 | S11 | ABO তে ছোট API PR (§৮) দেখে merge | [ ] |
-| S12 | রিলিজ keystore ও পাসওয়ার্ড PC এর বাইরে ব্যাকআপ | [ ] |
-| S13 | অ্যাডমিন থেকে Audit-Emulator ডিভাইস revoke | [ ] |
+| S12 | রিলিজ keystore ও পাসওয়ার্ড PC এর বাইরে ব্যাকআপ | [x] সুমন জানিয়েছে ব্যাকআপ নেওয়া আছে (2026-11-06) |
+| S13 | অ্যাডমিন থেকে Audit-Emulator ডিভাইস revoke | বাদ: নতুন ডাটাবেস খালি, পুরোনো ডিভাইস সেখানে নেই |
 
 ## ৭. Claude যা করবে
 | # | কাজ | অবস্থা |
@@ -71,16 +71,16 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | C2 | `server/` তৈরি: ~৫৩ মডিউল কপি, ছাঁটাই (দোকান, পেমেন্ট, কুরিয়ার, ওয়েবসাইট chatbot বাদ; `assistant/__init__.py` এর chatbot import বাদ) | [x] 2026-11-06 `server/` ৬৭ মডিউল (~১৪ হাজার লাইন); chatbot import ও দোকানের রুট বাদ; ABO order/lead লুকআপ বাদ |
 | C3 | সংশ্লিষ্ট টেস্ট কপি, সব সবুজ (অফলাইনে) | [x] 2026-11-06 ২৬৭ টেস্ট সবুজ (অফলাইন) |
 | C4 | `server/manual_sql/0001_sumon_va_schema.sql` (~১৪ টেবিল, RLS চালু, policy ছাড়া) | [x] 2026-11-06 `server/manual_sql/0001_sumon_va_schema.sql` (১৪ টেবিল, RLS চালু, সুমন এখনো চালাননি) |
-| C5 | ছক: Render এ কোন env কী নামে (§৯ সম্পূর্ণ করা) | [ ] |
-| C6 | নতুন Worker কোড (Q3 এর পর) | [ ] |
+| C5 | ছক: Render এ কোন env কী নামে (§৯ সম্পূর্ণ করা) | [x] env ছক §৯ ও বাস্তব বসানো মিলেছে |
+| C6 | নতুন Worker কোড (Q3 এর পর) | বাদ: নতুন Worker লাগেনি, আগেরটার ঠিকানা বদলানো হয়েছে |
 | C7a | ABO তে "সুমন VA" ট্যাব (শুধু ফ্রন্টএন্ড+ছোট backend প্রক্সি): ডিভাইস জোড়ার কোড তৈরি, ডিভাইস তালিকা/সরানো, kill switch; নতুন সার্ভারের `/integration/*` কে সার্ভিস টোকেনে ডাকে (ABO তে অ্যাডিটিভ PR, সুমন merge) | [~] 2026-11-06 সার্ভারের দিক তৈরি (`integration.py`, ৬ টেস্ট); ABO এর দিক: `docs/ABO_ADMIN_TAB_SPEC.md` অনুযায়ী ABO এজেন্ট বানাবে |
 | C7 | `abo_client.py` + হোমের ব্যবসায়িক সংখ্যা ABO API থেকে | [ ] |
 | C8 | ABO তে API PR (অ্যাডিটিভ, বন্ধ থাকে) + ABO এর পুরো টেস্ট সবুজ | [ ] |
-| C9 | পুরোনো ডেটা শুধু-পড়ে নতুন DB তে কপি (ABO এর কিছু বদলাবে না) | [ ] |
+| C9 | পুরোনো ডেটা শুধু-পড়ে নতুন DB তে কপি (ABO এর কিছু বদলাবে না) | বাদ: সুমন পুরোনো ডেটা চান না (2026-11-06) |
 | C10 | অডিটের জানা বাগ নতুন কপিতে ঠিক (B-01 জরুরি alert, B-02 পরিবার কখনো auto-reply নয়, B-04, B-12, P-01, D-02 ...) | [ ] |
-| C11 | অ্যাপ: `SERVER` বদল, নতুন সার্ভারে `base` মাইগ্রেশন/পুনরায় সাইন-ইন, নতুন passkey, `assetlinks.json` | [~] 2026-11-06 `src/va/config.ts` SERVER = va-api (tsc/eslint ok, লোকাল commit); বাকি: বিল্ড, emulator পরীক্ষা, passkey |
-| C12 | নতুন APK: **আপনার অনুমতি নিয়ে**, আগে emulator, তারপর ফোন | [ ] |
-| C13 | `docs/HANDOFF.md` আপডেট | [ ] |
+| C11 | অ্যাপ: `SERVER` বদল, নতুন সার্ভারে `base` মাইগ্রেশন/পুনরায় সাইন-ইন, নতুন passkey, `assetlinks.json` | [x] 2026-11-06 বিল্ড ৪৬ ফোনে ইনস্টল, Telegram সাইন-ইন সফল; পরের বিল্ডে ইমেইল-কোড বোতাম সরানো ও ৭৫ সেকেন্ড অপেক্ষা (কোডে হয়েছে) |
+| C12 | নতুন APK: **আপনার অনুমতি নিয়ে**, আগে emulator, তারপর ফোন | [~] প্রথম বিল্ড ফোনে হয়েছে; পরের বিল্ড সুমনের অনুমতির পর |
+| C13 | `docs/HANDOFF.md` আপডেট | [x] 2026-11-06 HANDOFF নতুন করে লেখা |
 
 ## ৮. ABO থেকে কী আসবে, কী আসবে না
 **আসবে (কপি, ABO অক্ষত):** brain (`wa_flow`, `wa_brain`, `wa_ai`, `privacy`, `promises`, `presence`, `timectx`, `wa_config`, `wa_health`, `wa_send`, `wa_coexist`); চ্যানেল (`ingest`, `dispatch`, `alerts`, `telegram`, `phone_login`, `wake`, `email_filter`, `imap_mail`, `platforms`); AI (`ai_gemini`, `ai_hub`, `ai_providers`, `ai_catalog`, `link_import`); রুট `inbox.py`, `wa_assistant.py` (দরকারি অংশ), `ai_hub.py`, `ai_catalog.py`, `passkeys` (ডিভাইস অংশ); core (`config`, `database`, `security`, `rbac`, `rate_limit`, `email*`, `notifications`, `ops_events`, `monitoring`, `service_health`, `totp_crypto`, `admin_security`, `capabilities`, `device_auth`); টেবিল ~১৪টি: `admin_users`, `passkeys`, `settings`, `activity_logs`, `notifications`, `system_events`, `email_templates`, `wa_contacts`, `wa_messages`, `wa_notes`, `wa_tasks`, `inbox_devices`, `inbox_pair_codes`, `inbox_commands`।
@@ -117,3 +117,4 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 2026-11-06 | সুমন | Telegram: `@SumonVA_bot` আগের বটই (নতুন নয়); token ও secret `sumon-va-api` এ বসানো; webhook এখন `va-api.aboenterprise.com` এ বাঁধা (ইচ্ছাকৃত; ABO আর এই বট ব্যবহার করে না) |
 | 2026-11-06 | Claude | কোড ঘেঁটে দেখা: নতুন সার্ভারে লাগে না: Supabase কী, Cloudinary, SMS, bKash/Nagad, GA4, VAPID, Sentry, IMAP, Resend। লাগে: DATABASE_URL, SECRET_KEY, ADMIN_*, TELEGRAM_*, EMAIL_INBOUND_SECRET, FRONTEND_URL, DEVICE_PASSKEY_RP_ID; পরে ABO_* ও VA_INTEGRATION_TOKEN। cron: সার্ভারের ভেতরের লুপ (cron-job.org লাগবে না) |
 | 2026-11-06 | সুমন | ইমেইল: `info@aboenterprise.com` → Worker `abo-mail-to-inbox` → `va-api` (ABO এর কাস্টমার-মেইলও Sumon VA ইনবক্সে চাই, সিদ্ধান্ত); Gmail ফরোয়ার্ড আগের মতো; ইমেইল চ্যানেল অ্যাপ সরার পর চালু হবে |
+| 2026-11-06 | Claude | AI কোড যাচাই (৭ ফাইল হুবহু ABO); S12 সুমনের কথায় সম্পন্ন; ব্যাকআপ workflow নিরাপত্তা-ব্লকে আটকা; HANDOFF নতুন করে লেখা |
