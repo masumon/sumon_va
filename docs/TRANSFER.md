@@ -1,0 +1,114 @@
+# TRANSFER.md — ABO থেকে Sumon VA আলাদা করার কাজের তালিকা (জীবন্ত ফাইল)
+
+> এই ফাইল দেখে আমরা দুজন (সুমন + Claude) কাজ করি। বিস্তারিত পরিকল্পনা: `docs/SERVER_SEPARATION_MASTER_PLAN.md`. ক্রম, ঝুঁকি, rollback সেখানে।
+> **আপডেটের নিয়ম:** সুমন বললে "আমার কাজ শেষ" → Claude তার ধাপ `[x]` করে তারিখ বসায়। Claude নিজের কাজ শেষ করলে নিজেই আপডেট করে। কোনো ধাপ আন্দাজে `[x]` হবে না: যাচাই করা হলে তবেই।
+> **কোনো secret (পাসওয়ার্ড, token, DB লিংক, API key) এই ফাইলে বা চ্যাটে নয়।** শুধু নাম লেখা থাকে; মান বসে সরাসরি Render এ।
+
+Last updated: 2026-11-06 (প্রথম খসড়া; কিছু শুরু হয়নি)
+
+## ১. লক্ষ্য (এক লাইনে)
+ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assistant যেমন আছে তেমন থাকবে। Sumon VA পাবে নিজের GitHub repo, নিজের Render, নিজের Supabase, নিজের Telegram বট, নিজের ইমেইল পথ, নিজের ঠিকানা `va-api.aboenterprise.com`। ABO এর ডাটাবেসে সে সরাসরি ঢুকবে না।
+
+## ২. সিদ্ধান্ত যা হয়ে গেছে
+| বিষয় | সিদ্ধান্ত | কে বলেছেন |
+|---|---|---|
+| GitHub | আলাদা repo `masumon/sumon_va` (আছে) | সুমন |
+| Render | আলাদা workspace/অ্যাকাউন্ট (সুমনের আছে) | সুমন |
+| Supabase | আলাদা নতুন ফ্রি প্রজেক্ট `sumon-va` | সুমন |
+| Brain (AI, নিয়ম, টাস্ক) | সব কপি হবে, নতুন সার্ভারে চলবে | সুমন |
+| Telegram | নতুন আলাদা বট | সুমন |
+| সাবডোমেইন | `va-api.aboenterprise.com` | সুমন |
+| ব্যবসায়িক সংখ্যা (অর্ডার, বুকিং, লিড, চাকরির আবেদন) | ABO তে ছোট শুধু-পড়ার API (ডিফল্টে বন্ধ, টোকেন দিলে চালু); শুধু ABO এর এই ৪ সংখ্যা, আর কিছু নয় | সুমন |
+| সাইন-ইন | ইমেইল কোড লাগবে না। শুধু Google passkey + Telegram বট (@SumonVA_bot) + pairing কোড। তাই Resend key (S4) বাদ | সুমন 2026-11-06 |
+| ডিভাইস জোড়া (pair) | মূল ABO ওয়েবসাইটের অ্যাডমিনে "সুমন VA" ট্যাব থেকে; ABO সার্ভার নতুন Sumon VA সার্ভারকে সার্ভিস টোকেনে ডাকবে | সুমন 2026-11-06 |
+| ইমেইল আসা (ইনবক্স) | Cloudflare Email Routing + Worker (নিচে §৫) | সুমন |
+
+## ৩. এখনো খোলা প্রশ্ন (উত্তর লাগবে)
+- [x] **Q1 (সুমন) 2026-11-06: `admin@sumon.com`** (শুধু অ্যাকাউন্টের পরিচয়, কোড যাবে না; `ADMIN_EMAIL` এ বসবে): নতুন সার্ভারে মালিকের অ্যাকাউন্টের ইমেইল কোনটা? (এখন শুধু অ্যাকাউন্টের পরিচয় ও passkey এর মালিক; কোড পাঠানো হবে না; পাসওয়ার্ড নয়)
+- [ ] **Q2 (সুমন):** Cloudflare এ ইনবক্সের জন্য নতুন ঠিকানা কী হবে? (যেমন `inbox@` বা `sumon@aboenterprise.com`; ABO এর বর্তমান ঠিকানা ছোঁয়া হবে না)
+- [ ] **Q3 (সুমন):** Cloudflare Dashboard এ Worker `abo-mail-to-inbox` → "Edit code" থেকে কোডটা পেস্ট করুন (এতে secret নেই; secret আলাদা binding)। এটা কপি করে নতুন Worker বানাব।
+- [ ] **Q4 (Claude):** ABO main এ release branch `feature/sumon-va-release-2026-11-06` merge হয়েছে কিনা `gh` দিয়ে দেখা।
+- [ ] **Q5 (Claude):** `privacy.py` এর sealed (`enc1:`) টেক্সটের চাবি ABO এর SECRET_KEY থেকে আসে কিনা। এতে ঠিক হবে পুরোনো private টেক্সট কপি করা যাবে কি না।
+
+## ৪. ঠিকানার মানচিত্র
+| কী | ABO (ছোঁয়া হবে না) | Sumon VA (নতুন) |
+|---|---|---|
+| Repo | `masumon/abo-enterprise` | `masumon/sumon_va` (অ্যাপ root এ, সার্ভার `server/` এ) |
+| সার্ভার | Render `abo-enterprise-api` | Render `sumon-va-api` (নতুন workspace) |
+| ডাটাবেস | Supabase (ABO) | Supabase `sumon-va` (নতুন) |
+| API ঠিকানা | `api.aboenterprise.com` | `va-api.aboenterprise.com` |
+| Telegram বট | বর্তমান বট (webhook ABO তে বাঁধা) | নতুন বট |
+| ইমেইল পাঠানো | Resend/SMTP | নেই (প্রয়োজন নেই) |
+| ইমেইল আসা | Worker `abo-mail-to-inbox` → `api.aboenterprise.com/api/v1/email/inbound` (header `X-Inbound-Secret`) | নতুন Worker (কপি) → `va-api.aboenterprise.com/api/v1/email/inbound`, নিজের নতুন secret |
+| ব্যাকআপ | `db-backup.yml` | একই workflow, নিজের secret |
+
+## ৫. ইমেইল (Cloudflare) কীভাবে চলে: যা বুঝেছি
+- Worker `abo-mail-to-inbox` আসা ইমেইল নিয়ে ABO সার্ভারের `POST /api/v1/email/inbound` এ পাঠায়, header `X-Inbound-Secret` এর মান সার্ভারের `EMAIL_INBOUND_SECRET` এর সঙ্গে মিললে তবেই গ্রহণ। Worker এর `SECRET` binding এই মান ধরে (সর্বশেষ deploy: "Add secret: SECRET")।
+- সার্ভারে আসা মেইল `imap_mail.parse_raw` দিয়ে পড়ে, ফিল্টার করে, ইনবক্সে রাখে। Gmail IMAP আরেকটা পথ (এখন বাধ্যতামূলক নয়)।
+- **নতুন সার্ভারের জন্য:** ABO এর Worker ছোঁয়া হবে না। নতুন Worker `sumon-va-mail-to-inbox` বানিয়ে Q2 এর ঠিকানায় Email Routing এ বসানো; লক্ষ্য URL ও secret নতুন। একই ঠিকানা দুই Worker এ একসঙ্গে যায় না, তাই cutover এ ঠিকানার rule বদলাতে হবে।
+
+## ৬. সুমন যা তৈরি করবেন (প্রতিটি শেষে "হয়েছে" বলুন)
+| # | কাজ | অবস্থা |
+|---|---|---|
+| S1 | Render আলাদা workspace এ খালি web service `sumon-va-api` (Free) | [x] 2026-11-06 তৈরি (root `server`; প্রথম deploy ব্যর্থ: `server/` এখনো নেই, প্রত্যাশিত); hostname `sumon-va-api.onrender.com`, Singapore, Auto-Deploy Off: সুমন নিশ্চিত করেছেন 2026-11-06 |
+| S2 | Supabase নতুন ফ্রি প্রজেক্ট `sumon-va` (রিজিয়ন Render এর কাছাকাছি) | [x] 2026-11-06 তৈরি (Free, nano, Healthy; project ref `iuavcqdeysruiuwvacrw`; রিজিয়ন সুমন নিশ্চিত করেননি; SQL এখনো চালানো হয়নি, কোনো টেবিল নেই) |
+| S3 | Telegram BotFather থেকে নতুন বট; **username** চ্যাটে বলবেন, token নয় | [x] 2026-11-06 বট `@SumonVA_bot` (token সুমনের কাছে, Render এ বসবে; webhook এখনো সংযুক্ত নয়) |
+| S4 | ~~Resend নতুন API key~~ বাদ: ইমেইল কোড লাগবে না (সুমনের সিদ্ধান্ত 2026-11-06) | বাদ |
+| S5 | Cloudflare: Render এ custom domain `va-api.aboenterprise.com` যোগের পর CNAME `va-api` → Render hostname (শুরুতে "DNS only", সার্টিফিকেট আসার পর চাইলে proxied) | [ ] |
+| S6 | Cloudflare: নতুন Worker + Email Routing rule (Q2, Q3 এর পর, Claude কোড দেবে) | [ ] |
+| S7 | cron-job.org: প্রতি মিনিটে `GET https://va-api.aboenterprise.com/api/v1/wa/cron?token=...` (token Claude নতুন SECRET_KEY থেকে বের করে বলবে; বা সার্ভারের ভেতরের লুপ ব্যবহার হলে লাগবে না) | [ ] |
+| S8 | GitHub `masumon/sumon_va` এ Actions secret `BACKUP_DATABASE_URL` | [ ] |
+| S9 | Render env বসানো (ছক §৯): প্রতিটি secret নিজে লিখবেন | [ ] |
+| S10 | নতুন সার্ভারে অ্যাপের AI keys আবার বসানো (অ্যাপের AI স্ক্রিনে) | [ ] |
+| S11 | ABO তে ছোট API PR (§৮) দেখে merge | [ ] |
+| S12 | রিলিজ keystore ও পাসওয়ার্ড PC এর বাইরে ব্যাকআপ | [ ] |
+| S13 | অ্যাডমিন থেকে Audit-Emulator ডিভাইস revoke | [ ] |
+
+## ৭. Claude যা করবে
+| # | কাজ | অবস্থা |
+|---|---|---|
+| C1 | ABO repo ক্লোন/পড়া (শুধু পড়া); fork-point commit `server/README` এ লিখে রাখা | [ ] |
+| C2 | `server/` তৈরি: ~৫৩ মডিউল কপি, ছাঁটাই (দোকান, পেমেন্ট, কুরিয়ার, ওয়েবসাইট chatbot বাদ; `assistant/__init__.py` এর chatbot import বাদ) | [ ] |
+| C3 | সংশ্লিষ্ট টেস্ট কপি, সব সবুজ (অফলাইনে) | [ ] |
+| C4 | `server/manual_sql/0001_sumon_va_schema.sql` (~১৪ টেবিল, RLS চালু, policy ছাড়া) | [ ] |
+| C5 | ছক: Render এ কোন env কী নামে (§৯ সম্পূর্ণ করা) | [ ] |
+| C6 | নতুন Worker কোড (Q3 এর পর) | [ ] |
+| C7a | ABO তে "সুমন VA" ট্যাব (শুধু ফ্রন্টএন্ড+ছোট backend প্রক্সি): ডিভাইস জোড়ার কোড তৈরি, ডিভাইস তালিকা/সরানো, kill switch; নতুন সার্ভারের `/integration/*` কে সার্ভিস টোকেনে ডাকে (ABO তে অ্যাডিটিভ PR, সুমন merge) | [ ] |
+| C7 | `abo_client.py` + হোমের ব্যবসায়িক সংখ্যা ABO API থেকে | [ ] |
+| C8 | ABO তে API PR (অ্যাডিটিভ, বন্ধ থাকে) + ABO এর পুরো টেস্ট সবুজ | [ ] |
+| C9 | পুরোনো ডেটা শুধু-পড়ে নতুন DB তে কপি (ABO এর কিছু বদলাবে না) | [ ] |
+| C10 | অডিটের জানা বাগ নতুন কপিতে ঠিক (B-01 জরুরি alert, B-02 পরিবার কখনো auto-reply নয়, B-04, B-12, P-01, D-02 ...) | [ ] |
+| C11 | অ্যাপ: `SERVER` বদল, নতুন সার্ভারে `base` মাইগ্রেশন/পুনরায় সাইন-ইন, নতুন passkey, `assetlinks.json` | [ ] |
+| C12 | নতুন APK: **আপনার অনুমতি নিয়ে**, আগে emulator, তারপর ফোন | [ ] |
+| C13 | `docs/HANDOFF.md` আপডেট | [ ] |
+
+## ৮. ABO থেকে কী আসবে, কী আসবে না
+**আসবে (কপি, ABO অক্ষত):** brain (`wa_flow`, `wa_brain`, `wa_ai`, `privacy`, `promises`, `presence`, `timectx`, `wa_config`, `wa_health`, `wa_send`, `wa_coexist`); চ্যানেল (`ingest`, `dispatch`, `alerts`, `telegram`, `phone_login`, `wake`, `email_filter`, `imap_mail`, `platforms`); AI (`ai_gemini`, `ai_hub`, `ai_providers`, `ai_catalog`, `link_import`); রুট `inbox.py`, `wa_assistant.py` (দরকারি অংশ), `ai_hub.py`, `ai_catalog.py`, `passkeys` (ডিভাইস অংশ); core (`config`, `database`, `security`, `rbac`, `rate_limit`, `email*`, `notifications`, `ops_events`, `monitoring`, `service_health`, `totp_crypto`, `admin_security`, `capabilities`, `device_auth`); টেবিল ~১৪টি: `admin_users`, `passkeys`, `settings`, `activity_logs`, `notifications`, `system_events`, `email_templates`, `wa_contacts`, `wa_messages`, `wa_notes`, `wa_tasks`, `inbox_devices`, `inbox_pair_codes`, `inbox_commands`।
+**ডেটা (শুধু পড়ে কপি):** `wa_contacts` যেখানে `channel` ≠ whatsapp (সঙ্গে messages/notes/tasks), `inbox_devices`, settings এর `va_app_config`, `owner_login_phone*`, `inbox_*`। passkey কপি হবে না (নতুন হোস্টে নতুন)।
+**আসবে না (ABO তে থাকবে):** দোকান, অর্ডার/বুকিং/লিডের টেবিল, পেমেন্ট, কুরিয়ার, CMS, ওয়েবসাইট chatbot, Apon/`app_releases`, WhatsApp Cloud API ও Meta।
+**ABO তে নতুন (একমাত্র পরিবর্তন, আপনার merge এ):** `integrations_va.py`: ডিফল্টে 404; `VA_INTEGRATION_TOKEN` বসালে `GET /integrations/va/summary` শুধু ৪টি সংখ্যা (অপেক্ষমাণ অর্ডার, বুকিং, নতুন লিড, নতুন আবেদন)। Bearer token + সময়/HMAC, rate limit, প্রতি কল লগ। লেখা/মোছা/পেমেন্ট/ব্যবহারকারী/সেটিংস কখনো নয়।
+
+## ৯. Render env ছক (নাম শুধু; মান সরাসরি Render এ)
+`APP_ENV=production`, `STARTUP_BOOTSTRAP_ENABLED=false`, `DATABASE_URL` (Supabase session pooler, host `*.pooler.supabase.com`), `SECRET_KEY` (নতুন, ABO এর নয়), `JWT_ALGORITHM=HS256`, `ACCESS_TOKEN_EXPIRE_MINUTES=1440`, `FRONTEND_URL=https://va-api.aboenterprise.com`, `ADMIN_EMAIL` (Q1), `ADMIN_PASSWORD`, `ADMIN_NAME`, `DEVICE_PASSKEY_RP_ID=va-api.aboenterprise.com`, `DEVICE_PASSKEY_ANDROID_ORIGINS` (release + debug, মান SERVER_SEPARATION_MASTER_PLAN §3.1 এ), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_NOTIFY_EMAIL`, `VA_INTEGRATION_TOKEN` (ABO এর ডিভাইস-জোড়া ট্যাবের জন্য; ABO তেও একই মান), `EMAIL_INBOUND_SECRET` (নতুন, Worker এ একই মান), `ABO_API_BASE=https://api.aboenterprise.com`, `ABO_INTEGRATION_TOKEN` (ABO তে `VA_INTEGRATION_TOKEN` এর একই মান; ABO তে PR merge ও চালু করার পর), Render সেটিংস: root directory `server`, build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, health `/health`, Python 3.11.9, auto-deploy `main`।
+
+## ১০. সুমন কী পারবেন না/করবেন না, আর Claude এর সীমা
+- Claude Cloudflare, Render, Supabase বা GitHub Actions এ ঢুকতে পারে না। অ্যাকাউন্টের কাজ (তৈরি, DNS, secret) সুমন করবেন; Claude ধাপে ধাপে বলে দেবে।
+- Claude নিজে `va-api` সাবডোমেইন তৈরি করতে পারে না। Render এ custom domain দেওয়ার পর Cloudflare এ CNAME সুমনকে বসাতে হবে (S5)।
+- ফোনের বিল্ড, push, merge, deploy, DNS বদল: প্রতিটির আগে সুমনের স্পষ্ট "হ্যাঁ"।
+- ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assistant, Apon: কিছু ভাঙা যাবে না; ABO তে একমাত্র পরিবর্তন §৮ এর API PR।
+
+## ১১. ধাপের ক্রম (প্রতিটির আগে "go")
+1. **P0** সুমন: S1–S4 তৈরি।
+2. **P1** Claude: C1–C5 (`server/`, টেস্ট, SQL), ABO তে প্রভাব নেই।
+3. **P2** একসঙ্গে: নতুন Supabase এ SQL → Render deploy → S5 domain → শুধু টেস্ট ডিভাইসে সাইন-ইন, ingest, poll যাচাই।
+4. **P3** Claude: C8 (ABO API PR), সুমন merge ও token চালু (S11), C7 হোম সংখ্যা।
+5. **P4** ইমেইল: C6, S6 (নতুন Worker, নতুন ঠিকানা)।
+6. **P5** C9 ডেটা কপি।
+7. **P6** C11–C12 নতুন APK, ফোনে আবার সাইন-ইন + নতুন passkey; কয়েকদিন দুই সার্ভার পাশাপাশি।
+8. **Rollback:** আগের APK (`dist\`) আবার ইনস্টল; পুরোনো সার্ভারের ডেটা অক্ষত।
+
+## ১২. পরিবর্তনের খাতা
+| তারিখ | কে | কী |
+|---|---|---|
+| 2026-11-06 | Claude | প্রথম খসড়া; সিদ্ধান্ত ও খোলা প্রশ্ন তোলা হলো |
+| 2026-11-06 | Claude | S1 Render, S2 Supabase, S3 বট সম্পন্ন; S4 (Resend) বাদ, ইমেইল কোড লাগবে না; pair ABO অ্যাডমিন ট্যাব থেকে (C7a) |

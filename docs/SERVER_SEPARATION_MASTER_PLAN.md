@@ -167,6 +167,6 @@ Read-only export from ABO's DB, import to the new DB, run on the owner's PC with
 - How the website's contact messages (chatbot/forms) reach the WhatsApp/ABO inbox today.
 
 ## 13. Pointers
-- Audit reports (local to the owner's PC, folder `D:\abo_Enterprise\sumon-va-audit-2026-11-06\`): MASTER_RELEASE_AUDIT, SYSTEM_MAP, AUDIT_SURGICAL, UIUX_AUDIT, SERVER_BRAIN_SCHEMA_API_AUDIT (56 findings), CAPTURE_COVERAGE_AUDIT, PROJECT_SEPARATION_MAP. Owner memory notes (Claude Code): `C:\Users\masum\.claude\projects\d--abo-Enterprise\memory\` (start with `abo-sumon-va-todo-2026-11-06.md`).
+- Audit reports (local to the owner's PC, folder `_private\sumon-va-audit-2026-11-06\`): MASTER_RELEASE_AUDIT, SYSTEM_MAP, AUDIT_SURGICAL, UIUX_AUDIT, SERVER_BRAIN_SCHEMA_API_AUDIT (56 findings), CAPTURE_COVERAGE_AUDIT, PROJECT_SEPARATION_MAP. Owner memory notes (Claude Code): `C:\Users\masum\.claude\projects\d--abo-Enterprise\memory\` (start with `abo-sumon-va-todo-2026-11-06.md`).
 - This repo's own handoff: `docs/HANDOFF.md`, `docs/PROJECT_CHARTER.md`, `CLAUDE.md`, `DESIGN.md`.
 - Free-tier sources: render.com/docs/free; supabase.com/docs/guides/platform/billing-on-supabase; supabase.com/docs/guides/platform/going-into-prod.
