@@ -40,4 +40,4 @@
 ## Using the design resources (after install)
 - Impeccable (installed in `.claude/skills/impeccable/`, no hooks): use `critique`/`audit` for review and `shape` for planning; it ships Android and native reference notes, but treat its output as advice for the React Native code, not as an automatic editor. Telemetry must stay off (`.impeccable/config.json` has `"telemetry": false`; also set `DO_NOT_TRACK=1`).
 - Vercel `vercel-react-native-skills` (installed in `.claude/skills/`): apply for performance, list, animation, image and layout rules.
-- Awesome DESIGN.md: reference only (the Intercom file is kept in `D:bo_Enterprise\sumon-va-design-2026-11-05eference\`).
+- Awesome DESIGN.md: reference only (the Intercom file is kept in `_private\sumon-va-design-2026-11-05eference\`).
