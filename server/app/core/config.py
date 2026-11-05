@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     GA4_PRIVATE_KEY: str = ""
 
     # Frontend URL for payment callbacks
-    FRONTEND_URL: str = "https://www.aboenterprise.com"
+    FRONTEND_URL: str = "https://va-api.aboenterprise.com"
 
     # The phone app's own passkey (fingerprint / face). Bound to the API host because the website's apex redirects
     # (Android's Digital Asset Links check forbids redirects). Origins are the app's signing-key hashes.

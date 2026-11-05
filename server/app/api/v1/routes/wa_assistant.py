@@ -51,7 +51,7 @@ def _now() -> datetime:
 
 
 def _api_base() -> str:
-    return os.environ.get("BACKUP_API_URL", "https://api.aboenterprise.com").rstrip("/")
+    return (os.environ.get("BACKUP_API_URL") or settings.FRONTEND_URL).rstrip("/")  # this server's own public address
 
 
 def cron_token() -> str:
