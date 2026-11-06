@@ -372,3 +372,74 @@ def test_wp15_relate_is_only_a_suggestion_and_numbers_still_win():
     assert identity.relate(sms, other).level == "none"            # different numbers are never merged
     alias = NS(id=uuid.uuid4(), phone="notif:com.imo:Boro Vai", name="Boro Vai", profile={"aliases": ["Rahim"]})
     assert identity.relate(alias, sms).level == "medium"
+
+
+# -- part 2: facts a person tells about themselves (WP16) -------------------------------
+
+@pytest.mark.parametrize("text,expect", [
+    ("ভাই আমার জন্মদিন ১২ মার্চ", "জন্মদিন: ১২ মার্চ"),
+    ("I am the manager at Acme Ltd", "manager"),
+    ("সকালে ফোন দিবেন না", "সকালে ফোন"),
+    ("আমি মিরপুরে থাকি", "মিরপুর"),
+    ("আমাকে বাবু ডাকবেন", "বাবু"),
+])
+def test_wp16_extracts_stated_facts(text, expect):
+    from app.assistant.extract import extract
+
+    assert any(expect in f for f in extract(text))
+
+
+@pytest.mark.parametrize("text", ["কাল দেখা হবে", "আপনি কি ম্যানেজার?", "", "ok"])
+def test_wp16_no_fact_from_ordinary_text(text):
+    from app.assistant.extract import extract
+
+    assert extract(text) == []
+
+
+def test_wp16_extracted_fact_is_inferred_never_confirmed():
+    from app.assistant import memory
+    from app.assistant.extract import extract
+
+    prof, fact, _ = memory.add({}, extract("আমি মিরপুরে থাকি")[0], "ai", "msg:1", "low")
+    assert fact["provenance"] == "ai" and fact["confidence"] in ("low", "medium")
+    assert memory.view(prof)[0]["inferred"] is True
+
+
+# -- part 2: F0 answers more questions (WP18, WP9) --------------------------------------
+
+@pytest.mark.parametrize("text,intent", [
+    ("রহিম কী বলেছে", "search"), ("খুঁজো দাম", "search"), ("জরুরি", "alerts"), ("খসড়া", "drafts"),
+    ("কী কী পাঠানো হয়েছে", "history"), ("সহকারীর অবস্থা", "system"), ("নিয়ম", "rules"),
+    ("রহিমকে বলো কাল জানাব", "reply"), ("মিসড কল", "missed_calls"), ("আমার কাজ", "tasks"),
+])
+def test_f0_parse_new_questions_without_breaking_old_ones(text, intent):
+    from app.assistant import f0
+
+    assert f0.parse(text)["intent"] == intent
+
+
+@pytest.mark.asyncio
+async def test_f0_search_skips_private_chats_and_lists_drafts_and_history(Session):
+    from app.assistant import f0
+
+    async with Session() as db:
+        biz = WaContact(phone="notif:com.whatsapp:Rahim", name="Rahim", channel="notif", category="business")
+        priv = WaContact(phone="notif:com.whatsapp:Ammu", name="আম্মু", channel="notif", category="personal", is_family=True)
+        db.add_all([biz, priv])
+        await db.flush()
+        db.add_all([
+            WaMessage(contact_id=biz.id, direction="in", channel="notif", body="দাম কত হবে?", status="received"),
+            WaMessage(contact_id=priv.id, direction="in", channel="notif", body="দাম নিয়ে কথা", status="received"),
+            WaMessage(contact_id=biz.id, direction="out", channel="notif", body="দেখে জানাচ্ছি", status="draft", reason="assistant"),
+            WaMessage(contact_id=biz.id, direction="out", channel="notif", body="x", status="failed", reason="owner", error="ফোন পাঠাতে পারেনি"),
+        ])
+        await db.commit()
+        hit = await f0.run(db, "খুঁজো দাম")
+        assert len(hit["items"]) == 1 and "Rahim" in hit["items"][0]["subtitle"]       # the family chat is not searched
+        who = await f0.run(db, "আম্মু কী বলেছে")
+        assert "সার্চে ধরা হয় না" in who["answer"] and who["items"] == []
+        drafts = await f0.run(db, "খসড়া")
+        assert len(drafts["items"]) == 1
+        hist = await f0.run(db, "কী কী পাঠানো হয়েছে")
+        assert any("যায়নি" in i["subtitle"] and "ফোন পাঠাতে পারেনি" in i["subtitle"] for i in hist["items"])  # a failure is shown as a failure
+        assert (await f0.run(db, "জরুরি"))["intent"] == "alerts"

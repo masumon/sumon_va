@@ -20,7 +20,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assistant import assignments, identity, memory, privacy
+from app.assistant import assignments, identity, memory, presence, privacy
+from app.assistant import wa_brain as brain
+from app.assistant import wa_config as wcfg
+from app.assistant.channels import alerts as alerts_mod
 from app.assistant import thread_state as ts
 from app.assistant import wa_flow as flow
 from app.assistant.call_context import is_call
@@ -37,7 +40,14 @@ _PENDING = re.compile(r"উত্তর\s*বাকি|কার\s*উত্ত�
 _TASKS = re.compile(r"আমার\s*(?:কাজ|টাস্ক)|কাজের\s*তালিকা|টাস্ক\s*(?:দেখাও|তালিকা)|my\s+tasks|open\s+tasks", re.I)
 _MEMORY = re.compile(r"^\s*(?P<name>\S+(?:\s\S+)?)\s*(?:সম্পর্কে|বিষয়ে)\s*(?:কী|কি)\s*(?:জানো|মনে\s*আছে)|what\s+do\s+you\s+know\s+about\s+(?P<name2>\w+)", re.I)
 _PERSON = re.compile(r"^\s*(?P<name>\S+(?:\s\S+)?)\s*কে\s*\??\s*$|who\s+is\s+(?P<name2>\w+)", re.I)
-UNKNOWN_HELP = "বুঝতে পারিনি। যেমন লিখতে পারেন: “রহিমকে বলো কাল জানাব”, “রহিমের কাজের কী হলো”, “মিসড কল”, “কার উত্তর বাকি”, “আমার কাজ”, “রহিম সম্পর্কে কী জানো”"
+_SEARCH_NAME = re.compile(r"^\s*(?P<name>\S+(?:\s\S+)?)\s*(?:কী|কি)\s*(?:বলেছে|বলেছিল|চেয়েছে|চেয়েছিল|লিখেছে|লিখেছিল)|what\s+did\s+(?P<name2>\w+)\s+(?:say|ask|want)", re.I)
+_SEARCH_Q = re.compile(r"(?:খুঁজো|খুঁজুন|খোঁজো|সার্চ)\s+(?P<q>.+)|^\s*(?:search|find)\s+(?P<q2>.+)", re.I | re.S)
+_ALERTS = re.compile(r"অ্যালার্ট|জরুরি|urgent|alerts?", re.I)
+_DRAFTS = re.compile(r"খসড়া|drafts?", re.I)
+_HISTORY = re.compile(r"কী\s*কী\s*পাঠানো|কী\s*পাঠানো|সাম্প্রতিক\s*কাজ|পাঠানোর\s*ইতিহাস|recent\s+(?:actions|sent)|action\s+history", re.I)
+_SYSTEM = re.compile(r"সহকারী(?:র)?\s*(?:অবস্থা|স্ট্যাটাস)|সব\s*ঠিক\s*আছে|\bhealth\b|\bstatus\b", re.I)
+_RULES = re.compile(r"নিয়ম|সেটিং|\brules?\b|\bsettings?\b", re.I)
+UNKNOWN_HELP = "বুঝতে পারিনি। যেমন লিখতে পারেন: “রহিমকে বলো কাল জানাব”, “রহিমের কাজের কী হলো”, “মিসড কল”, “কার উত্তর বাকি”, “আমার কাজ”, “রহিম সম্পর্কে কী জানো”, “রহিম কী বলেছে”, “খুঁজো দাম”, “জরুরি”, “খসড়া”, “কী কী পাঠানো হয়েছে”, “সহকারীর অবস্থা”, “নিয়ম”"
 
 
 def parse(text: str) -> dict[str, Any]:
@@ -58,12 +68,21 @@ def parse(text: str) -> dict[str, Any]:
         mm = rx.search(t)
         if mm:
             return {"intent": "task_status", "name": (mm.groupdict().get("name") or mm.groupdict().get("name2") or "").strip(), "msg": "", "contact_id": cid}
+    sn = _SEARCH_NAME.match(t)
+    if sn:
+        return {"intent": "search", "name": (sn.group("name") or sn.group("name2")).strip(), "msg": "", "contact_id": cid}
+    sq = _SEARCH_Q.search(t)
+    if sq:
+        return {"intent": "search", "name": "", "msg": (sq.group("q") or sq.group("q2")).strip(), "contact_id": cid}
     if _CALLS.search(t):
         return {"intent": "missed_calls", "name": "", "msg": "", "contact_id": cid}
     if _PENDING.search(t):
         return {"intent": "pending", "name": "", "msg": "", "contact_id": cid}
     if _TASKS.search(t):
         return {"intent": "tasks", "name": "", "msg": "", "contact_id": cid}
+    for rx, intent in ((_HISTORY, "history"), (_DRAFTS, "drafts"), (_ALERTS, "alerts"), (_SYSTEM, "system"), (_RULES, "rules")):
+        if rx.search(t):
+            return {"intent": intent, "name": "", "msg": "", "contact_id": cid}
     mm = _PERSON.match(t)
     if mm:
         return {"intent": "person", "name": (mm.group("name") or mm.group("name2")).strip(), "msg": "", "contact_id": cid}
@@ -173,6 +192,9 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
                   "contact_id": str(t.contact_id) if t.contact_id else ""} for t in open_tasks]
         return _reply(intent, f"{len(items)}টি খোলা কাজ" if items else "কোনো খোলা কাজ নেই", items)
 
+    if intent in ("alerts", "drafts", "history", "system", "rules") or (intent == "search" and p["msg"] and not p["name"]):
+        return await _overview_intents(db, intent, p, now)
+
     contacts, choices = await resolve(db, p["name"], p["contact_id"])
     if choices:
         return _reply(intent, f"“{p['name']}” নামে একাধিক জন আছে: কোন জন?", choices=choices)
@@ -181,6 +203,8 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
     who = contacts[0].name or p["name"]
     if intent == "reply":
         return await _reply_draft(db, contacts, p["msg"], now)
+    if intent == "search":
+        return await _search_person(db, contacts, who)
     if intent == "task_status":
         theirs = (await db.execute(select(WaTask).where(WaTask.contact_id.in_([c.id for c in contacts])).order_by(WaTask.created_at.desc()).limit(5))).scalars().all()
         known = [{"title": t.title, "due_at": t.due_at, "is_done": t.is_done, "done_at": t.done_at, "source": t.source} for t in theirs]
@@ -192,3 +216,70 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
     st = ts.assess(await flow.recent_messages(db, [c.id for c in contacts], 30))
     return _reply("person", f"{who}: {len(contacts)}টি পরিচয় ({', '.join(sorted({c.channel or 'whatsapp' for c in contacts}))}); {st.label}",
                   [{"title": _label(c), "contact_id": str(c.id)} for c in contacts])
+
+
+# -- more of what the owner may ask (Brain_Prompt section 12): search, alerts, drafts, history, health, rules ---------------------
+
+def _clip(text: str | None, n: int = 90) -> str:
+    t = " ".join((text or "").split())
+    return t if len(t) <= n else t[: n - 1] + "…"
+
+
+def _when(dt: datetime | None) -> str:
+    if not dt:
+        return ""
+    return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).astimezone(brain.now_dhaka().tzinfo or UTC).strftime("%d/%m %H:%M")
+
+
+async def _search_person(db: AsyncSession, contacts: list[WaContact], who: str) -> dict[str, Any]:
+    """What this person wrote lately. Private and family chats are NOT searched (their words stay sealed and out of the way)."""
+    open_ = [c for c in contacts if not privacy.is_private(c)]
+    if not open_:
+        return _reply("search", f"{who} ব্যক্তিগত/পরিবারের চ্যাট, তাই সার্চে ধরা হয় না — অ্যাপে চ্যাট খুলে পড়ুন")
+    rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id.in_([c.id for c in open_]), WaMessage.direction == "in", WaMessage.status != "imported")
+                             .order_by(WaMessage.created_at.desc()).limit(8))).scalars().all()
+    items = [{"title": _clip(privacy.unseal(m.transcript or m.body)), "subtitle": f"{_when(m.created_at)} · {m.channel or ''}", "contact_id": str(m.contact_id)} for m in rows]
+    return _reply("search", f"{who}-এর শেষ {len(items)}টি বার্তা" if items else f"{who}-এর কোনো বার্তা পাইনি", items)
+
+
+async def _overview_intents(db: AsyncSession, intent: str, p: dict[str, Any], now: datetime) -> dict[str, Any]:
+    if intent == "search":  # a word or phrase, across the chats that are not private
+        q = p["msg"][:60]
+        rows = (await db.execute(select(WaMessage, WaContact).join(WaContact, WaContact.id == WaMessage.contact_id)
+                                 .where(WaMessage.body.ilike(f"%{q}%"), WaMessage.status != "imported").order_by(WaMessage.created_at.desc()).limit(40))).all()
+        hits = [(m, c) for m, c in rows if not privacy.is_private(c)][:8]
+        items = [{"title": _clip(m.body), "subtitle": f"{_label(c)} · {_when(m.created_at)}", "contact_id": str(c.id)} for m, c in hits]
+        return _reply("search", f"“{q}” আছে এমন {len(items)}টি বার্তা (ব্যক্তিগত/পরিবারের চ্যাট ধরা হয় না)" if items else f"“{q}” লেখা কোনো বার্তা পাইনি", items)
+    if intent == "alerts":
+        held = await alerts_mod.held_alerts(db)
+        urgent = (await db.execute(select(WaContact).where(WaContact.unread > 0, WaContact.state != "done", WaContact.priority.in_((1, 2, 4)), WaContact.is_blocked == False)  # noqa: E712
+                                   .order_by(WaContact.last_inbound_at.desc().nullslast()).limit(8))).scalars().all()
+        items = [{"title": _label(c), "subtitle": f"জরুরি, {c.unread}টি অপঠিত", "contact_id": str(c.id)} for c in urgent]
+        items += [{"title": h.get("who", ""), "subtitle": f"আটকে ছিল: {h.get('why', '')}"} for h in held[-5:]]
+        return _reply("alerts", f"{len(urgent)} জন জরুরি অপেক্ষায়, {len(held)}টি অ্যালার্ট আটকে ছিল" if items else "এখন কোনো জরুরি বিষয় নেই", items)
+    if intent == "drafts":
+        rows = (await db.execute(select(WaMessage, WaContact).join(WaContact, WaContact.id == WaMessage.contact_id)
+                                 .where(WaMessage.direction == "out", WaMessage.status == "draft").order_by(WaMessage.created_at.desc()).limit(10))).all()
+        items = [{"title": _label(c), "subtitle": _clip(privacy.unseal(m.body), 80), "contact_id": str(c.id)} for m, c in rows]
+        return _reply("drafts", f"{len(items)}টি খসড়া আপনার অনুমোদনের অপেক্ষায়" if items else "অনুমোদনের অপেক্ষায় কোনো খসড়া নেই", items)
+    if intent == "history":
+        rows = (await db.execute(select(WaMessage, WaContact).join(WaContact, WaContact.id == WaMessage.contact_id)
+                                 .where(WaMessage.direction == "out").order_by(WaMessage.created_at.desc()).limit(10))).all()
+        names = {"sent": "পাঠানো হয়েছে", "draft": "খসড়া", "failed": "যায়নি", "sending": "ফোনকে দেওয়া হয়েছে, নিশ্চিত নয়", "queued": "অপেক্ষায়", "cancelled": "বাতিল"}
+        by = {"owner": "আপনার নির্দেশে", "manual": "আপনি নিজে", "assistant": "সহকারী"}
+        items = [{"title": _label(c), "subtitle": f"{names.get(m.status, m.status)} · {by.get(m.reason or '', 'সহকারী')} · {_when(m.created_at)}" + (f" · {m.error}" if m.status == "failed" and m.error else ""),
+                  "contact_id": str(c.id)} for m, c in rows]
+        return _reply("history", f"শেষ {len(items)}টি বার্তার অবস্থা" if items else "এখনো কোনো বার্তা পাঠানো হয়নি", items)
+    cfg = await wcfg.load_config(db, scope="app")
+    if intent == "rules":
+        lim, rem = cfg.get("limits") or {}, cfg.get("reminders") or {}
+        items = [
+            {"title": "সহকারী", "subtitle": ("চালু" if cfg.get("enabled") else "বন্ধ") + " · উত্তরের ধরন: " + ("নিজে নিজে" if cfg.get("mode") == "auto" else "খসড়া")},
+            {"title": "জরুরি অ্যালার্ট", "subtitle": f"দিনে সর্বোচ্চ {lim.get('urgent_per_day', 5)}টি; নীরব সময় {lim.get('quiet_from', '23:00')}–{lim.get('quiet_to', '07:00')}"},
+            {"title": "উত্তর বাকি রিমাইন্ডার", "subtitle": (f"{rem.get('unanswered_min')} মিনিট পর" if rem.get("unanswered_min") else "বন্ধ")},
+            {"title": "বার্তা জমানো", "subtitle": f"{(cfg.get('grouping') or {}).get('window_min', 5)} মিনিট"},
+        ]
+        return _reply("rules", "বর্তমান নিয়ম (বদলাতে নিয়ম স্ক্রিনে যান)", items)
+    waiting = (await db.execute(select(WaContact.id).where(WaContact.unread > 0, WaContact.state != "done"))).all()
+    bits = [f"সহকারী {'চালু' if cfg.get('enabled') else 'বন্ধ'}", f"এখনকার অবস্থা: {brain.current_status(cfg)}", f"{len(waiting)} জন অপেক্ষায়"]
+    return _reply("system", " · ".join(str(b) for b in bits))
