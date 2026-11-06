@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.assistant import assignments
 from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
 from app.assistant import thread_state as ts
@@ -306,13 +307,28 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     contact.priority, contact.lang = d.priority, d.lang
     if d.category and (contact.category in (None, "", "spam", "social") or d.category == "spam"):
         contact.category = d.category  # a person sorted as business/personal keeps it until the owner changes it
+    open_titles = {t for (t,) in (await db.execute(select(WaTask.title).where(WaTask.is_done == False, WaTask.contact_id == contact.id))).all()}  # noqa: E712
+    if msg.direction == "in" and not is_missed_call and not (msg.meta or {}).get("group") and d.reason not in ("blocked", "spam"):
+        private = privacy.is_private(contact, d.category)
+        asked = msg.body or transcript or ""
+        for cand in [c for c in assignments.detect(text_in, now) if c["confidence"] in ("high", "medium")]:  # only PROPOSED: the owner confirms
+            title = assignments.proposal_title(contact, cand["title_body"], private)
+            if title not in open_titles:
+                db.add(WaTask(contact_id=contact.id, title=title, due_at=cand["due_at"], source=assignments.PROPOSED))
+                open_titles.add(title)
+                d.note = (d.note + " · " if d.note else "") + "কাজের অনুরোধ ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)"
+        if assignments.asks_status(text_in) or assignments.asks_status(asked):
+            rows = (await db.execute(select(WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id == contact.id)
+                                     .order_by(WaTask.created_at.desc()).limit(5))).all()
+            known = [{"title": t, "due_at": due, "is_done": done, "done_at": at, "source": src} for t, due, done, at, src in rows]
+            d.note = (d.note + " · " if d.note else "") + assignments.status_note(known, now, private)
+            d.notify = True  # the owner hears what is really on record; nothing is promised to the person
     if not call_insight:  # a call must not overwrite what we know the person needs / the conversation summary
         contact.need, contact.summary = d.need[:400] or contact.need, d.summary[:600] or contact.summary
     if d.notify and await _notify(db, cfg, contact, d, recent, force=bool(call_insight and call_insight.escalated)):
         msg.meta = {**(msg.meta or {}), "notified": True}
         if call_insight:
             msg.meta = {**msg.meta, "call_alert": {"p": d.priority, "n": call_insight.attempts_burst}}
-    open_titles = {t for (t,) in (await db.execute(select(WaTask.title).where(WaTask.is_done == False, WaTask.contact_id == contact.id))).all()}  # noqa: E712
     for t in d.tasks[:3]:
         if t["title"] not in open_titles:
             due = brain._parse_dt(t.get("due")) if t.get("due") else None

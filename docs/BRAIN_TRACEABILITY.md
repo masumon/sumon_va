@@ -1,6 +1,6 @@
 # Brain traceability (living file; directive: `Brain_Prompt.md` v2.0 §22-23)
 
-Status words: VERIFIED = code + test run by an agent (date). NV = code exists, not run/proven. PARTIAL. MISSING. BLOCKED-PLATFORM / -PERMISSION. Baseline 2026-11-06: `cd server; pytest` = 275 passed before Phase 1, 294 after Phase 1, 313 after Phase 2.
+Status words: VERIFIED = code + test run by an agent (date). NV = code exists, not run/proven. PARTIAL. MISSING. BLOCKED-PLATFORM / -PERMISSION. Baseline 2026-11-06: `cd server; pytest` = 275 passed before Phase 1, 294 after Phase 1, 313 after Phase 2, 327 after Phase 3a.
 
 | ID | Requirement | Existing component (evidence) | Status | Tests | Next |
 |---|---|---|---|---|---|
@@ -9,7 +9,7 @@ Status words: VERIFIED = code + test run by an agent (date). NV = code exists, n
 | R-REPLY | Owner reply verification | `thread_state.assess`, `reason="owner"`, `sent-by-hand`, `hold_hours`; send guards in `deliver`/`dispatch.deliver_other` | VERIFIED by unit + SQLite tests (classification, reminder); NOT wired to block sends beyond the existing guards | `tests/test_thread_state.py` | F0 preview (Phase 5) |
 | R-GROUP | 5-7 min grouping | `wa_flow._group_gate`, `thread_state.grouped_text`, config `grouping` (default 5) | VERIFIED by SQLite gate tests; `_process` end-to-end NOT run | `tests/test_thread_state.py` | phone/Render check |
 | R-READ | Read/unanswered reminder | `wa_flow.send_unanswered_reminders` ("no answer found", default off); phone-side notification-removed signal NOT coded | PARTIAL: server part verified by tests | `tests/test_thread_state.py` | phone signal (needs build) |
-| R-TASK | Incoming tasks, status, evidence | `promises.py` (owner promises), `wa_tasks` basic fields | PARTIAL | `test_promises.py` | Phase 3 (needs SQL, owner runs, backup first) |
+| R-TASK | Incoming tasks, status, evidence | `assignments.py`, `promises.py`, `wa_flow._process`, route `/admin/wa/tasks/{id}/confirm`; `wa_tasks.source` (manual/ai/proposed/confirmed) | PARTIAL: detection, proposed->confirmed, honest status VERIFIED by unit + SQLite `_process` tests; app confirm button, progress/blocker/assigner columns, task follow-up reminders MISSING | `tests/test_assignments.py` (14) | Phase 3b: SQL (owner runs, backup first) + app button |
 | R-ID | One person, many identifiers | `wa_contacts.phone` UNIQUE, key `sms:/notif:` | PARTIAL | - | Phase 4 |
 | R-MEM | Fact provenance/correction | `profile`, `wa_notes` | PARTIAL | - | Phase 4 |
 | R-F0 | Command center | `ai.tsx`, assistant menu (name F0 not in code) | PARTIAL | - | Phase 5 |

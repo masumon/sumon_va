@@ -646,7 +646,7 @@ async def tasks(show: str = Query("open", max_length=6), db: AsyncSession = Depe
     stmt = stmt.where(WaTask.is_done == (show == "done")).order_by(WaTask.due_at.asc().nullslast(), WaTask.created_at.desc()).limit(100)
     return ApiResponse(data=[{"id": str(t.id), "title": t.title, "due_at": _iso(t.due_at), "is_done": t.is_done, "source": t.source,
                               "contact_id": str(t.contact_id) if t.contact_id else None, "who": n or p, "contact_name": n,
-                              "late": bool(t.due_at and not t.is_done and t.due_at < _now())} for t, n, p in (await db.execute(stmt)).all()])
+                              "late": bool(t.due_at and not t.is_done and t.due_at < _now()), "proposed": t.source == "proposed"} for t, n, p in (await db.execute(stmt)).all()])
 
 
 @router.post("/admin/wa/tasks", response_model=ApiResponse)
@@ -655,6 +655,19 @@ async def add_task(body: TaskIn, db: AsyncSession = Depends(get_db), _a: str = D
     db.add(t)
     await db.commit()
     return ApiResponse(data={"id": str(t.id)}, message="কাজ যোগ হয়েছে")
+
+
+@router.post("/admin/wa/tasks/{tid}/confirm", response_model=ApiResponse)
+async def confirm_task(tid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """A task the assistant only PROPOSED (someone asked the owner for something) becomes a real obligation by the owner's word."""
+    t = await db.get(WaTask, tid)
+    if not t:
+        raise HTTPException(status_code=404, detail="কাজ পাওয়া যায়নি")
+    if t.source != "proposed":
+        return ApiResponse(data={"source": t.source}, message="এটি আগেই নিশ্চিত বা আপনার নিজের লেখা কাজ")
+    t.source = "confirmed"
+    await db.commit()
+    return ApiResponse(data={"source": t.source}, message="কাজটি নিশ্চিত করা হলো")
 
 
 @router.post("/admin/wa/tasks/{tid}/toggle", response_model=ApiResponse)
