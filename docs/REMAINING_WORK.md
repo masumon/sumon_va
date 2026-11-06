@@ -8,6 +8,9 @@
 
 > **একক পরিকল্পনা (প্রম্পটের বিপরীতে কী হয়েছে/বাদ/উন্নত, গবেষণা, কাজের ঢেউ, স্থগিত তালিকা): `docs/BRAIN_MASTER_PLAN.md`।** **সম্পূর্ণ অডিট (আসল/ভান, চ্যানেল, AI, বট, কে-কী-পারে, ফোন-সক্ষমতা, UI/UX, F0-র স্থান, ঝুঁকির তালিকা): `docs/AUDIT_2026-11-06.md`।** সেখানকার ক্রম এই ফাইলের §১-এর সঙ্গে মিলিয়ে চলবে।
 
+## ০ক. সর্বশেষ (2026-11-06 রাত): মালিকের "৫ ভাগে সব কোড-কাজ" আদেশের ফল
+ভাগ ১ (সার্ভারের ঝুঁকি: আটকানো অ্যালার্ট দৃশ্যমান, AI-মাস্কিং, নিরাপত্তা, SMS একবার), ভাগ ২ (নাম-মেলা, তথ্য-নিষ্কাশন, F0-তে সার্চ/অ্যালার্ট/খসড়া/ইতিহাস/অবস্থা/নিয়ম), ভাগ ৩ (অ্যাপ: Brain সেটিং, "আমি উত্তর দিয়েছি", সৎ স্বাস্থ্য, টাস্ক, F0 চিপ, ইতিহাস-ইমপোর্ট, ডাকনাম), ভাগ ৪ (পিন-সীমা, অনুমতি ছাঁটা, a11y), ভাগ ৫ (ডেলিভারেবল `docs/BRAIN_DELIVERABLES.md`) **কোডে ও টেস্টে সম্পন্ন, ফিচার-ব্রাঞ্চে push**। সার্ভার ৪২১ টেস্ট পাস; অ্যাপ `tsc`/`eslint` ত্রুটিহীন। **কোনো SQL লাগেনি।** এখনো নয়: deploy, অ্যাপ বিল্ড, ফোনে চোখে দেখা, লাইভ RLS, বাইরের পিঙ্গার (WP1b), স্টিকি উত্তর-বাক্স, সংখ্যা বাংলায়, ডিজাইন-সিদ্ধান্ত, `FlatList`, কল-লগ/`READ_SMS`/ব্যাকআপ (মালিকের সিদ্ধান্ত)। কেন কী হয়নি: `docs/BRAIN_DELIVERABLES.md` §৯ ও `docs/TRANSFER.md` ভাগ-সারি। **পরের ধাপ:** মালিক PR merge + Render Manual Deploy → `/health` → "বিল্ড করো" → এমুলেটর → ফোনে `BRAIN_ROLLOUT_PLAN.md` §২ চেকলিস্ট।
+
 ## ০. অবস্থা এক নজরে (2026-11-06, সব নিজে যাচাই করা)
 
 | বিষয় | অবস্থা | প্রমাণ |
@@ -84,19 +87,19 @@
 | # | ডেলিভারেবল | অবস্থা |
 |---|---|---|
 | ১ | Requirement Traceability Matrix | আছে: `docs/BRAIN_TRACEABILITY.md` |
-| ২ | Current Architecture Map | **বাকি** |
-| ৩ | 18-Domain Coverage Report | **বাকি** (শুধু চ্যাট-রিপোর্টে, ফাইলে নয়) |
+| ২ | Current Architecture Map | আছে: `docs/BRAIN_DELIVERABLES.md` §১ |
+| ৩ | 18-Domain Coverage Report | আছে: `BRAIN_DELIVERABLES.md` §২ |
 | ৪ | Change Log | আছে (`docs/TRANSFER.md` §১২-১৩ খাতা) |
-| ৫ | API/Webhook Compatibility Report | **বাকি** (নতুন রুট শুধু যোগ, পুরোনো রুট অপরিবর্তিত, `/device/ingest` শুধু নতুন `type=seen` যোগ) |
+| ৫ | API/Webhook Compatibility Report | আছে (`BRAIN_DELIVERABLES.md` §৩) — (নতুন রুট শুধু যোগ, পুরোনো রুট অপরিবর্তিত, `/device/ingest` শুধু নতুন `type=seen` যোগ) |
 | ৬ | Database Migration Package | আছে: `0002`, `0003` + রোলব্যাক, চালানো ও যাচাই হয়েছে |
-| ৭ | Android Permission Matrix | **বাকি** (এই কাজে কোনো permission যোগ হয়নি) |
-| ৮ | Free-Tier / Dependency Report | **বাকি** (নতুন কোনো ডিপেন্ডেন্সি যোগ হয়নি, সেটা লিখে রাখা বাকি) |
-| ৯ | Security and Privacy Report | **বাকি** |
-| ১০ | Test Report | **বাকি** (ফল এই ফাইলে ও চ্যাটে; আলাদা রিপোর্ট নয়) |
-| ১১ | APK Build Report | **বাকি** (বিল্ডই হয়নি) |
+| ৭ | Android Permission Matrix | আছে (§৪) — (এই কাজে কোনো permission যোগ হয়নি) |
+| ৮ | Free-Tier / Dependency Report | আছে (§৫) — (নতুন কোনো ডিপেন্ডেন্সি যোগ হয়নি, সেটা লিখে রাখা বাকি) |
+| ৯ | Security and Privacy Report | আছে: §৬ |
+| ১০ | Test Report | আছে (§৭) — (ফল এই ফাইলে ও চ্যাটে; আলাদা রিপোর্ট নয়) |
+| ১১ | APK Build Report | আছে: §৮ (নতুন বিল্ড বাকি) |
 | ১২ | Known Limitations and Blockers | আংশিক: এই ফাইলের §৩, §৯ |
 | ১৩ | Release and Rollback Guide | আংশিক: `docs/BRAIN_ROLLOUT_PLAN.md` |
-| ১৪ | Owner Operating Guide (F0, খসড়া অনুমোদন, পরিচয়/স্মৃতি শোধরানো, নিয়ম, অ্যালার্ট) | **বাকি** |
+| ১৪ | Owner Operating Guide | আছে: §১১ |
 
 ---
 
