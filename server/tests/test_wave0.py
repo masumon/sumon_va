@@ -342,3 +342,33 @@ async def test_wp12_unconfirmed_sms_fails_honestly_not_resent(Session):
         await db.refresh(old); await db.refresh(msg); await db.refresh(fresh)
         assert old.status == "failed" and msg.status == "failed" and "আবার পাঠানো হয়নি" in msg.error
         assert fresh.status == "fetched"  # the recent one is still waiting for the phone's confirmation
+
+
+# -- part 2: name matching (WP15) -------------------------------------------------------
+
+@pytest.mark.parametrize("a,b", [("Rahim", "রহিম"), ("Rohim", "রহীম ভাই"), ("Md. Karim", "করিম"), ("Abdul Karim", "আব্দুল করিম"), ("Shumon", "সুমন")])
+def test_wp15_same_name_other_spelling_or_script(a, b):
+    from app.assistant import names
+
+    assert names.name_key(a) == names.name_key(b) and names.similar(a, b)
+
+
+@pytest.mark.parametrize("a,b", [("Rahim", "Karim"), ("রহিম", "করিম"), ("Rahim Uddin", "Rahim Ahmed"), ("😀", "123")])
+def test_wp15_different_people_stay_apart(a, b):
+    from app.assistant import names
+
+    assert not names.similar(a, b)
+
+
+def test_wp15_relate_is_only_a_suggestion_and_numbers_still_win():
+    from types import SimpleNamespace as NS
+    from app.assistant import identity
+    import uuid
+
+    chat = NS(id=uuid.uuid4(), phone="notif:com.whatsapp:Rahim", name="Rahim", profile={})
+    sms = NS(id=uuid.uuid4(), phone="sms:+8801711000000", name="রহিম", profile={})
+    other = NS(id=uuid.uuid4(), phone="sms:+8801811000000", name="রহিম", profile={})
+    assert identity.relate(chat, sms).level == "medium"          # a suggestion, never an automatic link
+    assert identity.relate(sms, other).level == "none"            # different numbers are never merged
+    alias = NS(id=uuid.uuid4(), phone="notif:com.imo:Boro Vai", name="Boro Vai", profile={"aliases": ["Rahim"]})
+    assert identity.relate(alias, sms).level == "medium"
