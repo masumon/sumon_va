@@ -721,6 +721,27 @@ async def delete_fact(cid: uuid.UUID, fid: str, db: AsyncSession = Depends(get_d
     return ApiResponse(message="তথ্যটি সম্পূর্ণ মুছে ফেলা হলো")
 
 
+@router.get("/admin/wa/contacts/{cid}/aliases", response_model=ApiResponse)
+async def get_aliases(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    return ApiResponse(data={"aliases": list((c.profile or {}).get("aliases") or [])})
+
+
+class AliasesIn(BaseModel):
+    aliases: list[str] = Field(default_factory=list, max_length=10)
+
+
+@router.put("/admin/wa/contacts/{cid}/aliases", response_model=ApiResponse)
+async def set_aliases(cid: uuid.UUID, body: AliasesIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """The owner's own other names for this person ("বড় ভাই", "Rahim"): the surest way to tell the assistant two chats are one person.
+    A match is only ever a suggestion; linking still needs the owner."""
+    c = await _get_contact(db, cid)
+    clean = list(dict.fromkeys(a.strip()[:60] for a in body.aliases if a.strip()))[:10]
+    c.profile = {**(c.profile or {}), "aliases": clean}
+    await db.commit()
+    return ApiResponse(data={"aliases": clean}, message="ডাকনাম সেভ হলো")
+
+
 @router.get("/admin/wa/contacts/{cid}/relationship", response_model=ApiResponse)
 async def contact_relationship(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
     """Signs, not scores: every line is a hypothesis with the evidence it rests on (the whole linked person, all channels)."""
@@ -934,7 +955,7 @@ async def learn(cid: uuid.UUID, body: LearnIn, db: AsyncSession = Depends(get_db
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=503, detail="এই মুহূর্তে AI পাওয়া যাচ্ছে না — Admin → AI সংযোগ দেখে আবার চেষ্টা করুন")
     prof["learned_at"], prof["messages"] = _now().isoformat(timespec="minutes"), len(rows)
-    c.profile = {**prof, **({"facts": c.profile["facts"]} if (c.profile or {}).get("facts") else {})}  # only this summary is kept (the chat text itself is never stored); the owner's remembered facts survive
+    c.profile = {**prof, **{k: c.profile[k] for k in ("facts", "aliases") if (c.profile or {}).get(k)}}  # only this summary is kept (the chat text itself is never stored); the owner's remembered facts survive
     for field in ("calls_him", "relation", "gender"):
         if prof.get(field) and not getattr(c, field):
             setattr(c, field, str(prof[field])[:40])

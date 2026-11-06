@@ -31,8 +31,9 @@ export function useHealth() {
     });
     return () => { clearInterval(id); sub.remove(); };
   }, []);
-  const issues = useMemo(() => computeIssues({ bridge, overview: overview.data, overviewError: overview.data ? null : overview.error, channels: channels.data, hub: hub.data, now }),
-    [bridge, overview.data, overview.error, channels.data, hub.data, now]);
+  // after two failed checks in a row, old data no longer hides a server outage
+  const issues = useMemo(() => computeIssues({ bridge, overview: overview.data, overviewError: !overview.data || overview.fails >= 2 ? overview.error : null, channels: channels.data, hub: hub.data, now }),
+    [bridge, overview.data, overview.error, overview.fails, channels.data, hub.data, now]);
   const reload = () => { clearApiCache(); void overview.reload(); void channels.reload(); void hub.reload(); setBridge(getStatus()); };
   return { issues, reload, bridge, loading: overview.loading && !overview.data };
 }

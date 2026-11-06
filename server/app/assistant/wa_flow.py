@@ -19,6 +19,7 @@ from app.assistant import identity
 from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
 from app.assistant import task_details
+from app.assistant import extract as extract_mod, memory
 from app.assistant import thread_state as ts
 from app.assistant import wa_brain as brain
 from app.assistant import wa_config as wcfg
@@ -354,6 +355,15 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     if msg.direction == "in" and not is_missed_call and not (msg.meta or {}).get("group") and d.reason not in ("blocked", "spam"):
         private = privacy.is_private(contact, d.category)
         asked = msg.body or transcript or ""
+        if not private and wcfg.scope_for_channel(contact.channel) == "app":  # what a business contact says about themselves, kept as an INFERRED fact
+            try:
+                for line in extract_mod.extract(text_in):
+                    prof, fact, _why = memory.add(contact.profile, line, "ai", f"msg:{msg.id}", "low", now)
+                    if fact:
+                        contact.profile = prof
+                        d.note = (d.note + " · " if d.note else "") + "নতুন তথ্য মনে রাখা হয়েছে (অনুমান, নিশ্চিত করুন)"
+            except Exception:  # noqa: BLE001 - learning facts must never break the reply flow
+                logger.warning("fact extraction failed", exc_info=True)
         for cand in [c for c in assignments.detect(text_in, now) if c["confidence"] in ("high", "medium")]:  # only PROPOSED: the owner confirms
             title = assignments.proposal_title(contact, cand["title_body"], private)
             if title not in open_titles:

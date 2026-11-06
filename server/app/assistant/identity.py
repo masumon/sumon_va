@@ -24,6 +24,7 @@ import sqlalchemy as sa
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.assistant import names
 from app.assistant import wa_brain as brain
 from app.models.wa import WaContact, WaMessage
 
@@ -75,6 +76,10 @@ def relate(a: Any, b: Any, a_group: bool = False, b_group: bool = False) -> Rela
     ma, mb = norm_name(a.name), norm_name(b.name)
     if ma and ma == mb:
         return Relation("medium", ["একই নাম, কিন্তু নম্বর দিয়ে মেলানো যায়নি: আপনি নিশ্চিত করলে যুক্ত হবে"])
+    if names.similar(a.name, b.name):
+        return Relation("medium", ["নামের বানান/লিপি ভিন্ন কিন্তু উচ্চারণ প্রায় এক (যেমন Rahim/রহিম): আপনি নিশ্চিত করলে যুক্ত হবে"])
+    if (names.name_key(a.name) in names.alias_keys(getattr(b, "profile", None))) or (names.name_key(b.name) in names.alias_keys(getattr(a, "profile", None))):
+        return Relation("medium", ["আপনার লেখা ডাকনামের সঙ্গে মিলেছে: আপনি নিশ্চিত করলে যুক্ত হবে"])
     return Relation("none", [])
 
 
@@ -82,15 +87,20 @@ def suggestions(contacts: list[Any], groups: set[Any], linked: dict[Any, Any]) -
     """Pairs worth showing the owner (medium confidence, or high ones not yet linked). Buckets by name: no n-squared scan."""
     buckets: dict[str, list[Any]] = {}
     for c in contacts:
-        key = norm_name(c.name)
-        if key and c.id not in groups:
+        if c.id in groups:
+            continue
+        keys = {k for k in (names.name_key(c.name), *names.alias_keys(getattr(c, "profile", None))) if k}
+        for key in keys:  # spelling/script-proof key + the owner's own aliases
             buckets.setdefault(key, []).append(c)
-    out = []
+    out, seen = [], set()
     for items in buckets.values():
         for i, a in enumerate(items):
             for b in items[i + 1:]:
                 if linked.get(a.id) and linked.get(a.id) == linked.get(b.id):
                     continue
+                if (pair := frozenset((a.id, b.id))) in seen:
+                    continue
+                seen.add(pair)
                 rel = relate(a, b)
                 if rel.level in ("high", "medium"):
                     out.append({"a": a, "b": b, "level": rel.level, "reasons": rel.reasons})

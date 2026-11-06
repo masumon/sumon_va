@@ -35,6 +35,7 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fails, setFails] = useState(0); // consecutive failed loads: a screen that HAD data can still be honest when the server goes away
   const loadRef = useRef(load);
   useEffect(() => { loadRef.current = load; });
   const run = useCallback(async (quiet = false) => {
@@ -42,8 +43,10 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
     try {
       setData(await loadRef.current());
       setError(null);
+      setFails(0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'কিছু একটা সমস্যা হয়েছে');
+      setFails((n) => n + 1);
     } finally {
       setLoading(false);
     }
@@ -68,5 +71,5 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
   }, [run, everyMs]);
   useEffect(() => (always ? live() : undefined), [always, live]);
   useFocusEffect(useCallback(() => (always ? undefined : live()), [always, live]));
-  return { data, error, loading, reload: () => run(), setData };
+  return { data, error, loading, fails, reload: () => run(), setData };
 }

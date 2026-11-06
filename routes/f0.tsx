@@ -25,6 +25,12 @@ function outcome(r: unknown, bn: boolean): { text: string; ok: boolean } | null 
 }
 
 /** Tell the assistant in words: ask about people, tasks, missed calls, or have it draft a reply. Voice = the keyboard's own mic. */
+const QUICK = [
+  { bn: 'মিসড কল', en: 'Missed calls', cmd: 'মিসড কল' }, { bn: 'কার উত্তর বাকি', en: 'Who is waiting', cmd: 'কার উত্তর বাকি' }, { bn: 'আমার কাজ', en: 'My tasks', cmd: 'আমার কাজ' },
+  { bn: 'জরুরি', en: 'Urgent', cmd: 'জরুরি' }, { bn: 'খসড়া', en: 'Drafts', cmd: 'খসড়া' }, { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে' },
+  { bn: 'সহকারীর অবস্থা', en: 'Assistant status', cmd: 'সহকারীর অবস্থা' }, { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম' },
+] as const;
+
 export default function F0Screen() {
   const { bn, colors } = useKit();
   const router = useRouter();
@@ -74,6 +80,14 @@ export default function F0Screen() {
 
   return (
     <Page title={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} subtitle={bn ? 'লিখে জিজ্ঞেস করুন বা কাজ দিন' : 'Ask or give a command in words'}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {QUICK.map((q) => (
+          <Pressable key={q.cmd} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} disabled={busy} onPress={() => { setText(q.cmd); setAsked(q.cmd); void send(q.cmd); }}
+            style={{ minHeight: 48, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+            <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? q.bn : q.en}</Text>
+          </Pressable>
+        ))}
+      </View>
       <Card>
         <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
           hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
