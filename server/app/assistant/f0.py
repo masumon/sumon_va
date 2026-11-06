@@ -94,8 +94,12 @@ def _reply(intent: str, answer: str, items=None, choices=None, draft=None) -> di
     return {"intent": intent, "answer": answer, "items": items or [], "choices": choices or [], "draft": draft}
 
 
+CHANNEL_BN = {"whatsapp": "WhatsApp", "telegram": "Telegram", "sms": "SMS", "device": "SMS", "notif": "ফোনের চ্যাট-অ্যাপ", "email": "ইমেইল", "webhook": "ওয়েবসাইট"}
+
+
 def _label(c: WaContact) -> str:
-    return f"{c.name or c.phone.split(':', 1)[-1]} ({(c.channel or 'whatsapp')})"
+    """Plain words for the owner: the person's name and where the chat is, never a code."""
+    return f"{c.name or c.phone.split(':')[-1]} ({CHANNEL_BN.get(c.channel or 'whatsapp', 'অন্য মাধ্যম')})"
 
 
 async def resolve(db: AsyncSession, name: str, contact_id: str | None) -> tuple[list[WaContact], list[dict[str, str]]]:
@@ -215,7 +219,7 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
         items = [{"title": f["text"], "subtitle": ("অনুমান" if f["inferred"] else "আপনার দেওয়া") + f", আস্থা {f['confidence']}"} for f in facts if f["status"] == "active"][:10]
         return _reply(intent, f"{who} সম্পর্কে {len(items)}টি তথ্য মনে আছে" if items else f"{who} সম্পর্কে কোনো তথ্য সংরক্ষিত নেই", items)
     st = ts.assess(await flow.recent_messages(db, [c.id for c in contacts], 30))
-    return _reply("person", f"{who}: {len(contacts)}টি পরিচয় ({', '.join(sorted({c.channel or 'whatsapp' for c in contacts}))}); {st.label}",
+    return _reply("person", f"{who}: {len(contacts)}টি পরিচয় ({', '.join(sorted({CHANNEL_BN.get(c.channel or 'whatsapp', 'অন্য মাধ্যম') for c in contacts}))}); {st.label}",
                   [{"title": _label(c), "contact_id": str(c.id)} for c in contacts])
 
 
@@ -239,7 +243,7 @@ async def _search_person(db: AsyncSession, contacts: list[WaContact], who: str) 
         return _reply("search", f"{who} ব্যক্তিগত/পরিবারের চ্যাট, তাই সার্চে ধরা হয় না — অ্যাপে চ্যাট খুলে পড়ুন")
     rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id.in_([c.id for c in open_]), WaMessage.direction == "in", WaMessage.status != "imported")
                              .order_by(WaMessage.created_at.desc()).limit(8))).scalars().all()
-    items = [{"title": _clip(privacy.unseal(m.transcript or m.body)), "subtitle": f"{_when(m.created_at)} · {m.channel or ''}", "contact_id": str(m.contact_id)} for m in rows]
+    items = [{"title": _clip(privacy.unseal(m.transcript or m.body)), "subtitle": f"{_when(m.created_at)} · {CHANNEL_BN.get(m.channel or '', '')}", "contact_id": str(m.contact_id)} for m in rows]
     return _reply("search", f"{who}-এর শেষ {len(items)}টি বার্তা" if items else f"{who}-এর কোনো বার্তা পাইনি", items)
 
 
