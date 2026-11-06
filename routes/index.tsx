@@ -144,6 +144,8 @@ export default function DashboardScreen() {
             </>
           ) : null}
           <View style={{ marginTop: 8 }}>
+            <ToggleRow icon="power" label={bn ? 'সহকারী (মাস্টার সুইচ)' : 'Assistant (master switch)'} hint={o.enabled ? (bn ? 'চালু: খসড়া, অ্যালার্ট ও নিয়ম কাজ করছে' : 'On: drafts, alerts and rules are working') : (bn ? 'বন্ধ: বার্তা জমা হবে, সহকারী কিছু করবে না' : 'Off: messages are kept, the assistant does nothing')}
+              value={o.enabled} onChange={(next) => { if (!busy) void run(() => va.saveAssistantConfig({ enabled: next }), next ? (bn ? 'সহকারী চালু' : 'Assistant on') : (bn ? 'সহকারী বন্ধ' : 'Assistant off')); }} />
             <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর দেবে' : 'Reply by itself'} hint={auto ? (bn ? 'চালু। পরিবারকে কখনও নয়।' : 'On — never to family.') : (bn ? 'বন্ধ। শুধু খসড়া করবে।' : 'Off — drafts only.')}
               value={auto} onChange={(next) => { if (!busy) void run(async () => { if (next && o && !o.enabled) await va.saveAssistantConfig({ enabled: true }); await va.killSwitch(!next); }, next ? (bn ? 'নিজে-নিজে উত্তর চালু' : 'Auto-reply on') : (bn ? 'সব নিজে-নিজে উত্তর বন্ধ' : 'All auto-replies off')); }} />
           </View>

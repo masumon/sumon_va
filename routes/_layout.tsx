@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
-import { KeyboardAvoidingView, StatusBar, useWindowDimensions } from 'react-native';
+import { KeyboardAvoidingView, StatusBar, useWindowDimensions, AppState } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -49,9 +49,14 @@ function AppNavigator() {
   // Private by default: the recent-apps thumbnail and screenshots show nothing of the owner's chats.
   useEffect(() => {
     // QA builds (tools/build-apk.ps1 -Qa) allow screenshots so the app can be inspected; real builds never do.
-    if (blockScreenshots && process.env.EXPO_PUBLIC_QA !== '1') void preventScreenCaptureAsync().catch(() => {});
-    else void allowScreenCaptureAsync().catch(() => {});
-  }, [blockScreenshots]);
+    const apply = () => {
+      if (blockScreenshots && process.env.EXPO_PUBLIC_QA !== '1') void preventScreenCaptureAsync().catch(() => {});
+      else void allowScreenCaptureAsync().catch(() => {});
+    };
+    apply();
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') apply(); });
+    return () => sub.remove();
+  }, [blockScreenshots, prefsLoaded]);
 
   // First run: nothing works until this phone is paired with the owner's account.
   useEffect(() => {

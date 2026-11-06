@@ -331,6 +331,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     is_missed_call = msg.direction == "in" and call_ctx.is_call({"meta": msg.meta, "body": msg.body})
     text_in, burst_n = (msg.body or "", 1) if is_missed_call or (msg.meta or {}).get("group") or transcript else ts.grouped_text(
         recent, msg.body or "", msg.created_at, ts.settings_grouping(cfg))
+    privacy.NAMES.set(tuple(n for n in (contact.name, *((contact.profile or {}).get("aliases") or [])) if n))  # masked before any AI call
     d = await brain.decide(db, cfg, contact, text_in, msg.kind, transcript, recent, notes)
     if burst_n > 1:
         d.note = (d.note + " · " if d.note else "") + f"{burst_n}টি বার্তা একসঙ্গে পড়ে একটি উত্তর"
@@ -407,6 +408,13 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     await abo_lead(db, cfg, contact, d)
 
     if not d.reply:
+        if d.reason not in ("spam", "blocked") and msg.direction == "in":
+            stale = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft")
+                                      .order_by(WaMessage.created_at.desc()).limit(1))).scalar_one_or_none()
+            if stale:  # the owner must see that the waiting draft was written BEFORE these newer messages
+                n = int((stale.meta or {}).get("newer", 0)) + 1
+                stale.meta = {**(stale.meta or {}), "newer": n, "note": f"এই খসড়ার পরে আরও {brain.bn_digits(n)}টি বার্তা এসেছে — পাঠানোর আগে চ্যাটটা দেখে নিন"}
+                await db.commit()
         if via_tg and d.reason not in ("spam", "blocked"):  # nothing to draft, but the owner still hears it on Telegram
             await _telegram_card(db, contact, msg, plain, None)
         return
@@ -676,14 +684,15 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
         await _check_token(db)
     if await _get_val(db, "wa_purge_last") != today:
         purged = 0
-        for category in (cfg.get("retention_by_category") or {}):  # personal chats go first, business last
-            ids = select(WaContact.id).where(WaContact.category == category, WaContact.is_family == False)  # noqa: E712
-            cut = now - timedelta(days=privacy.retention_days(cfg, category, False))
-            purged += (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(ids), WaMessage.created_at < cut))).rowcount or 0
-        fam = select(WaContact.id).where(WaContact.is_family == True)  # noqa: E712
-        purged += (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(fam), WaMessage.created_at < now - timedelta(days=privacy.retention_days(cfg, None, True))))).rowcount or 0
-        cut = now - timedelta(days=max(7, int(cfg.get("retention_days", 90))))
-        purged += (await db.execute(delete(WaMessage).where(WaMessage.created_at < cut))).rowcount or 0  # everything else: the general period
+        for scope_cfg, on_scope in ((cfg, WaContact.channel == "whatsapp"), (app_cfg, WaContact.channel != "whatsapp")):
+            for category in (scope_cfg.get("retention_by_category") or {}):  # personal chats go first, business last
+                ids = select(WaContact.id).where(WaContact.category == category, WaContact.is_family == False, on_scope)  # noqa: E712
+                cut = now - timedelta(days=privacy.retention_days(scope_cfg, category, False))
+                purged += (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(ids), WaMessage.created_at < cut))).rowcount or 0
+            fam = select(WaContact.id).where(WaContact.is_family == True, on_scope)  # noqa: E712
+            purged += (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(fam), WaMessage.created_at < now - timedelta(days=privacy.retention_days(scope_cfg, None, True))))).rowcount or 0
+            cut = now - timedelta(days=max(7, int(scope_cfg.get("retention_days", 90))))
+            purged += (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(select(WaContact.id).where(on_scope)), WaMessage.created_at < cut))).rowcount or 0
         out["purged"] = purged
         await _set_val(db, "wa_purge_last", today)
     await db.commit()

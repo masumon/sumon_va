@@ -124,6 +124,14 @@ def tokens(text: str) -> list[str]:
     return [t for t in _SPLIT.split((text or "").lower()) if t]
 
 
+_BN_DIGITS = str.maketrans("0123456789", "০১২৩৪৫৬৭৮৯")
+
+
+def bn_digits(value: object) -> str:
+    """Bangla digits for Bangla text shown to the owner (৭ জন, not 7 জন)."""
+    return str(value).translate(_BN_DIGITS)
+
+
 _BN_SPELL = str.maketrans({"ী": "ি", "ূ": "ু", "ঈ": "ই", "ঊ": "উ"})
 
 

@@ -116,6 +116,7 @@ export type AssistantConfig = {
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
   limits?: Limits;
+  promo?: { enabled: boolean; allow: string[]; block: string[] };
 };
 
 export type HubModel = { id: string; label?: string; free?: boolean };
@@ -201,6 +202,9 @@ export const va = {
   addFact: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts`, { text }),
   correctFact: (contactId: string, fid: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts/${fid}/correct`, { text }),
   removeFact: (contactId: string, fid: string) => call<unknown>('DELETE', `/admin/wa/contacts/${contactId}/facts/${fid}`),
+  smsImport: (items: { a: string; b: string; t: number; k: number }[], days: number) =>
+    call<{ people: number; found: number; imported: number; duplicates: number; promotions_left_out: number }>('POST', '/admin/wa/sms/import', { items, days }),
+  clearSpam: () => call<{ messages: number; people: number }>('POST', '/admin/wa/spam/clear', {}),
   aliases: (contactId: string) => call<{ aliases: string[] }>('GET', `/admin/wa/contacts/${contactId}/aliases`),
   setAliases: (contactId: string, aliases: string[]) => call<{ aliases: string[] }>('PUT', `/admin/wa/contacts/${contactId}/aliases`, { aliases }),
   relationship: (contactId: string) => call<{ observations: RelationshipObservation[] }>('GET', `/admin/wa/contacts/${contactId}/relationship`),

@@ -1,5 +1,5 @@
 import { PermissionsAndroid, type Permission } from 'react-native';
-import { openAppSettings, openBatterySettings, openDndAccess, openFullScreenSettings, openNotificationAccess, type BridgeStatus } from '../../modules/va-bridge';
+import { openAppSettings, openBatterySettings, openDndAccess, openFullScreenSettings, openNotificationAccess, requestDeviceAdmin, type BridgeStatus } from '../../modules/va-bridge';
 
 /**
  * Every permission the app can use, in one list: what it is for, whether it is needed, how to check it, how to ask for it.
@@ -47,6 +47,8 @@ export const PERMISSIONS: PermDef[] = [
   { key: 'battery', group: 'background', grade: 'must', bn: 'ব্যাটারি সীমাহীন', en: 'Unrestricted battery', whyBn: 'না দিলে ফোন অ্যাপটাকে বন্ধ করে দেয়, তখন বার্তা দেরিতে আসে।', whyEn: 'Otherwise the phone puts the app to sleep and messages arrive late.', ok: (s) => s.batteryExempt, open: () => { openBatterySettings(); } },
   { key: 'service', group: 'background', grade: 'must', bn: 'ব্যাকগ্রাউন্ড সিঙ্ক চালু', en: 'Background sync running', whyBn: 'সার্ভারের সাথে সবসময় যুক্ত থাকে, তাই বার্তা সাথে সাথে আসে।', whyEn: 'Stays connected to the server so messages arrive at once.', ok: (s) => s.serviceAlive, open: () => { openAppSettings(); } },  // no internet is not a missing permission: the health strip says that
   { key: 'activity', group: 'optional', grade: 'optional', bn: 'চলাফেরা বোঝা (স্টেপ সেন্সর)', en: 'Activity (step sensor)', whyBn: 'আপনি হাঁটছেন কিনা বুঝতে, যাতে সহকারী আপনার অবস্থা (বিশ্রামে বা পথে) ঠিকমতো ধরতে পারে।', whyEn: 'To know you are walking or using the phone, so the assistant sets the right status (resting / on the road).', ok: (s) => s.activity, runtime: [P.ACTIVITY_RECOGNITION] },
+  { key: 'smsread', group: 'optional', grade: 'optional', bn: 'পুরোনো SMS পড়া', en: 'Read old SMS', whyBn: 'আগের SMS ইতিহাস হিসেবে আনতে (সেটিংস → পুরোনো SMS আনুন)। নতুন SMS ধরতে এটা লাগে না।', whyEn: 'To bring earlier SMS in as history (Settings → Bring in old SMS). Not needed for new SMS.', ok: (s) => !!s.smsRead, runtime: [P.READ_SMS] },
+  { key: 'guard', group: 'background', grade: 'good', bn: 'সুরক্ষা (ডিভাইস অ্যাডমিন)', en: 'Protection (device admin)', whyBn: 'চালু থাকলে কেউ অ্যাপ মুছতে বা সুরক্ষা বন্ধ করতে চাইলে আপনার Telegram-এ সঙ্গে সঙ্গে খবর যায়। ফোনের কিছু মোছে না।', whyEn: 'Someone removing the app or its protection is reported to your Telegram at once. Never wipes anything.', ok: (s) => !!s.deviceAdmin, open: () => { requestDeviceAdmin(); } },
   { key: 'contacts', group: 'optional', grade: 'optional', bn: 'কন্টাক্টস (নাম চেনার জন্য)', en: 'Contacts (know names)', whyBn: 'SMS ও কলের নম্বরের পাশে আপনার ফোনে সেভ করা নাম দেখাতে।', whyEn: 'Shows the name saved on your phone next to SMS and call numbers.', ok: (s) => s.contacts, runtime: [P.READ_CONTACTS] },
   { key: 'location', group: 'optional', grade: 'optional', bn: 'লোকেশন', en: 'Location', whyBn: '“রুটিন ও জায়গা” পাতায় এখনকার জায়গা সেভ করতে (যেমন অফিস, বাসা), যাতে সহকারী জানে আপনি কোথায় আছেন। না দিলেও বাকি সব চলবে।', whyEn: 'To save your current place (office, home) on the Routine page so the assistant knows where you are. Everything else works without it.', ok: (s) => s.location, runtime: [P.ACCESS_FINE_LOCATION, P.ACCESS_COARSE_LOCATION] },
 ];
@@ -54,7 +56,7 @@ export const PERMISSIONS: PermDef[] = [
 /** The microphone entry was removed: RECORD_AUDIO is not declared in the manifest and nothing uses it, so it could never be granted. */
 
 /** Switches that live only in system Settings (no runtime dialog): the walk-through opens them one by one. */
-export const SPECIAL_ORDER = ['access', 'battery', 'dnd', 'fullscreen'];
+export const SPECIAL_ORDER = ['access', 'battery', 'dnd', 'fullscreen', 'guard'];
 export const specialDefs = (): PermDef[] => SPECIAL_ORDER.map((k) => PERMISSIONS.find((p) => p.key === k)).filter((d): d is PermDef => !!d && !!d.open);
 
 export type Outcome = { ok: boolean; reasonBn: string; reasonEn: string };

@@ -4,6 +4,7 @@ import { AppText as Text } from '../src/ui/AppText';
 import { AppIcon } from '../src/ui/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppButton } from '../src/ui/AppSurface';
+import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChipGroup, Field, useKit } from '../src/ui/AppKit';
 import { layout } from '../src/theme';
@@ -43,6 +44,8 @@ export default function InboxScreen() {
   if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) setView(fromLink); }
   const [showMore, setShowMore] = useState(false);
   const [q, setQ] = useState('');
+  const [askClear, setAskClear] = useState(false);
+  const { showSnackbar } = useAppFeedback();
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Contact[]>([]);
@@ -73,6 +76,15 @@ export default function InboxScreen() {
         ) : null}
       </View>
       <FilterSheet<InboxView> visible={showMore} onClose={() => setShowMore(false)} title={bn ? 'আরও ফিল্টার' : 'More filters'} options={EXTRA} value={extraActive ? view : null} labelOf={labelOf} onSelect={(k) => { setView(k); setPage(1); }} />
+      {view === 'spam' ? (
+        <View style={{ gap: 8 }}>
+          <Text style={{ color: colors.textSecondary }}>{bn ? 'অপারেটর ও দোকানের অফার এখানে ৩ দিন থাকে, তারপর নিজে মুছে যায়। ভুল করে কেউ এলে তার পাতায় “ইনি কেমন মানুষ?” বদলে দিন।' : 'Operator and shop offers stay here 3 days, then delete themselves. If someone real landed here, change “What kind of person” on their page.'}</Text>
+          <AppButton variant="secondary" icon="delete-sweep-outline" label={bn ? 'সব স্প্যাম এখনই মুছুন' : 'Delete all spam now'} disabled={items.length === 0} onPress={() => setAskClear(true)} />
+          <AppConfirmDialog visible={askClear} title={bn ? 'সব স্প্যাম মুছবেন?' : 'Delete all spam?'} description={bn ? 'স্প্যাম ফোল্ডারের সব বার্তা মুছে যাবে। পরিবার ও VIP কখনো মোছা হয় না।' : 'Every message in the spam folder is deleted. Family and VIP are never touched.'}
+            confirmLabel={bn ? 'মুছুন' : 'Delete'} cancelLabel={bn ? 'না' : 'No'} danger icon="delete-sweep-outline" onCancel={() => setAskClear(false)}
+            onConfirm={() => { setAskClear(false); void va.clearSpam().then((r) => { showSnackbar(bn ? `${r.messages}টি বার্তা মুছে ফেলা হলো` : `${r.messages} messages deleted`, 'success'); void list.reload(); }).catch((e: unknown) => showSnackbar(e instanceof Error ? e.message : '', 'danger')); }} />
+        </View>
+      ) : null}
       <Field label={bn ? 'খুঁজুন' : 'Search'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা বিষয়' : 'Name, number or topic'} />
       <View style={{ gap: 12, paddingBottom: layout.compactNavHeight + insets.bottom + 24 }}>
       <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}

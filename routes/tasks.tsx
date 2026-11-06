@@ -58,7 +58,8 @@ export default function TasksScreen() {
       <Status loading={list.loading && !list.data} error={list.data ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {list.data && list.data.length === 0 ? <EmptyNote icon="check-all" text={show === 'open' ? (bn ? 'কোনো কাজ বাকি নেই ✓' : 'Nothing left to do ✓') : (bn ? 'এখনও কিছু শেষ হয়নি' : 'Nothing done yet')} /> : null}
       {(list.data ?? []).map((t) => (
-        <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+        <View key={t.id} style={{ gap: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: t.is_done }} accessibilityLabel={t.title} onPress={() => void act(() => va.toggleTask(t.id))} hitSlop={8} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
             <AppIcon name={t.is_done ? 'check-circle' : 'circle-outline'} size={28} color={t.is_done ? colors.success : colors.primary} />
           </Pressable>
@@ -70,6 +71,8 @@ export default function TasksScreen() {
               {[t.due_at ? formatBangladeshDateTime(t.due_at, language) : null, t.source === 'ai' ? (bn ? 'সহকারী লিখেছে' : 'written by the assistant') : null].filter(Boolean).join(' · ')}
             </Text>
           </View>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           {t.proposed && !t.is_done ? <AppButton variant="secondary" label={bn ? 'নিশ্চিত করুন' : 'Confirm'} disabled={busy} onPress={() => void act(() => va.confirmTask(t.id))} style={{ minHeight: 48 }} /> : null}
           {!t.is_done ? (
             <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'অগ্রগতি লিখুন' : 'Add progress'} onPress={() => { setEditId(editId === t.id ? null : t.id); setState(null); setProgress(''); setBlocker(''); }} hitSlop={8} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
@@ -77,6 +80,7 @@ export default function TasksScreen() {
             </Pressable>
           ) : null}
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মুছুন' : 'Delete'} onPress={() => setAskDelete({ id: t.id, title: t.title })} hitSlop={8} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}><AppIcon name="trash-can-outline" size={22} color={colors.textMuted} /></Pressable>
+          </View>
         </View>
       ))}
       {editId ? (

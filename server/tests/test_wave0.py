@@ -540,3 +540,49 @@ def test_owner_lists_win():
     assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"allow": ["gp"]}})
     assert promo.is_promo("sms", "sms:+8801711000000", "x", "hello", {"promo": {"block": ["+8801711000000"]}})
     assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"enabled": False}})
+
+
+def test_names_are_masked_before_ai_and_restored():
+    from app.assistant import privacy
+
+    masked, mp = privacy.pseudonymize("রহিম ভাই বলেছেন 01712345678", ("রহিম",))
+    assert "রহিম" not in masked and "[PERSON_1]" in masked and "01712345678" not in masked
+    assert privacy.restore(masked, mp) == "রহিম ভাই বলেছেন 01712345678"
+
+
+def test_bangla_digits_helper():
+    from app.assistant.wa_brain import bn_digits
+
+    assert bn_digits("7 জন, 12টি") == "৭ জন, ১২টি"
+
+
+@pytest.mark.parametrize("ch,key,name,body,spam", [
+    ("sms", "sms:Circle", "Circle", "নতুন অফার! রিচার্জ করুন", True),
+    ("notif", "notif:com.imo.android.imoim:imo", "imo", "Get free stickers now", True),
+    ("notif", "notif:org.telegram.messenger:ShopBD", "ShopBD", "Flash sale 50% off https://x.y", True),
+    ("notif", "notif:com.whatsapp:Karim", "Karim", "ফ্রি আছো?", False),
+    ("notif", "notif:com.whatsapp:Karim", "Karim", "দাম কত? কাল আসবেন?", False),
+])
+def test_app_promotions_and_real_chats(ch, key, name, body, spam):
+    from app.assistant import promo
+
+    assert promo.is_promo(ch, key, name, body, {}) is spam
+
+
+@pytest.mark.asyncio
+async def test_sms_history_import_keeps_people_masks_codes_skips_promos_and_is_repeatable(Session):
+    from app.api.v1.routes import wa_assistant as r
+
+    now_ms = int(wa_flow.utcnow().timestamp() * 1000)
+    items = [r.SmsItem(a="+8801711000000", b="ভাই কাল আসবেন?", t=now_ms - 3600_000, k=1),
+             r.SmsItem(a="+8801711000000", b="জি আসব", t=now_ms - 3500_000, k=2),
+             r.SmsItem(a="bKash", b="Your OTP is 482913", t=now_ms - 3000_000, k=1),
+             r.SmsItem(a="GP", b="৫ GB ইন্টারনেট প্যাক অফার! ডায়াল করুন", t=now_ms - 2000_000, k=1)]
+    async with Session() as db:
+        res = (await r.sms_import(r.SmsImportIn(items=items, days=7), db=db, admin_id="00000000-0000-0000-0000-000000000001")).data
+        assert res["promotions_left_out"] == 1 and res["imported"] == 3 and res["people"] == 2
+        again = (await r.sms_import(r.SmsImportIn(items=items, days=7), db=db, admin_id="00000000-0000-0000-0000-000000000001")).data
+        assert again["imported"] == 0 and again["duplicates"] == 3
+        bodies = [m.body for m in (await db.execute(select(WaMessage))).scalars().all()]
+        assert not any("482913" in (b or "") for b in bodies)
+        assert all(m.status == "imported" for m in (await db.execute(select(WaMessage))).scalars().all())

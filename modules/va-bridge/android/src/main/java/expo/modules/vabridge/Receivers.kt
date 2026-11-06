@@ -31,6 +31,8 @@ class VaNotificationListener : NotificationListenerService() {
   // Android sometimes unbinds the listener on its own; ask to be bound again at once instead of silently missing messages.
   override fun onListenerDisconnected() {
     if (instance === this) instance = null
+    // Turned off in Settings (not just a restart): chat messages stop arriving, so the owner is told.
+    try { if (!androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(applicationContext).contains(applicationContext.packageName)) Guard.report(applicationContext, "listener_off") } catch (_: Exception) {}
     try { NotificationListenerService.requestRebind(android.content.ComponentName(this, VaNotificationListener::class.java)) } catch (_: Exception) {}
   }
 
@@ -237,9 +239,24 @@ class CallReceiver : BroadcastReceiver() {
       TelephonyManager.EXTRA_STATE_OFFHOOK -> p.edit().putBoolean(K_ANSWERED, true).apply()
       TelephonyManager.EXTRA_STATE_IDLE -> {
         if (since != 0L && !p.getBoolean(K_ANSWERED, false)) {
-          val from = p.getString(K_NUMBER, null) ?: "অজানা নম্বর"
-          Outbox.add(context, item("call", "sms", from, null, "", "c:" + sha("$from|$since"), contactName(context, from)))
-          Thread { Outbox.flush(context) }.start()
+          val guess = p.getString(K_NUMBER, null)
+          val ctx = context.applicationContext
+          val pending = goAsync()
+          Thread {
+            try {
+              // The phone's own call log is the truth: it knows the number, and whether the call was really MISSED (not
+              // declined by the owner). The ring-state guess is only the fallback when the log cannot be read.
+              Thread.sleep(2500)  // the call log is written a moment after the line goes idle
+              val log = lastCallSince(ctx, since - 30_000L)
+              val missed = log?.second?.let { it == android.provider.CallLog.Calls.MISSED_TYPE } ?: true
+              if (missed) {
+                val from = log?.first?.takeIf { it.isNotBlank() } ?: guess ?: "অজানা নম্বর"
+                Outbox.add(ctx, item("call", "sms", from, null, "", "c:" + sha("$from|$since"), contactName(ctx, from)))
+                Outbox.flush(ctx)
+              }
+            } catch (_: Exception) {
+            } finally { pending.finish() }
+          }.start()
         }
         p.edit().remove(K_SINCE).remove(K_NUMBER).remove(K_ANSWERED).apply()
       }
@@ -247,6 +264,14 @@ class CallReceiver : BroadcastReceiver() {
   }
 
   companion object {
+    /** (number, type) of the newest call-log entry since `fromMs`, or null when there is none or the log may not be read. */
+    fun lastCallSince(ctx: Context, fromMs: Long): Pair<String?, Int>? = try {
+      ctx.contentResolver.query(android.provider.CallLog.Calls.CONTENT_URI, arrayOf(android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.TYPE),
+        "${android.provider.CallLog.Calls.DATE} >= ?", arrayOf(fromMs.toString()), "${android.provider.CallLog.Calls.DATE} DESC")?.use { c ->
+        if (c.moveToFirst()) Pair(c.getString(0), c.getInt(1)) else null
+      }
+    } catch (_: Exception) { null }
+
     private const val K_SINCE = "ring_since"
     private const val K_NUMBER = "ring_number"
     private const val K_ANSWERED = "ring_answered"

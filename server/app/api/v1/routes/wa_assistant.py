@@ -68,7 +68,7 @@ def _audit(db: AsyncSession, admin_id: str, action: str, entity_id: uuid.UUID | 
 
 # ── Meta webhook (public) ───────────────────────────────────────────────────────
 
-@router.get("/wa/webhook")
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def verify(request: Request, db: AsyncSession = Depends(get_db)):
     q = request.query_params
     expected = (await wcfg.get_secrets(db)).get("verify_token", "")
@@ -99,7 +99,7 @@ def _text_of(m: dict[str, Any]) -> tuple[str, str, str]:
     return "other", f"[{t}]", ""
 
 
-@router.post("/wa/webhook", dependencies=[Depends(rate_limit("wa-hook", 1500, 60))])
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def receive(request: Request, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if int(request.headers.get("content-length") or 0) > MAX_HOOK_BYTES:
         raise HTTPException(status_code=413, detail="too large")
@@ -366,7 +366,7 @@ async def connect_webhook(db: AsyncSession = Depends(get_db), admin_id: str = De
     return ApiResponse(data={"ok": True}, message="Meta-কে বলা হয়েছে: এই অ্যাকাউন্টের সব ঘটনা সরাসরি আমাদের ঠিকানায় পাঠাও। এক মিনিট পর কার্ডে “এখনই পরীক্ষা করুন” চাপুন।")
 
 
-@router.put("/admin/wa/secrets", response_model=ApiResponse)
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def put_secrets(body: SecretsIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(require_role(OWNER))):
     data = await wcfg.save_secrets(db, body.model_dump())
     _audit(db, admin_id, "wa_secrets", values={"fields": [k for k, v in body.model_dump().items() if v]})
@@ -378,7 +378,7 @@ async def put_secrets(body: SecretsIn, db: AsyncSession = Depends(get_db), admin
     return ApiResponse(data={"secrets": wcfg.masked(data)}, message="গোপনভাবে সংরক্ষণ হয়েছে" + note)
 
 
-@router.post("/admin/wa/secrets/test", response_model=ApiResponse)
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def test_secrets(db: AsyncSession = Depends(get_db), _a: str = Depends(require_role(OWNER))):
     return ApiResponse(data=await wa_send.check(await wcfg.get_secrets(db)))
 
@@ -954,6 +954,49 @@ async def import_history(cid: uuid.UUID, body: ImportIn, db: AsyncSession = Depe
     _audit(db, admin_id, "wa_import_history", c.id, {k: rep[k] for k in ("found", "imported", "duplicates")})
     await db.commit()
     return ApiResponse(data=rep, message=f"{rep['imported']}টি নতুন বার্তা ইতিহাসে রাখা হলো, {rep['duplicates']}টি আগেই ছিল")
+
+
+class SmsItem(BaseModel):
+    a: str = Field(min_length=1, max_length=40)       # address (number or sender id)
+    b: str = Field(default="", max_length=4000)      # body
+    t: int = Field(ge=0)                             # time, ms since epoch
+    k: int = Field(default=1, ge=1, le=6)            # Telephony type: 1 inbox, 2 sent
+
+
+class SmsImportIn(BaseModel):
+    items: list[SmsItem] = Field(default_factory=list, max_length=3000)
+    days: int = Field(default=30)
+
+
+@router.post("/admin/wa/sms/import", response_model=ApiResponse)
+async def sms_import(body: SmsImportIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
+    """Old SMS read on the phone (READ_SMS, the owner's choice). Context only, like an exported chat: never answered, never
+    alerted, safe to run again. Codes are masked; operator/shop promotions are left out."""
+    from app.assistant import promo
+
+    if body.days not in history_import.PERIODS:
+        raise HTTPException(status_code=422, detail="সময়সীমা ঠিক নয়: ১, ৩, ৫, ৭, ১৫, ৩০ দিন অথবা ০ (সবটুকু)")
+    cfg = await wcfg.load_config(db, scope="app")
+    per: dict[str, list[dict]] = {}
+    skipped = 0
+    for it in body.items:
+        text, _m = privacy.mask_secrets(it.b)
+        if promo.is_promo("sms", f"sms:{it.a}", it.a, text, cfg):
+            skipped += 1
+            continue
+        per.setdefault(it.a.strip(), []).append({"at": datetime.fromtimestamp(it.t / 1000, tz=timezone.utc), "speaker": "me" if it.k == 2 else "them", "text": text})
+    total = {"people": 0, "found": len(body.items), "imported": 0, "duplicates": 0, "promotions_left_out": skipped}
+    for addr, rows in per.items():
+        contact = await flow.upsert_contact(db, f"sms:{addr}", None)
+        if not contact.channel:
+            contact.channel = "sms"
+        rep = await history_import.import_rows(db, contact, rows, "me", body.days, int(cfg.get("retention_days", 90)), _now())
+        total["people"] += 1
+        total["imported"] += rep["imported"]
+        total["duplicates"] += rep["duplicates"]
+    _audit(db, admin_id, "wa_sms_import", None, {k: total[k] for k in ("people", "imported", "duplicates")})
+    await db.commit()
+    return ApiResponse(data=total, message=f"{total['imported']}টি পুরোনো SMS রাখা হলো ({total['people']} জন)")
 
 
 class LearnIn(BaseModel):

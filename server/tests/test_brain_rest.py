@@ -394,7 +394,7 @@ async def test_f0_answers_from_real_data_and_says_when_there_is_nothing(Session)
         s.add(WaMessage(contact_id=c.id, direction="in", channel="sms", kind="text", body="ভাই কবে হবে?", status="received"))
         c.last_inbound_at = datetime.now(timezone.utc) - timedelta(minutes=5)
         await s.commit()
-        assert "1 জনের মিসড কল" in (await f0.run(s, "মিসড কল"))["answer"]
+        assert "১ জনের মিসড কল" in (await f0.run(s, "মিসড কল"))["answer"]
         assert "প্রস্তাবিত" in (await f0.run(s, "আমার কাজ"))["items"][0]["subtitle"]
         assert "নিশ্চিত করেননি" in (await f0.run(s, "করিমের কাজের কী হলো"))["answer"]
         assert (await f0.run(s, "কার উত্তর বাকি"))["items"]

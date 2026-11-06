@@ -13,7 +13,7 @@ export function Hero({ icon, eyebrow, title, subtitle, right, children, grad: gr
   // Each design theme has its own gradient; low light uses a warm near-black so nothing glares in a dark room.
   const grad: [string, string] = gradOverride && themeMode !== 'dim' ? gradOverride : design.heroGrad;
   const ink = themeMode === 'dim' ? colors.textPrimary : '#FFFFFF';
-  const soft = themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.78)';
+  const soft = themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.94)';
   return (
     <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, { borderRadius: design.radiusHero }, design.heroShadow ?? undefined]}>
       <View style={styles.top}>
@@ -37,7 +37,7 @@ export function HeroStat({ value, label, onPress }: { value: string; label: stri
   const body = (
     <>
       <Text style={[styles.statValue, { color: ink }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.75)' }]}>{label}</Text>
+      <Text style={[styles.statLabel, { color: themeMode === 'dim' ? colors.textSecondary : 'rgba(255,255,255,0.92)' }]}>{label}</Text>
     </>
   );
   return onPress
