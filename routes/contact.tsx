@@ -72,7 +72,18 @@ export default function ContactScreen() {
   const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
 
   return (
-    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}>
+    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}
+      footer={c ? (
+        <View style={{ gap: 8 }}>
+          <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'আপনার উত্তর লিখুন…' : 'Write your reply…'} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
+              onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
+            <View style={{ flex: 1 }}><AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখুক' : 'Draft it'} loading={busy}
+              onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} /></View>
+          </View>
+        </View>
+      ) : null}>
       <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {c && pr ? (
         <>
@@ -103,15 +114,6 @@ export default function ContactScreen() {
 
           <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
 
-          <Card title={bn ? 'আপনার উত্তর' : 'Your reply'}>
-            <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'এখানে লিখুন…' : 'Write here…'} />
-            <View style={{ gap: 8, marginTop: 10 }}>
-              <AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
-                onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানো হয়েছে' : 'Sent')} />
-              <AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let the assistant draft it'} loading={busy}
-                onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} />
-            </View>
-          </Card>
 
           <Card title={bn ? 'অ্যাপের বাইরে উত্তর দিয়েছেন?' : 'Already answered outside the app?'}>
             <Text style={{ opacity: 0.75, marginBottom: 8 }}>{bn ? 'আপনি নিজে WhatsApp বা অন্য অ্যাপে উত্তর দিলে এখানে জানিয়ে দিন। তাহলে সহকারী দ্বিতীয়বার উত্তর দেবে না, আর “উত্তর বাকি” মনে করাবে না।' : 'If you answered in the chat app yourself, tell the assistant here so it does not answer again or remind you.'}</Text>

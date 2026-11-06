@@ -27,6 +27,7 @@ export default function RulesScreen() {
   const cfg = useLoad(() => va.assistantConfig(), 'assistant-config');
   const c = cfg.data?.config;
   const [names, setNames] = useState<{ assistant?: string; owner?: string; replyBy?: string }>({});
+  const [lists, setLists] = useState<{ allow?: string; block?: string }>({});
 
   const save = async (patch: Record<string, unknown>) => {
     try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
@@ -86,6 +87,15 @@ export default function RulesScreen() {
               onChange={(s) => { if (s) void save({ calls: { burst_min: Number(s) } }); }} />
             <ChipGroup<(typeof URGENT_PER_DAY)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts per day'} options={URGENT_PER_DAY} value={String(c.limits?.urgent_per_day ?? 5) as (typeof URGENT_PER_DAY)[number]} labelOf={(s) => s}
               onChange={(s) => { if (s) void save({ limits: { urgent_per_day: Number(s) } }); }} hint={bn ? 'সীমা বা নীরব সময়ে আটকে গেলে অ্যালার্ট হারায় না: আপনি পরে সারাংশ পাবেন।' : 'Alerts held back by the limit or quiet hours are not lost: you get a summary later.'} />
+          </Card>
+
+          <Card icon="email-off-outline" title={bn ? 'স্প্যাম ও প্রচার' : 'Spam and promotions'}>
+            <ToggleRow icon="filter-remove-outline" label={bn ? 'অপারেটর ও দোকানের অফার স্প্যামে পাঠাও' : 'Send operator and shop offers to spam'} hint={bn ? 'GP, Robi, Banglalink, Airtel, Teletalk, Circle ও অ্যাপের বিজ্ঞাপন। bKash, ব্যাংক বা কোডের SMS কখনো নয়।' : 'GP, Robi, Banglalink, Airtel, Teletalk, Circle and app adverts. Never bKash, bank or code SMS.'}
+              value={c.promo?.enabled ?? true} onChange={(v) => void save({ promo: { enabled: v } })} />
+            <Field label={bn ? 'কখনো স্প্যাম নয় (নাম/নম্বর, কমা দিয়ে)' : 'Never spam (names/numbers, comma separated)'} value={lists.allow ?? (c.promo?.allow ?? []).join(', ')} onChangeText={(v) => setLists((s) => ({ ...s, allow: v }))} />
+            <Field label={bn ? 'সব সময় স্প্যাম (নাম/নম্বর, কমা দিয়ে)' : 'Always spam (names/numbers, comma separated)'} value={lists.block ?? (c.promo?.block ?? []).join(', ')} onChangeText={(v) => setLists((s) => ({ ...s, block: v }))} />
+            <AppButton variant="secondary" label={bn ? 'তালিকা সংরক্ষণ' : 'Save lists'} disabled={lists.allow === undefined && lists.block === undefined}
+              onPress={() => { const split = (t?: string, d: string[] = []) => (t === undefined ? d : t.split(',').map((x) => x.trim()).filter(Boolean)); void save({ promo: { allow: split(lists.allow, c.promo?.allow), block: split(lists.block, c.promo?.block) } }).then(() => setLists({})); }} />
           </Card>
 
           <Card icon="bell-outline" title={bn ? 'জানানো ও রাখা' : 'Notify and keep'}>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clearApiCache } from './api';
 import { RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { AppText as Text } from '../ui/AppText';
@@ -15,23 +16,34 @@ import { NAV_BAR_GAP, NAV_BAR_HEIGHT, primaryNavItems } from '../ui/PrimaryNav';
  * The one page frame every screen of the app uses: background, width, spacing, header, pull-to-refresh and the room the
  * bottom bar needs. A new screen only supplies its title and content, so fonts, colours and spacing can never drift.
  */
-export function Page({ title, subtitle, right, back, children, onRefresh, refreshing = false, bottomPadding }: {
-  title: string; subtitle?: string; right?: ReactNode; back?: string; children: ReactNode; onRefresh?: () => void; refreshing?: boolean; bottomPadding?: number;
+export function Page({ title, subtitle, right, back, children, onRefresh, refreshing = false, bottomPadding, footer }: {
+  title: string; subtitle?: string; right?: ReactNode; back?: string; children: ReactNode; onRefresh?: () => void; refreshing?: boolean; bottomPadding?: number; footer?: ReactNode;
 }) {
   const { colors } = useAppPreferences();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  // Pull-to-refresh: the spinner is ours and stops after at most 2.5 s (or sooner when the screen says it is done), so it can
-  // never hang while a slow request is still running behind it (owner bug: refresh seemed to stick).
+  // Pull-to-refresh: always NEW data (the short read cache is cleared first), and the spinner stops when the screen really
+  // finished (its `refreshing` went on and off again). A screen that never reports stops after 1.2 s; a slow server after 10 s.
   const [pulling, setPulling] = useState(false);
   const pullTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (pullTimer.current) clearTimeout(pullTimer.current); }, []);
+  const quietTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saw = useRef(false);
+  const stop = () => { setPulling(false); saw.current = false; if (pullTimer.current) clearTimeout(pullTimer.current); if (quietTimer.current) clearTimeout(quietTimer.current); };
+  useEffect(() => () => { if (pullTimer.current) clearTimeout(pullTimer.current); if (quietTimer.current) clearTimeout(quietTimer.current); }, []);
+  useEffect(() => {
+    if (!pulling) return;
+    if (refreshing) saw.current = true;
+    else if (saw.current) stop();
+  }, [refreshing, pulling]);
   const pull = () => {
+    clearApiCache();
+    saw.current = false;
     setPulling(true);
     if (pullTimer.current) clearTimeout(pullTimer.current);
-    pullTimer.current = setTimeout(() => setPulling(false), 2500);
+    if (quietTimer.current) clearTimeout(quietTimer.current);
+    pullTimer.current = setTimeout(stop, 10000);
+    quietTimer.current = setTimeout(() => { if (!saw.current) stop(); }, 1200);
     onRefresh?.();
   };
-  void refreshing;
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -46,6 +58,7 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
         <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
         <View style={styles.body}>{children}</View>
       </ScrollView>
+      {footer ? <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: Math.max(insets.bottom, spacing.sm), backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>{footer}</View> : null}
     </View>
   );
 }
