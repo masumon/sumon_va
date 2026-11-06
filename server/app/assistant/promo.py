@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-OPERATORS = ("gp", "grameenphone", "mygp", "gp offer", "robi", "airtel", "banglalink", "bl", "teletalk", "skitto", "robi-axiata", "my robi", "my airtel", "mybl")
+OPERATORS = ("circle", "circle bd", "gp", "grameenphone", "mygp", "gp offer", "robi", "airtel", "banglalink", "bl", "teletalk", "skitto", "robi-axiata", "my robi", "my airtel", "mybl")
+APP_SENDERS = ("imo", "imo team", "messenger", "facebook", "telegram", "whatsapp", "viber", "tiktok", "instagram", "youtube", "google play", "truecaller")  # the app writing about itself
 SHOPS = ("daraz", "foodpanda", "pathao", "shohoz", "chaldal", "evaly", "ajkerdeal", "rokomari", "bikroy", "othoba", "pickaboo", "shajgoj", "aarong")
 PROMO_WORDS = re.compile(
     r"অফার|ছাড়|ডিসকাউন্ট|বোনাস|ক্যাশব্যাক|ফ্রি|রিচার্জ করুন|রিচার্জে|ইন্টারনেট প্যাক|মিনিট প্যাক|প্যাক কিনুন|ডায়াল করুন|\*\d{3,}#|জিতে নিন|লটারি|পুরস্কার|"
@@ -53,4 +54,8 @@ def is_promo(channel: str, key: str, name: str | None, body: str | None, cfg: di
     known = bool(names & (set(OPERATORS) | set(SHOPS))) or any(n.startswith(o + " ") for n in names for o in OPERATORS)
     if channel in ("sms", "device") and known:
         return True
-    return named and bool(PROMO_WORDS.search(text)) and (known or channel in ("sms", "device"))
+    hits = len(PROMO_WORDS.findall(text))
+    if channel == "notif":
+        # an app's own promotion, a shop, or a broadcast that is clearly an advert (two offer words, or an offer plus a link/percent)
+        return (bool(names & set(APP_SENDERS)) and hits >= 1) or known or hits >= 2 or (hits >= 1 and bool(re.search(r"https?://|www\.|\d+\s?%", text)))
+    return named and hits >= 1

@@ -540,3 +540,30 @@ def test_owner_lists_win():
     assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"allow": ["gp"]}})
     assert promo.is_promo("sms", "sms:+8801711000000", "x", "hello", {"promo": {"block": ["+8801711000000"]}})
     assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"enabled": False}})
+
+
+def test_names_are_masked_before_ai_and_restored():
+    from app.assistant import privacy
+
+    masked, mp = privacy.pseudonymize("রহিম ভাই বলেছেন 01712345678", ("রহিম",))
+    assert "রহিম" not in masked and "[PERSON_1]" in masked and "01712345678" not in masked
+    assert privacy.restore(masked, mp) == "রহিম ভাই বলেছেন 01712345678"
+
+
+def test_bangla_digits_helper():
+    from app.assistant.wa_brain import bn_digits
+
+    assert bn_digits("7 জন, 12টি") == "৭ জন, ১২টি"
+
+
+@pytest.mark.parametrize("ch,key,name,body,spam", [
+    ("sms", "sms:Circle", "Circle", "নতুন অফার! রিচার্জ করুন", True),
+    ("notif", "notif:com.imo.android.imoim:imo", "imo", "Get free stickers now", True),
+    ("notif", "notif:org.telegram.messenger:ShopBD", "ShopBD", "Flash sale 50% off https://x.y", True),
+    ("notif", "notif:com.whatsapp:Karim", "Karim", "ফ্রি আছো?", False),
+    ("notif", "notif:com.whatsapp:Karim", "Karim", "দাম কত? কাল আসবেন?", False),
+])
+def test_app_promotions_and_real_chats(ch, key, name, body, spam):
+    from app.assistant import promo
+
+    assert promo.is_promo(ch, key, name, body, {}) is spam

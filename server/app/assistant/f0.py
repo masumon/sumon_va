@@ -90,6 +90,7 @@ def parse(text: str) -> dict[str, Any]:
 
 
 def _reply(intent: str, answer: str, items=None, choices=None, draft=None) -> dict[str, Any]:
+    answer = brain.bn_digits(answer)  # the owner reads Bangla: ৭ জন, not 7 জন
     return {"intent": intent, "answer": answer, "items": items or [], "choices": choices or [], "draft": draft}
 
 

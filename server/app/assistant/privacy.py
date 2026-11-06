@@ -107,11 +107,22 @@ _LONG_NUM = re.compile(r"(?<![\w])[\d০-৯]{9,}(?![\w])")
 PLACEHOLDER_NOTE = "Personal identifiers (phone numbers, e-mails, long numbers) are replaced by placeholders like [PHONE_1]; keep them exactly as written."
 
 
-def pseudonymize(text: str | None) -> tuple[str, dict[str, str]]:
-    """Replace phone numbers, e-mail addresses and long numbers by placeholders. Returns (masked text, {placeholder: original})."""
+import contextvars
+
+# Names of the people in the conversation being processed (set by wa_flow._process); masked like numbers before an AI call.
+NAMES: contextvars.ContextVar[tuple[str, ...]] = contextvars.ContextVar("va_mask_names", default=())
+
+
+def pseudonymize(text: str | None, names: tuple[str, ...] | None = None) -> tuple[str, dict[str, str]]:
+    """Replace phone numbers, e-mail addresses, long numbers and the known names by placeholders. Returns (masked text, {placeholder: original})."""
     if not text:
         return text or "", {}
     mapping: dict[str, str] = {}
+    for i, nm in enumerate(sorted({n.strip() for n in (names if names is not None else NAMES.get()) if n and len(n.strip()) >= 3}, key=len, reverse=True), 1):
+        if nm in text:
+            key = f"[PERSON_{i}]"
+            text = text.replace(nm, key)
+            mapping[key] = nm
     counts = {"EMAIL": 0, "PHONE": 0, "NUM": 0}
 
     def sub(kind: str):
