@@ -305,7 +305,8 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
             break
         if m.get("direction") == "in" and isinstance(m.get("created_at"), datetime) and m["created_at"].astimezone(DHAKA) >= now - timedelta(minutes=20):
             unanswered += 1
-    owner_replied = any(m.get("direction") == "out" and m.get("reason") == "owner" for m in recent[:6])
+    owner_replied = any(m.get("direction") == "out" and m.get("reason") == "owner" and m.get("status") in ("sent", "queued", "sending", "imported")
+                        for m in recent[:6])  # a draft the owner has not approved yet is not an answer
     repeated = unanswered >= 2 and not owner_replied  # this message makes the third in a row without any answer
     kind = classify_kind(body, cfg)
     if kind == "other":  # a short follow-up ("ব্যানার") keeps the topic the person already started

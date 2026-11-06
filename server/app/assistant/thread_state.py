@@ -59,6 +59,7 @@ class ReplyState:
     last_in_at: datetime | None = None
     last_in_id: Any = None
     owner_replied: bool = False
+    dismissed: bool = False    # the phone saw the notification disappear: NOT proof of reading
     label: str = ""
 
 
@@ -73,8 +74,10 @@ def assess(recent: list[dict[str, Any]]) -> ReplyState:
         if is_call(m):
             continue
         if m.get("direction") == "in":
+            if m.get("status") == "imported":
+                continue  # old history is context, not something waiting for an answer
             (burst if owner_reply is None else rest).append(m)
-        elif m.get("direction") == "out" and m.get("status") in REAL_OUT:
+        elif m.get("direction") == "out" and m.get("status") in REAL_OUT + ("imported",):
             if owner_reply is not None:
                 break
             if (m.get("reason") or "") in OWNER:
@@ -84,6 +87,7 @@ def assess(recent: list[dict[str, Any]]) -> ReplyState:
     if burst:
         st.last_in_at, st.last_in_id = _at(burst[0].get("created_at")), burst[0].get("id")
     st.unanswered = len(burst)
+    st.dismissed = any((m.get("meta") or {}).get("dismissed_at") for m in burst)
     st.owner_replied = owner_reply is not None
     if burst:  # the person wrote after the owner's last answer (or the owner never answered)
         st.questions = sum(_questions(m.get("body") or "") for m in burst)
@@ -145,4 +149,5 @@ def reminder_reason(cfg: dict[str, Any], contact: Any, st: ReplyState, now: date
         return f"⏰ আংশিক উত্তর: {st.label}। বাকিটা দেখুন"
     if st.status == "uncertain":
         return f"⏰ যাচাই করুন: {st.label}"
-    return f"⏰ {n}টি বার্তার উত্তর বাকি ({int(waited)} মিনিট) — কেউ উত্তর দিয়েছে এমন প্রমাণ নেই; পড়া হয়েছে কি না অ্যাপ জানে না"
+    seen = "নোটিফিকেশন সরানো হয়েছে (এটা পড়ার প্রমাণ নয়)" if st.dismissed else "পড়া হয়েছে কি না অ্যাপ জানে না"
+    return f"⏰ {n}টি বার্তার উত্তর বাকি ({int(waited)} মিনিট) — কেউ উত্তর দিয়েছে এমন প্রমাণ নেই; {seen}"

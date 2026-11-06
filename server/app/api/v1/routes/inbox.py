@@ -126,7 +126,7 @@ async def device_pair(body: PairIn, db: AsyncSession = Depends(get_db)):
 
 
 class IngestItem(BaseModel):
-    type: str = Field(default="msg", pattern="^(msg|call)$")
+    type: str = Field(default="msg", pattern="^(msg|call|seen)$")  # seen = a chat notification was dismissed (NOT proof it was read)
     channel: str = Field(pattern="^(sms|notif)$")
     sender: str = Field(min_length=1, max_length=60)      # SMS number, or the person's name shown in the notification
     app: str | None = Field(default=None, max_length=60)  # package name, for notif
@@ -167,6 +167,9 @@ async def device_ingest(body: IngestIn, background: BackgroundTasks, dev: InboxD
         try:
             async with db.begin_nested():  # one bad item rolls back only itself
                 key = f"sms:{sender}" if it.channel == "sms" else f"notif:{(app_ or 'app')[:30]}:{sender}"
+                if it.type == "seen":  # only a signal on the person's latest message; it never creates a message or an alert
+                    await flow.mark_dismissed(db, key, datetime.fromtimestamp(it.at / 1000, tz=timezone.utc) if it.at and it.at > 10**11 else None)
+                    continue
                 if email_filter.is_email_source(it.channel, app_):  # mail: only what matters (promotions never reach the database)
                     known = (await db.execute(select(WaContact.id).where(WaContact.phone == key, (WaContact.is_vip == True) | (WaContact.is_family == True) | (WaContact.tags.isnot(None))).limit(1))).first() is not None  # noqa: E712
                     keep, _why = email_filter.decide(cfg, sender, text_in.splitlines()[0] if text_in else "", text_in, known)

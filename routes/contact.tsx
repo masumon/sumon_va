@@ -12,6 +12,7 @@ import { Page, Status } from '../src/va/Page';
 import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
 import { TagEditor } from '../src/va/TagEditor';
 import { ChatTransfer } from '../src/va/ChatTransfer';
+import { ContactMemory } from '../src/va/ContactMemory';
 import { ChatMenuButton } from '../src/va/ChatMenu';
 import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
@@ -132,6 +133,7 @@ export default function ContactScreen() {
               {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'সহকারীর হাতে দিন' : 'Hand back'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
             </View>
           </Card>
+          <ContactMemory contactId={c.id} />
         </>
       ) : null}
     </Page>

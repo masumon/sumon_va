@@ -99,7 +99,7 @@ export type ChannelsInfo = {
   devices: { id: string; name: string; paired_at: string; last_seen_at: string | null; revoked: boolean }[];
 };
 
-export type Task = { id: string; title: string; due_at: string | null; is_done: boolean; source: string; contact_name?: string | null; contact_phone?: string | null };
+export type Task = { id: string; title: string; due_at: string | null; is_done: boolean; source: string; contact_name?: string | null; contact_phone?: string | null; proposed?: boolean };
 
 export type StatusDef = { key: string; label: string; say: string; say_en?: string };
 export type ScheduleBlock = { days: number[]; from: string; to: string; status: string };
@@ -123,6 +123,20 @@ export type HubPrefs = { allow_paid: boolean; paid_daily_cap: number; tasks: Par
 export type HubSummary = {
   enabled: boolean; connections: HubConn[]; prefs: HubPrefs; today: { count: number; paid: number };
   best: Record<HubTask, string>; last_error: { text: string; at: string }; working: number;
+};
+
+export type IdentityRef = { id: string; name: string; channel: string; key: string };
+export type IdentitySuggestion = { a: IdentityRef; b: IdentityRef; level: 'high' | 'medium'; reasons: string[] };
+export type Fact = {
+  id: string; text: string; source: string; confidence: 'high' | 'medium' | 'low';
+  provenance: 'owner' | 'ai' | 'imported' | 'platform'; status: 'active' | 'disputed' | 'superseded' | 'corrected'; at: string;
+};
+export type RelationshipObservation = { text: string; confidence: 'high' | 'medium' | 'low'; basis: string };
+export type F0Draft = { id: string; to: string; channel: string; body: string; warnings: string[] };
+export type F0Result = {
+  intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'unknown';
+  answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
+  choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
 };
 
 /** How to show an error: a slow answer is only a note, everything else is a real error. */
@@ -168,6 +182,18 @@ export const va = {
   suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
   approve: (mid: string, text?: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/approve`, text ? { text } : undefined),
   discard: (mid: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/discard`),
+  confirmTask: (id: string) => call<unknown>('POST', `/admin/wa/tasks/${id}/confirm`, {}),
+  taskProgress: (id: string, d: { status?: string; progress?: string; blocker?: string }) => call<unknown>('POST', `/admin/wa/tasks/${id}/progress`, d),
+  identitySuggestions: () => call<IdentitySuggestion[]>('GET', '/admin/wa/identity/suggestions'),
+  identityLink: (contact_ids: string[]) => call<unknown>('POST', '/admin/wa/identity/link', { contact_ids }),
+  identityUnlink: (contactId: string) => call<unknown>('POST', `/admin/wa/identity/unlink/${contactId}`, {}),
+  identityOf: (contactId: string) => call<{ linked: IdentityRef[] }>('GET', `/admin/wa/contacts/${contactId}/identity`),
+  facts: (contactId: string) => call<Fact[]>('GET', `/admin/wa/contacts/${contactId}/facts`),
+  addFact: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts`, { text }),
+  correctFact: (contactId: string, fid: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts/${fid}/correct`, { text }),
+  removeFact: (contactId: string, fid: string) => call<unknown>('DELETE', `/admin/wa/contacts/${contactId}/facts/${fid}`),
+  relationship: (contactId: string) => call<{ observations: RelationshipObservation[] }>('GET', `/admin/wa/contacts/${contactId}/relationship`),
+  f0Command: (text: string) => call<F0Result>('POST', '/admin/wa/f0/command', { text }),
   channels: () => cachedGet<ChannelsInfo>('/admin/inbox/channels', 8000),
   killSwitch: (on: boolean) => call<{ kill_switch_on: boolean }>('POST', '/admin/inbox/kill-switch', { on }),
   config: () => call<Record<string, unknown>>('GET', '/admin/wa/config'),

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { AppText as Text } from '../src/ui/AppText';
-import { AppButton } from '../src/ui/AppSurface';
+import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppIcon } from '../src/ui/AppIcon';
 import { Card, ChipGroup, EmptyNote, Field, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
@@ -55,11 +55,13 @@ export default function TasksScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             {t.contact_name || t.contact_phone ? <Text numberOfLines={1} style={{ fontWeight: '800', fontSize: 15, opacity: t.is_done ? 0.6 : 1 }}>{t.contact_name || t.contact_phone}</Text> : null}
+            {t.proposed ? <View style={{ alignSelf: 'flex-start', marginBottom: 4 }}><AppBadge label={bn ? 'প্রস্তাবিত' : 'Proposed'} tone="warning" /></View> : null}
             <Text style={{ fontWeight: t.contact_name || t.contact_phone ? '400' : '600', textDecorationLine: t.is_done ? 'line-through' : 'none', opacity: t.is_done ? 0.6 : 1 }}>{t.title}</Text>
             <Text style={{ opacity: 0.6, fontSize: 12 }}>
               {[t.due_at ? formatBangladeshDateTime(t.due_at, language) : null, t.source === 'ai' ? (bn ? 'সহকারী লিখেছে' : 'written by the assistant') : null].filter(Boolean).join(' · ')}
             </Text>
           </View>
+          {t.proposed && !t.is_done ? <AppButton variant="secondary" label={bn ? 'নিশ্চিত করুন' : 'Confirm'} disabled={busy} onPress={() => void act(() => va.confirmTask(t.id))} style={{ minHeight: 48 }} /> : null}
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মুছুন' : 'Delete'} onPress={() => void act(() => va.removeTask(t.id))} hitSlop={8}><AppIcon name="trash-can-outline" size={22} color={colors.textMuted} /></Pressable>
         </View>
       ))}
