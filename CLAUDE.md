@@ -1,5 +1,7 @@
 # CLAUDE.md — sumon-va
 
+> **START HERE: `docs/START_HERE.md`** (what the project is, where things are, where to work, reading order, what to update when you finish). Rules: `docs/PROJECT_RULES.md`. Work order: `docs/TRANSFER.md` section 13.
+>
 > **READ FIRST: `docs/HANDOFF.md`** — current status, owner rules, what is verified, and the ordered TODO. Do not start work before reading it. Update it at the end of every work session.
 
 ## What this project is
@@ -29,6 +31,7 @@
 
 ## Workflow rules from the owner
 - Reply in short Bangla; one step at a time; report what is done, what is left, what the owner must do.
+- **After EVERY finished task, immediately update `docs/TRANSFER.md` (status + changelog row) and `docs/HANDOFF.md` section 0 (owner rule 2026-11-06). Never leave it for the end of the session.**
 - Ask before every build; running `tools\ship.ps1` himself counts as permission for that build. Test on the emulator first, then the phone.
 - Work on a branch; show designs and wait for OK before pushing; the owner merges. Run `npx tsc --noEmit` and `npx eslint .` before reporting done.
 - Server SQL changes: give the manual SQL in chat first.
@@ -40,4 +43,4 @@
 ## Using the design resources (after install)
 - Impeccable (installed in `.claude/skills/impeccable/`, no hooks): use `critique`/`audit` for review and `shape` for planning; it ships Android and native reference notes, but treat its output as advice for the React Native code, not as an automatic editor. Telemetry must stay off (`.impeccable/config.json` has `"telemetry": false`; also set `DO_NOT_TRACK=1`).
 - Vercel `vercel-react-native-skills` (installed in `.claude/skills/`): apply for performance, list, animation, image and layout rules.
-- Awesome DESIGN.md: reference only (the Intercom file is kept in `_private\sumon-va-design-2026-11-05eference\`).
+- Awesome DESIGN.md: reference only (the Intercom file is kept in `_private\sumon-va-design-2026-11-05\`).
