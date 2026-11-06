@@ -281,5 +281,6 @@ async def _overview_intents(db: AsyncSession, intent: str, p: dict[str, Any], no
         ]
         return _reply("rules", "বর্তমান নিয়ম (বদলাতে নিয়ম স্ক্রিনে যান)", items)
     waiting = (await db.execute(select(WaContact.id).where(WaContact.unread > 0, WaContact.state != "done"))).all()
-    bits = [f"সহকারী {'চালু' if cfg.get('enabled') else 'বন্ধ'}", f"এখনকার অবস্থা: {brain.current_status(cfg)}", f"{len(waiting)} জন অপেক্ষায়"]
+    st = brain.current_status(cfg)
+    bits = [f"সহকারী {'চালু' if cfg.get('enabled') else 'বন্ধ'}", f"এখনকার অবস্থা: {(st.get('label') or st.get('key') or '') if isinstance(st, dict) else st}", f"{len(waiting)} জন অপেক্ষায়"]
     return _reply("system", " · ".join(str(b) for b in bits))

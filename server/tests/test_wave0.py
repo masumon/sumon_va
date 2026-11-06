@@ -443,3 +443,12 @@ async def test_f0_search_skips_private_chats_and_lists_drafts_and_history(Sessio
         hist = await f0.run(db, "কী কী পাঠানো হয়েছে")
         assert any("যায়নি" in i["subtitle"] and "ফোন পাঠাতে পারেনি" in i["subtitle"] for i in hist["items"])  # a failure is shown as a failure
         assert (await f0.run(db, "জরুরি"))["intent"] == "alerts"
+
+
+@pytest.mark.asyncio
+async def test_f0_system_answer_shows_a_label_not_a_raw_dict(Session):
+    from app.assistant import f0
+
+    async with Session() as db:
+        r = await f0.run(db, "সহকারীর অবস্থা")
+    assert "{" not in r["answer"] and "'key'" not in r["answer"]
