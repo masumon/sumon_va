@@ -49,7 +49,7 @@ async def allowed(db: AsyncSession, cfg: dict[str, Any], priority: int, now: dat
     return used < cap or (priority == 1 and used < cap + HARD_CEILING_EXTRA)
 
 
-async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: "brain.Decision") -> bool:
+async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: "brain.Decision", label: str | None = None) -> bool:
     """Send the alert if the limits allow. Returns True when something was sent."""
     try:
         now = brain.now_dhaka()
@@ -58,7 +58,7 @@ async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, 
         if not await allowed(db, cfg, d.priority, now):
             return False
         who = contact.name or contact.phone.split(":", 1)[-1]
-        label = flow.PRIO_LABEL.get(d.priority, "")
+        label = label or flow.PRIO_LABEL.get(d.priority, "")
         if contact.is_family:
             text = f"👪 পরিবার · {who} — {label or 'বার্তা'} (ভেতরের কথা এখানে নেই, অ্যাপে দেখুন)"
         else:
