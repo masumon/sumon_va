@@ -31,6 +31,7 @@
 
 ## Workflow rules from the owner
 - Reply in short Bangla; one step at a time; report what is done, what is left, what the owner must do.
+- **After EVERY finished task, immediately update `docs/TRANSFER.md` (status + changelog row) and `docs/HANDOFF.md` section 0 (owner rule 2026-11-06). Never leave it for the end of the session.**
 - Ask before every build; running `tools\ship.ps1` himself counts as permission for that build. Test on the emulator first, then the phone.
 - Work on a branch; show designs and wait for OK before pushing; the owner merges. Run `npx tsc --noEmit` and `npx eslint .` before reporting done.
 - Server SQL changes: give the manual SQL in chat first.
