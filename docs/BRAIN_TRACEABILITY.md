@@ -1,6 +1,6 @@
 # Brain traceability (living file; directive: `Brain_Prompt.md` v2.0 §22-23)
 
-Status words: VERIFIED = code + test run by an agent (date). NV = code exists, not run/proven. PARTIAL. MISSING. BLOCKED-PLATFORM / -PERMISSION. Baseline 2026-11-06: `cd server; pytest` = 275 passed before Phase 1, 294 after Phase 1, 313 after Phase 2, 327 after Phase 3a.
+Status words: VERIFIED = code + test run by an agent (date). NV = code exists, not run/proven. PARTIAL. MISSING. BLOCKED-PLATFORM / -PERMISSION. Baseline 2026-11-06: `cd server; pytest` = 275 passed before Phase 1, 294 after Phase 1, 313 after Phase 2, 327 after Phase 3a, 340 after Phase 4, 362 after the remaining code phases.
 
 | ID | Requirement | Existing component (evidence) | Status | Tests | Next |
 |---|---|---|---|---|---|
@@ -10,7 +10,7 @@ Status words: VERIFIED = code + test run by an agent (date). NV = code exists, n
 | R-GROUP | 5-7 min grouping | `wa_flow._group_gate`, `thread_state.grouped_text`, config `grouping` (default 5) | VERIFIED by SQLite gate tests; `_process` end-to-end NOT run | `tests/test_thread_state.py` | phone/Render check |
 | R-READ | Read/unanswered reminder | `wa_flow.send_unanswered_reminders` ("no answer found", default off); phone-side notification-removed signal NOT coded | PARTIAL: server part verified by tests | `tests/test_thread_state.py` | phone signal (needs build) |
 | R-TASK | Incoming tasks, status, evidence | `assignments.py`, `promises.py`, `wa_flow._process`, route `/admin/wa/tasks/{id}/confirm`; `wa_tasks.source` (manual/ai/proposed/confirmed) | PARTIAL: detection, proposed->confirmed, honest status VERIFIED by unit + SQLite `_process` tests; app confirm button, progress/blocker/assigner columns, task follow-up reminders MISSING | `tests/test_assignments.py` (14) | Phase 3b: SQL (owner runs, backup first) + app button |
-| R-ID | One person, many identifiers | `wa_contacts.phone` UNIQUE, key `sms:/notif:` | PARTIAL | - | Phase 4 |
+| R-ID | One person, many identifiers | `identity.py`, `wa_flow._process` (auto_link, person-wide call context), routes `/admin/wa/identity/*`, `manual_sql/0002_contact_person_link.sql` (+ROLLBACK) | PARTIAL: rules + DB path VERIFIED on SQLite incl. a DB WITHOUT the column; real Supabase NOT run (owner runs SQL); app UI for suggestions/link MISSING | `tests/test_identity.py` (13) | owner runs 0002; app screen (needs build) |
 | R-MEM | Fact provenance/correction | `profile`, `wa_notes` | PARTIAL | - | Phase 4 |
 | R-F0 | Command center | `ai.tsx`, assistant menu (name F0 not in code) | PARTIAL | - | Phase 5 |
 | R-RULES | Precedence + decision trace | `effective_mode`, `Decision.note` | PARTIAL | `test_unified_inbox.py` | Phase 7 |
@@ -20,3 +20,14 @@ Status words: VERIFIED = code + test run by an agent (date). NV = code exists, n
 | R-BACKUP | DB backup | none (owner deferred) | MISSING | - | owner decision before SQL |
 
 18-domain status: see the chat report of 2026-11-06 (Identity..Availability); only Phase 1 touched Phone/Priority/Intent so far.
+
+## Update after the code phases (2026-11-06)
+| ID | Requirement | Component | Status | Tests |
+|---|---|---|---|---|
+| R-MEM | Fact provenance, confidence, correction, removal | `memory.py`, routes `/admin/wa/contacts/{id}/facts*` (in `profile.facts`, no SQL) | VERIFIED by unit + SQLite tests (private facts sealed; `learn` no longer wipes facts); app card NOT seen on a device | `test_brain_rest.py` |
+| R-REL | Relationship signs | `relationship.py`, route `/admin/wa/contacts/{id}/relationship` | VERIFIED by unit tests (hypotheses only, no score); thresholds are heuristics, unproven on real data | `test_brain_rest.py` |
+| R-F0 | Command centre | `f0.py`, `POST /admin/wa/f0/command`, `routes/f0.tsx`, menu entry | Server VERIFIED (SQLite); app screen type-checked only. Name "F0" exists nowhere in code or docs: owner DECIDED 2026-11-06: `/f0` is the Sitting Room / F0 command centre; coverage of directive section 12: see BRAIN_ROLLOUT_PLAN section 5 | `test_brain_rest.py` |
+| R-HIST | Dated, resumable, duplicate-free import; imported never answered | `history_import.py`, route `/import-history`, `_process` guard | VERIFIED by SQLite tests; real export files of other app versions/locales NOT tested | `test_brain_rest.py` |
+| R-READ | Dismissed-notification hint | Kotlin `onNotificationRemoved`, ingest `type=seen`, `mark_dismissed` | Server VERIFIED; Kotlin module compiled 2026-11-06 (`compileDebugKotlin`, symbols and `item()` signature checked), NOT run on a device; always labelled "not proof of reading" | `test_brain_rest.py` |
+| R-TASK2 | Progress/blocker/evidence, due reminders | `task_details.py` (SQL 0003), `send_task_reminders`, route `/progress` | VERIFIED before and after the columns exist (SQLite); real Supabase NOT run | `test_brain_rest.py` |
+| R-RULES | Decision trace | `explain_mode`, `meta.rule` on drafts | VERIFIED (existing mode tests unchanged and passing); full precedence rewrite NOT done (documented order only) | `test_unified_inbox.py`, `test_brain_rest.py` |

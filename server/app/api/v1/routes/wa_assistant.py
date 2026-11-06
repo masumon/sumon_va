@@ -23,7 +23,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assistant import presence, privacy
+from app.assistant import f0 as f0_mod
+from app.assistant import history_import
+from app.assistant import task_details
+from app.assistant import identity, memory, presence, privacy, relationship
 from app.assistant import wa_brain as brain
 from app.assistant import wa_coexist as coexist
 from app.assistant import wa_config as wcfg
@@ -657,6 +660,156 @@ async def add_task(body: TaskIn, db: AsyncSession = Depends(get_db), _a: str = D
     return ApiResponse(data={"id": str(t.id)}, message="কাজ যোগ হয়েছে")
 
 
+class F0In(BaseModel):
+    text: str = Field(min_length=1, max_length=600)
+
+
+@router.post("/admin/wa/f0/command", response_model=ApiResponse, dependencies=[Depends(rate_limit("wa-f0", 60, 300))])
+async def f0_command(body: F0In, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """The owner's command box. Reads real data; a "tell X ..." command only makes a DRAFT, sending stays on /messages/{id}/approve."""
+    return ApiResponse(data=await f0_mod.run(db, body.text))
+
+
+class FactIn(BaseModel):
+    text: str = Field(min_length=3, max_length=300)
+
+
+@router.get("/admin/wa/contacts/{cid}/facts", response_model=ApiResponse)
+async def contact_facts(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    return ApiResponse(data=memory.view(c.profile, privacy.unseal))
+
+
+def _seal_fact_text(c: WaContact, text: str) -> str:
+    return privacy.seal(text) if privacy.is_private(c) else text  # a private person's facts are stored encrypted like their messages
+
+
+@router.post("/admin/wa/contacts/{cid}/facts", response_model=ApiResponse)
+async def add_fact(cid: uuid.UUID, body: FactIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    existing = [{**f, "text": privacy.unseal(f.get("text", ""))} for f in memory.facts_of(c.profile)]
+    prof, fact, why = memory.add({**(c.profile or {}), "facts": existing}, body.text, "owner", "owner")
+    if not fact:
+        return ApiResponse(data=None, message=why)
+    c.profile = {**prof, "facts": [{**f, "text": _seal_fact_text(c, f["text"])} for f in prof["facts"]]}
+    await db.commit()
+    return ApiResponse(data={"id": fact["id"]}, message="তথ্যটি আপনার নিজের বলে মনে রাখা হলো")
+
+
+@router.post("/admin/wa/contacts/{cid}/facts/{fid}/correct", response_model=ApiResponse)
+async def correct_fact(cid: uuid.UUID, fid: str, body: FactIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    plain = {**(c.profile or {}), "facts": [{**f, "text": privacy.unseal(f.get("text", "")), "history": [{**h, "was": privacy.unseal(h["was"]) if h.get("was") else h.get("was")} for h in f.get("history", [])]} for f in memory.facts_of(c.profile)]}
+    prof, new = memory.correct(plain, fid, body.text)
+    if not new:
+        raise HTTPException(status_code=404, detail="তথ্য পাওয়া যায়নি")
+    c.profile = {**prof, "facts": [{**f, "text": _seal_fact_text(c, f["text"]), "history": [{**h, "was": _seal_fact_text(c, h["was"]) if h.get("was") else h.get("was")} for h in f.get("history", [])]} for f in prof["facts"]]}
+    await db.commit()
+    return ApiResponse(data={"id": new["id"]}, message="সংশোধন হলো, পুরোনোটি ইতিহাসে আছে")
+
+
+@router.delete("/admin/wa/contacts/{cid}/facts/{fid}", response_model=ApiResponse)
+async def delete_fact(cid: uuid.UUID, fid: str, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    prof, removed = memory.remove(c.profile, fid)
+    if not removed:
+        raise HTTPException(status_code=404, detail="তথ্য পাওয়া যায়নি")
+    c.profile = prof
+    await db.commit()
+    return ApiResponse(message="তথ্যটি সম্পূর্ণ মুছে ফেলা হলো")
+
+
+@router.get("/admin/wa/contacts/{cid}/relationship", response_model=ApiResponse)
+async def contact_relationship(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """Signs, not scores: every line is a hypothesis with the evidence it rests on (the whole linked person, all channels)."""
+    c = await _get_contact(db, cid)
+    msgs = await flow.recent_messages(db, await identity.person_contact_ids(db, c), 400)
+    return ApiResponse(data={"observations": relationship.observe(msgs, _now()), "note": "এগুলো অনুমান, নিশ্চিত তথ্য নয়"})
+
+
+class LinkIn(BaseModel):
+    contact_ids: list[uuid.UUID] = Field(min_length=2, max_length=6)
+
+
+def _who(c: WaContact) -> dict[str, Any]:
+    return {"id": str(c.id), "name": c.name, "channel": c.channel, "key": c.phone.split(":", 1)[-1] if ":" in c.phone else c.phone}
+
+
+async def _identity_ready(db: AsyncSession) -> None:
+    if not await identity.column_ready(db):
+        raise HTTPException(status_code=409, detail="পরিচয় যুক্ত করার জন্য ডাটাবেসে manual_sql/0002 এখনো চালানো হয়নি")
+
+
+@router.get("/admin/wa/identity/suggestions", response_model=ApiResponse)
+async def identity_suggestions(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """People who may be the SAME human on different channels. Medium confidence = only a suggestion, the owner decides."""
+    await _identity_ready(db)
+    contacts = (await db.execute(select(WaContact).where(WaContact.name.isnot(None)).limit(2000))).scalars().all()
+    pairs = identity.suggestions(contacts, await identity.group_contact_ids(db), await identity.person_map(db))
+    return ApiResponse(data=[{"a": _who(p["a"]), "b": _who(p["b"]), "level": p["level"], "reasons": p["reasons"]} for p in pairs[:50]])
+
+
+@router.post("/admin/wa/identity/link", response_model=ApiResponse)
+async def identity_link(body: LinkIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """The owner says these contacts are one human. Refused for groups and for contacts whose phone numbers differ."""
+    await _identity_ready(db)
+    ids = list(dict.fromkeys(body.contact_ids))
+    contacts = [await _get_contact(db, i) for i in ids]
+    groups = await identity.group_contact_ids(db)
+    if any(c.id in groups for c in contacts):
+        raise HTTPException(status_code=422, detail="গ্রুপ চ্যাট কোনো ব্যক্তির সঙ্গে যুক্ত করা যায় না")
+    numbers = {identity.number_of(c.phone) for c in contacts} - {None}
+    if len(numbers) > 1:
+        raise HTTPException(status_code=422, detail="এই দুই জনের ফোন নম্বর আলাদা, তাই একজন ব্যক্তি হিসেবে যুক্ত করা হলো না")
+    pid = await identity.link(db, contacts, "owner", "মালিকের নিশ্চিতকরণ")
+    await db.commit()
+    return ApiResponse(data={"person_id": str(pid), "contacts": [_who(c) for c in contacts]}, message="একজন ব্যক্তি হিসেবে যুক্ত হলো (আবার আলাদা করা যাবে)")
+
+
+@router.post("/admin/wa/identity/unlink/{cid}", response_model=ApiResponse)
+async def identity_unlink(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    await _identity_ready(db)
+    await _get_contact(db, cid)
+    done = await identity.unlink(db, cid, "owner")
+    await db.commit()
+    return ApiResponse(data={"unlinked": done}, message="আলাদা করা হলো, কোনো বার্তা বা কাজ মোছা হয়নি" if done else "এটি কারও সঙ্গে যুক্ত ছিল না")
+
+
+@router.get("/admin/wa/contacts/{cid}/identity", response_model=ApiResponse)
+async def contact_identity(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    ids = await identity.person_contact_ids(db, c)
+    rows = (await db.execute(select(WaContact).where(WaContact.id.in_(ids)))).scalars().all()
+    return ApiResponse(data={"linked": [_who(r) for r in rows if r.id != c.id]})
+
+
+class ProgressIn(BaseModel):
+    status: str | None = Field(default=None, max_length=12)
+    progress: str | None = Field(default=None, max_length=500)
+    blocker: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/admin/wa/tasks/{tid}/progress", response_model=ApiResponse)
+async def task_progress(tid: uuid.UUID, body: ProgressIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """The owner records progress / a blocker / a status. Only the owner can: completion is his confirmation, never a guess."""
+    t = await db.get(WaTask, tid)
+    if not t:
+        raise HTTPException(status_code=404, detail="কাজ পাওয়া যায়নি")
+    if body.status and body.status not in task_details.STATUSES:
+        raise HTTPException(status_code=422, detail="অবস্থার নাম ঠিক নয়")
+    if not await task_details.ready(db):
+        raise HTTPException(status_code=409, detail="অগ্রগতি রাখার জন্য ডাটাবেসে manual_sql/0003 এখনো চালানো হয়নি")
+    await task_details.set_details(db, t.id, status=body.status, progress=body.progress, blocker=body.blocker)
+    if body.status == "completed":
+        t.is_done, t.done_at = True, _now()
+    elif body.status in ("in_progress", "not_started", "blocked", "delayed") and t.is_done:
+        t.is_done, t.done_at = False, None
+    if t.source == "proposed" and body.status and body.status != "proposed":
+        t.source = "confirmed"  # the owner working on it IS his confirmation
+    await db.commit()
+    return ApiResponse(message="কাজের অবস্থা হালনাগাদ হলো")
+
+
 @router.post("/admin/wa/tasks/{tid}/confirm", response_model=ApiResponse)
 async def confirm_task(tid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
     """A task the assistant only PROPOSED (someone asked the owner for something) becomes a real obligation by the owner's word."""
@@ -729,6 +882,35 @@ async def simulate(body: SimIn, db: AsyncSession = Depends(get_db), _a: str = De
 
 # ── learn a person from an exported chat ────────────────────────────────────────
 
+class ImportIn(BaseModel):
+    chat_text: str = Field(min_length=20, max_length=2_000_000)
+    owner_speaker: str | None = Field(default=None, max_length=80)
+    days: int = Field(default=7)  # 0 = everything in the file; else 1, 3, 5, 7, 15 or 30
+    consent_private: bool = False
+
+
+@router.post("/admin/wa/contacts/{cid}/import-history", response_model=ApiResponse)
+async def import_history(cid: uuid.UUID, body: ImportIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
+    """Old messages from a chat the owner exported himself. Context only: never answered, never alerted, safe to run again (no duplicates)."""
+    c = await _get_contact(db, cid)
+    if body.days not in history_import.PERIODS:
+        raise HTTPException(status_code=422, detail="সময়সীমা ঠিক নয়: ১, ৩, ৫, ৭, ১৫, ৩০ দিন অথবা ০ (ফাইলের সবটুকু)")
+    if privacy.is_private(c) and not body.consent_private:
+        return ApiResponse(data={"need_consent": True}, message="এটি ব্যক্তিগত/পরিবারের চ্যাট — ইতিহাস রাখতে আপনার স্পষ্ট অনুমতি লাগবে")
+    rows, stats = history_import.parse_dated(body.chat_text)
+    if len(rows) < 2:
+        raise HTTPException(status_code=400, detail="চ্যাট ফাইলটি চেনা যায়নি — WhatsApp → চ্যাট → Export chat (মিডিয়া ছাড়া) থেকে নেওয়া .txt ফাইলের লেখা দিন")
+    speakers = history_import.speakers_of(rows)
+    if not body.owner_speaker or body.owner_speaker not in speakers:
+        return ApiResponse(data={"need_owner": True, "speakers": speakers[:6], "messages": len(rows)}, message="কোনটি আপনার নাম বেছে দিন")
+    cfg = await wcfg.load_config(db)
+    rep = await history_import.import_rows(db, c, rows, body.owner_speaker, body.days, int(cfg.get("retention_days", 90)), _now())
+    rep.update(system_lines=stats["system"], undated=stats["undated"])
+    _audit(db, admin_id, "wa_import_history", c.id, {k: rep[k] for k in ("found", "imported", "duplicates")})
+    await db.commit()
+    return ApiResponse(data=rep, message=f"{rep['imported']}টি নতুন বার্তা ইতিহাসে রাখা হলো, {rep['duplicates']}টি আগেই ছিল")
+
+
 class LearnIn(BaseModel):
     chat_text: str = Field(min_length=20, max_length=400_000)
     owner_speaker: str | None = Field(default=None, max_length=80)
@@ -750,7 +932,7 @@ async def learn(cid: uuid.UUID, body: LearnIn, db: AsyncSession = Depends(get_db
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=503, detail="এই মুহূর্তে AI পাওয়া যাচ্ছে না — Admin → AI সংযোগ দেখে আবার চেষ্টা করুন")
     prof["learned_at"], prof["messages"] = _now().isoformat(timespec="minutes"), len(rows)
-    c.profile = prof  # only this summary is kept — the chat text itself is never stored
+    c.profile = {**prof, **({"facts": c.profile["facts"]} if (c.profile or {}).get("facts") else {})}  # only this summary is kept (the chat text itself is never stored); the owner's remembered facts survive
     for field in ("calls_him", "relation", "gender"):
         if prof.get(field) and not getattr(c, field):
             setattr(c, field, str(prof[field])[:40])

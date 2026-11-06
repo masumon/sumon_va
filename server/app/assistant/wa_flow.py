@@ -11,12 +11,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant import assignments
+from app.assistant import identity
 from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
+from app.assistant import task_details
 from app.assistant import thread_state as ts
 from app.assistant import wa_brain as brain
 from app.assistant import wa_config as wcfg
@@ -49,11 +51,27 @@ async def upsert_contact(db: AsyncSession, phone: str, name: str | None) -> WaCo
     return c
 
 
-async def recent_messages(db: AsyncSession, contact_id: uuid.UUID, n: int = 14) -> list[dict[str, Any]]:
-    rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact_id)
-                             .order_by(WaMessage.created_at.desc()).limit(n))).scalars().all()
+async def recent_messages(db: AsyncSession, contact_id: "uuid.UUID | list[uuid.UUID]", n: int = 14) -> list[dict[str, Any]]:
+    """Newest first. `contact_id` may be a list: all the contacts of ONE linked person (identity.py)."""
+    where = WaMessage.contact_id.in_(contact_id) if isinstance(contact_id, (list, tuple, set)) else WaMessage.contact_id == contact_id
+    rows = (await db.execute(select(WaMessage).where(where).order_by(WaMessage.created_at.desc()).limit(n))).scalars().all()
     return [{"id": m.id, "direction": m.direction, "body": privacy.unseal(m.transcript or m.body), "reason": m.reason, "status": m.status,
              "created_at": m.created_at, "meta": m.meta or {}} for m in rows]
+
+
+async def mark_dismissed(db: AsyncSession, key: str, at: datetime | None) -> bool:
+    """The phone says the owner dismissed this chat's notification. Stored on the person's latest incoming message as
+    `dismissed_at`: it is NOT a read receipt (a swipe, another device or a bulk clear look the same). Returns True when stored."""
+    contact = (await db.execute(select(WaContact).where(WaContact.phone == key))).scalar_one_or_none()
+    if not contact:
+        return False
+    rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "in")
+                             .order_by(WaMessage.created_at.desc()).limit(5))).scalars().all()
+    last = next((m for m in rows if not call_ctx.is_call({"meta": m.meta, "body": m.body})), None)
+    if not last or (last.meta or {}).get("dismissed_at"):
+        return False
+    last.meta = {**(last.meta or {}), "dismissed_at": (at or utcnow()).isoformat(timespec="seconds")}
+    return True
 
 
 async def active_notes(db: AsyncSession, contact_id: uuid.UUID) -> list[str]:
@@ -78,29 +96,39 @@ async def abo_lead(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d:
     return None
 
 
-def effective_mode(cfg: dict[str, Any], contact: WaContact) -> str:
-    """auto | draft. Global "shadow" (test phase) forces drafts for everyone."""
+def explain_mode(cfg: dict[str, Any], contact: WaContact) -> tuple[str, str]:
+    """(auto | draft, the rule that decided it, in plain Bangla). The ONE place the order lives; `effective_mode` just returns the first part.
+
+    Order, first match wins (a lower rule can never override a higher one): global "drafts only" switch -> person approved in Telegram
+    -> the platform / channel may not answer by itself -> the category (personal/social/family) is draft-only -> the platform's own
+    people/hours limits -> the person's own "draft" choice -> auto. An explicit "auto" for THIS person beats the platform and channel
+    defaults, never the global switch and never the personal/family category rule."""
     if cfg.get("mode") != "auto":
-        return "draft"
+        return "draft", "সাধারণ সেটিং: এখন শুধু খসড়া (পরীক্ষামূলক মোড)"
     plat = platforms.settings_for(cfg, platforms.platform_key(contact, cfg.get("custom_platforms")))  # the platform's own choices: who, and during which hours
     channel = contact.channel or "whatsapp"
-    # The owner chose "auto" for THIS person: that beats the platform/channel defaults (never the global "drafts only"
-    # switch above, never the personal/family rule below, and never a channel nothing can be sent on).
     explicit = getattr(contact, "mode", None) == "auto" and channel in ("whatsapp", "telegram", "sms", "notif")
     if getattr(contact, "mode", None) == "telegram":
-        return "draft"  # approved by the owner in Telegram
+        return "draft", "ব্যক্তি: আপনি Telegram-এ অনুমোদন করবেন"
     if channel == "notif":
         if not (plat.get("phone_auto") or explicit):  # the phone's own chat apps: only when the owner switched it on
-            return "draft"
+            return "draft", "প্ল্যাটফর্ম: ফোনের চ্যাট অ্যাপে নিজে উত্তর দেওয়া চালু করা নেই"
     elif not (chan.auto_allowed(cfg, channel) or explicit):  # bridge-only channels are never answered by the assistant itself
-        return "draft"
+        return "draft", "চ্যানেল: এই মাধ্যমে সহকারী নিজে উত্তর দেয় না"
     cat = getattr(contact, "category", None)  # personal and social messages only get drafts unless the owner switched that category to auto
     if cat and not (cfg.get("categories") or {}).get(cat, {}).get("auto", True):
-        return "draft"
+        return "draft", f"বিভাগ: “{cat}” বিভাগে নিজে উত্তর বন্ধ"
     known = bool(getattr(contact, "is_vip", False) or getattr(contact, "tags", None))
     if not explicit and not platforms.auto_ok(plat, cat, known, brain.now_dhaka().hour * 60 + brain.now_dhaka().minute):
-        return "draft"
-    return "draft" if contact.mode == "draft" else "auto"
+        return "draft", "প্ল্যাটফর্ম: এই ব্যক্তি বা এই সময়ে নিজে উত্তরের অনুমতি নেই"
+    if contact.mode == "draft":
+        return "draft", "ব্যক্তি: এই ব্যক্তির জন্য আপনি শুধু খসড়া বেছেছেন"
+    return "auto", "সব নিয়ম অনুমতি দিয়েছে" + (" (এই ব্যক্তির জন্য আপনি ‘নিজে’ বেছেছেন)" if explicit else "")
+
+
+def effective_mode(cfg: dict[str, Any], contact: WaContact) -> str:
+    """auto | draft. Global "shadow" (test phase) forces drafts for everyone. See explain_mode for the order and the reason."""
+    return explain_mode(cfg, contact)[0]
 
 
 # ── sending ───────────────────────────────────────────────────────────────────
@@ -261,6 +289,15 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     contact = await db.get(WaContact, msg.contact_id) if msg else None
     if not msg or not contact:
         return
+    if msg.status == "imported":
+        return  # history is context only: no draft, no alert, no auto-send
+    try:
+        await identity.auto_link(db, contact)  # same phone number on another channel = same human (high confidence only; logged, reversible)
+    except Exception:  # noqa: BLE001 - linking must never stop a message from being processed
+        logger.exception("identity auto_link failed")
+        await db.rollback()
+        contact = await db.get(WaContact, msg.contact_id)
+    person_ids = await identity.person_contact_ids(db, contact)  # [contact.id] while nothing is linked
     wcfg.use_scope(wcfg.scope_for_channel(contact.channel))  # Cloud-API WhatsApp: the website's rules; everything else: the app's
     cfg = await presence.apply(db, await wcfg.load_config(db))
     if not cfg.get("enabled"):
@@ -289,9 +326,9 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     call_insight = None
     if is_missed_call:
         # A missed call is not a sentence: explain it from what the inbox really knows, one alert per burst (call_context.py).
-        wide = [m for m in await recent_messages(db, contact.id, 60) if m["id"] != msg.id]
+        wide = [m for m in await recent_messages(db, person_ids, 60) if m["id"] != msg.id]  # the whole person: SMS + WhatsApp + ...
         tasks = [{"title": t, "due_at": due} for t, due in (await db.execute(
-            select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id == contact.id).limit(10))).all()]  # noqa: E712
+            select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id.in_(person_ids)).limit(10))).all()]  # noqa: E712
         ins = call_ctx.analyze(cfg, contact, wide, tasks, now, d.priority)
         if call_ctx.apply(d, ins, cfg):
             call_insight = ins
@@ -314,13 +351,17 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         for cand in [c for c in assignments.detect(text_in, now) if c["confidence"] in ("high", "medium")]:  # only PROPOSED: the owner confirms
             title = assignments.proposal_title(contact, cand["title_body"], private)
             if title not in open_titles:
-                db.add(WaTask(contact_id=contact.id, title=title, due_at=cand["due_at"], source=assignments.PROPOSED))
+                task = WaTask(contact_id=contact.id, title=title, due_at=cand["due_at"], source=assignments.PROPOSED)
+                db.add(task)
+                await db.flush()
+                await task_details.set_details(db, task.id, status="proposed", source_msg_id=msg.id, confidence=cand["confidence"], assigner_contact_id=contact.id)
                 open_titles.add(title)
                 d.note = (d.note + " · " if d.note else "") + "কাজের অনুরোধ ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)"
         if assignments.asks_status(text_in) or assignments.asks_status(asked):
-            rows = (await db.execute(select(WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id == contact.id)
+            rows = (await db.execute(select(WaTask.id, WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id.in_(person_ids))
                                      .order_by(WaTask.created_at.desc()).limit(5))).all()
-            known = [{"title": t, "due_at": due, "is_done": done, "done_at": at, "source": src} for t, due, done, at, src in rows]
+            extra = await task_details.get_details(db, [r[0] for r in rows])  # the owner's own progress/blocker notes (manual_sql/0003)
+            known = [{"title": t, "due_at": due, "is_done": done, "done_at": at, "source": src, **extra.get(tid, {})} for tid, t, due, done, at, src in rows]
             d.note = (d.note + " · " if d.note else "") + assignments.status_note(known, now, private)
             d.notify = True  # the owner hears what is really on record; nothing is promised to the person
     if not call_insight:  # a call must not overwrite what we know the person needs / the conversation summary
@@ -354,7 +395,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         reply = f"{brain.mood_prefix(now.astimezone(brain.DHAKA), d.lang)} {reply}"  # time-aware greeting for clients
     if contact.profile and d.reason not in brain.PROTECTED and not d.reason.startswith("urgent"):
         reply = await brain.polish(db, cfg, reply, contact.profile)
-    mode = effective_mode(cfg, contact)
+    mode, mode_rule = explain_mode(cfg, contact)
     unanswered = 1
     for m in recent:  # newest first: how many messages from this person are still unanswered (this one included)
         if m["direction"] == "out" and m["status"] in ("sent", "queued", "sending"):
@@ -364,7 +405,9 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     why = f"{d.note + ' · ' if d.note else ''}এটি এই ব্যক্তির {unanswered}-তম অনুত্তরিত বার্তা" + (" (বারবার লিখছেন)" if unanswered >= 3 else " (প্রথম বার)" if unanswered == 1 else "")
     if mode == "draft":
         # One draft per person: a new message UPDATES the waiting draft instead of piling up another one.
-        waiting = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft")
+        # (never the OWNER's own draft, e.g. one made in F0: those words are his and must not be rewritten by the assistant)
+        waiting = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft",
+                                                            or_(WaMessage.reason.is_(None), WaMessage.reason.notin_(("owner", "manual"))))
                                     .order_by(WaMessage.created_at.desc()).limit(1))).scalar_one_or_none()
         if waiting:
             waiting.body, waiting.meta = reply, {**(waiting.meta or {}), "note": why, "updated": True}
@@ -380,7 +423,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         delay = min(delay, 5)  # the one place we answer fast: "your urgent message reached Sumon"
     out = WaMessage(contact_id=contact.id, direction="out", kind="text", body=reply, reason=d.reason,
                     status="queued" if mode == "auto" else "draft", send_after=now + timedelta(seconds=delay) if mode == "auto" else None,
-                    meta={"source": d.source, "ai": d.ai_used, "mode": mode, "note": why})
+                    meta={"source": d.source, "ai": d.ai_used, "mode": mode, "note": why, "rule": mode_rule})
     db.add(out)
     await db.commit()
     if mode == "auto":
@@ -392,6 +435,39 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
 async def _telegram_card(db: AsyncSession, contact: WaContact, msg: WaMessage, text: str, draft: WaMessage | None) -> None:
     from app.assistant.channels import telegram  # local: telegram imports this module
     await telegram.send_approval(db, contact, msg, text, draft)
+
+
+async def send_task_reminders(db: AsyncSession, now: datetime) -> int:
+    """A confirmed (never merely proposed) task is due soon or overdue: tell the owner once per stage. Off by default (`reminders.task_lead_min`)."""
+    import json
+
+    cfg = await wcfg.load_config(db, force=True, scope="app")
+    lead = int((cfg.get("reminders") or {}).get("task_lead_min", 0) or 0)
+    if not lead or not cfg.get("enabled"):
+        return 0
+    tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False, WaTask.due_at.isnot(None), WaTask.source != assignments.PROPOSED)  # noqa: E712
+                              .order_by(WaTask.due_at.asc()).limit(50))).scalars().all()
+    try:
+        sent_map = json.loads(await _get_val(db, "task_reminders") or "{}")
+    except ValueError:
+        sent_map = {}
+    sent = 0
+    for t in tasks:
+        kind = assignments.reminder_kind(t.due_at, now, lead, sent_map.get(str(t.id)))
+        if not kind:
+            continue
+        contact = await db.get(WaContact, t.contact_id) if t.contact_id else None
+        stand_in = contact or WaContact(phone="task:", channel="device", name="আপনার কাজ", is_family=False, is_vip=False)
+        text = (f"⏰ কাজের সময় ঘনিয়েছে: {t.title[:80]}" if kind == "due" else f"⏰ কাজের সময় পেরিয়ে গেছে: {t.title[:80]}")
+        d = brain.Decision(priority=3, summary=text, notify=True)
+        if await alerts.push_owner(db, cfg, stand_in, d, label="কাজের সময়"):
+            sent_map[str(t.id)] = kind
+            sent += 1
+    if sent:
+        live = {str(t.id) for t in tasks}
+        await _set_val(db, "task_reminders", json.dumps({k: v for k, v in sent_map.items() if k in live}))
+        await db.commit()
+    return sent
 
 
 async def send_unanswered_reminders(db: AsyncSession, now: datetime) -> int:
@@ -480,6 +556,11 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
             await wcfg.save_config(db, {"status": {"key": "free", "until": None, "custom": ""}}, scope="web")
             out["expired_status"] = True
     await db.commit()
+    try:
+        out["task_reminded"] = await send_task_reminders(db, now)
+    except Exception:  # noqa: BLE001
+        logger.exception("task reminders failed")
+        await db.rollback()
     try:
         out["reminded"] = await send_unanswered_reminders(db, now)
     except Exception:  # noqa: BLE001 - a reminder must never stop the housekeeping below

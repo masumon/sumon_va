@@ -91,6 +91,43 @@ class VaNotificationListener : NotificationListenerService() {
     }
   }
 
+  /**
+   * A chat notification was dismissed (swiped away, or the chat was opened). This is NOT proof that the message was read,
+   * only a hint, so the server gets a "seen" item and decides what it means. Same filters as onNotificationPosted.
+   */
+  override fun onNotificationRemoved(sbn: StatusBarNotification) {
+    val ctx = applicationContext
+    try {
+      if (!Store.paired(ctx) || sbn.packageName == ctx.packageName || sbn.packageName !in Store.packages(ctx)) return
+      val n = sbn.notification ?: return
+      if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+      if (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_NO_CLEAR) != 0) return
+      val extras = n.extras ?: return
+      if (extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0 || extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)) return
+      if (n.category in NOT_MESSAGE_CATEGORIES) return
+      val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+      val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim().orEmpty()
+      if (rawTitle.isEmpty() || text.isEmpty() || SUMMARY.matches(text) || SYSTEM_TEXT.containsMatchIn(text)) return
+      if (MISSED_SUMMARY.containsMatchIn(rawTitle)) return
+      if (rawTitle.equals(appLabel(ctx, sbn.packageName), ignoreCase = true) && text.length < 40) return
+
+      val (chat, _) = chatOf(extras)
+      if (chat.isEmpty()) return
+      val minute = System.currentTimeMillis() / 60000
+      val key = "${sbn.packageName}|$chat|$minute"
+      if (Outbox.duplicate("seen|$key")) return  // one "seen" per chat per minute
+      val seen = item("seen", "notif", chat, sbn.packageName, "", "s:" + sha(key), null, false)
+      worker.execute {
+        try {
+          Outbox.add(ctx, seen)
+          Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) }
+        } catch (_: Exception) {}
+      }
+    } catch (_: Exception) {
+      // A broken notification must never crash the listener.
+    }
+  }
+
   private fun rememberReplyBox(pkg: String, sender: String, n: Notification) {
     val action = n.actions?.firstOrNull { a -> a.remoteInputs?.isNotEmpty() == true } ?: return
     ReplyBoxes.put("notif:${pkg.take(30)}:$sender", action.actionIntent, action.remoteInputs)

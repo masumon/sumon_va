@@ -28,6 +28,8 @@ class WaContact(Base):
     category: Mapped[str | None] = mapped_column(String(10), index=True)  # business | personal | social | spam
     tags: Mapped[list | None] = mapped_column(JSON)  # [{"label": "ক্লায়েন্ট", "value": "", "important": true}] — the owner's own notes about this person
     name: Mapped[str | None] = mapped_column(String(120))
+    # NOTE: manual_sql/0002 adds `person_id` (links the contacts of ONE human). It is deliberately NOT mapped here: an ORM INSERT would then
+    # name the column and fail on a database where the SQL was not run yet. identity.py reaches it through a Core table reference.
     calls_him: Mapped[str | None] = mapped_column(String(40))
     relation: Mapped[str | None] = mapped_column(String(40))
     gender: Mapped[str | None] = mapped_column(String(10))

@@ -75,7 +75,11 @@ def task_status(tasks: list[dict[str, Any]], now: datetime) -> list[tuple[str, s
     for t in tasks:
         due = t.get("due_at")
         due = due if (due is None or due.tzinfo) else due.replace(tzinfo=pr.timezone.utc)
-        if t.get("is_done"):
+        if t.get("status") == "blocked" and not t.get("is_done"):
+            out.append(("blocked", "বাধায় আটকে আছে" + (f": {t['blocker']}" if t.get("blocker") else "") + " — আপনার নিজের লেখা তথ্য"))
+        elif t.get("status") == "in_progress" and t.get("progress") and not t.get("is_done"):
+            out.append(("open", f"চলছে। আপনার শেষ আপডেট: {t['progress'][:120]}"))
+        elif t.get("is_done"):
             out.append(("completed", "শেষ হয়েছে বলে চিহ্নিত" + (f" ({t['done_at']:%d/%m})" if t.get("done_at") else "") + " — আপনি নিশ্চিত করেছেন"))
         elif t.get("source") == PROPOSED:
             out.append(("proposed", "কাজটি ধরা হয়েছে কিন্তু আপনি এখনো নিশ্চিত করেননি"))
@@ -94,3 +98,17 @@ def status_note(tasks: list[dict[str, Any]], now: datetime, private: bool) -> st
     for t, (_, text) in zip(tasks, task_status(tasks, now)):
         lines.append(text if private else f"“{(t.get('title') or '')[:50]}”: {text}")
     return "কাজের খবর চাইছেন। " + "; ".join(lines[:3])
+
+
+def reminder_kind(due_at: Any, now: datetime, lead_min: int, sent: str | None) -> str | None:
+    """"due" (due within `lead_min` minutes) or "late" (overdue by at most 3 days), once each; None = nothing to say. 0 = off."""
+    if not lead_min or due_at is None:
+        return None
+    due = due_at if due_at.tzinfo else due_at.replace(tzinfo=pr.timezone.utc)
+    now = now if now.tzinfo else now.replace(tzinfo=pr.timezone.utc)
+    left = (due - now).total_seconds() / 60
+    if 0 < left <= lead_min and sent not in ("due", "late"):
+        return "due"
+    if -3 * 24 * 60 <= left <= 0 and sent != "late":
+        return "late"
+    return None
