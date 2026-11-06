@@ -499,3 +499,10 @@ async def test_app_alert_counts_as_sent_only_when_it_really_went_out(monkeypatch
     assert await wa_flow._notify(None, cfg, contact, d, recent) is True    # more urgent than the last alert: may alert again
     recent = [{"direction": "in", "created_at": now, "meta": {"notified": True, "notified_p": 1}}]
     assert await wa_flow._notify(None, cfg, contact, d, recent) is False   # same urgency inside 10 minutes: one alert only
+
+
+def test_schema_guard_knows_every_object_it_would_create():
+    from app.core.schema_guard import WA_TABLES_SQL, object_name
+
+    names = [object_name(s) for s in WA_TABLES_SQL]
+    assert all(names) and "wa_contacts" in names and "ix_wa_tasks_open" in names

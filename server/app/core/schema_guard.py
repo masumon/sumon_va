@@ -12,6 +12,7 @@ failure here is logged but never blocks the API from starting.
 from __future__ import annotations
 
 import logging
+import re
 
 from sqlalchemy import text
 
@@ -192,10 +193,21 @@ async def ensure_wa_tables(engine) -> None:
         return
     try:
         async with engine.begin() as conn:
-            for stmt in WA_TABLES_SQL:
+            missing = [s for s in WA_TABLES_SQL if (await conn.execute(text("SELECT to_regclass(:n)"), {"n": object_name(s)})).scalar() is None]
+            if not missing:
+                return  # everything exists: run NO DDL, so start-up never waits for a lock held by the old instance during a deploy
+            await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+            await conn.execute(text("SET LOCAL statement_timeout = '15s'"))
+            for stmt in missing:
                 await conn.execute(text(stmt))
-    except Exception:  # never stop the API from starting
+    except Exception:  # never stop the API from starting (a lock that is not free within 3 s is skipped, the tables already exist)
         logger.exception("Schema guard could not create WhatsApp assistant tables")
+
+
+def object_name(stmt: str) -> str:
+    """The table or index a CREATE ... IF NOT EXISTS statement makes."""
+    m = re.search(r"IF NOT EXISTS\s+([A-Za-z_][A-Za-z0-9_]*)", stmt)
+    return m.group(1) if m else ""
 
 
 async def ensure_customer_avatar_column(engine) -> None:
