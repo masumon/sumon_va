@@ -213,3 +213,14 @@ async def test_a_message_skipped_by_the_grouping_wait_is_marked_so_the_sweep_lea
         assert got[0].meta.get("grouped") and got[1].meta.get("grouped") and not (got[2].meta or {}).get("grouped")
         # only the (not yet processed) last one is a candidate for the sweep
         assert await wa_flow.sweep_unprocessed(s, datetime.now(timezone.utc)) == 1
+
+
+def test_wp2b_guard_blocks_invented_promises():
+    from app.assistant.wa_brain import guard_text
+
+    assert guard_text("আজই পাঠিয়ে দেব।", "আপনার বার্তা পেয়েছি।") is None
+    assert guard_text("I will send it by tomorrow.", "We got your message.") is None
+    assert guard_text("কালকের মধ্যে হয়ে যাবে", "") is None
+    # a promise already present in the allowed facts is not invented
+    assert guard_text("কালকের মধ্যে হয়ে যাবে", "কালকের মধ্যে হয়ে যাবে") is not None
+    assert guard_text("আপনার বার্তা পেয়েছি, দেখে জানাচ্ছি।", "") is not None
