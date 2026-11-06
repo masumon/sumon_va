@@ -61,6 +61,17 @@ async def add_connection(payload: ConnIn, _admin: str = Depends(owner_or_device(
         conn = await hub.add(db, payload.key, payload.provider, payload.base_url, payload.account_id, payload.label)
     except hub.HubError as exc:
         raise _fail(exc) from exc
+    if payload.base_url.strip():  # a custom address receives the prompts: always tell the owner on Telegram
+        try:
+            from urllib.parse import urlparse
+
+            from app.assistant.channels import telegram
+            from app.core.config import settings
+
+            if telegram.configured() and settings.TELEGRAM_OWNER_ID:
+                await telegram.send_text(settings.TELEGRAM_OWNER_ID, f"🔌 নতুন AI সংযোগ যোগ হয়েছে: {urlparse(payload.base_url).netloc[:80]}। আপনি না করে থাকলে অ্যাপের AI স্ক্রিন থেকে মুছুন।")
+        except Exception:  # noqa: BLE001 - the notice must never break adding a connection
+            logger.warning("custom AI connection notice failed", exc_info=True)
     return ApiResponse(data=conn, message="যোগ হয়েছে — AI কাজ করছে")
 
 

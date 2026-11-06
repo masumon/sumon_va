@@ -560,6 +560,20 @@ async def _set_val(db: AsyncSession, key: str, value: str) -> None:
         db.add(Setting(key=key, value=value, data_type="string", is_secret=False, is_editable=False, description="WhatsApp সহকারী (স্বয়ংক্রিয়)"))
 
 
+async def expire_unconfirmed_sms(db: AsyncSession, now: datetime) -> int:
+    """A text message handed to the phone but never confirmed within 10 minutes is shown as FAILED (not guessed as sent, not sent
+    again), so the owner can decide. This is what makes SMS at-most-once."""
+    rows = (await db.execute(select(InboxCommand).where(InboxCommand.kind == "sms", InboxCommand.status == "fetched",
+                                                       InboxCommand.created_at < now - timedelta(minutes=10)).limit(50))).scalars().all()
+    for c in rows:
+        c.status, c.done_at, c.error = "failed", now, "ফোন নিশ্চিত করেনি"
+        if c.msg_id and (m := await db.get(WaMessage, c.msg_id)) and m.status in ("sending", "queued"):
+            m.status, m.error = "failed", "ফোন SMS নিয়েছিল কিন্তু পাঠানো নিশ্চিত করেনি। দ্বিগুণ যাওয়া ঠেকাতে আবার পাঠানো হয়নি, দেখে নিজে আবার পাঠান।"
+    if rows:
+        await db.commit()
+    return len(rows)
+
+
 async def run_cron(db: AsyncSession) -> dict[str, Any]:
     cfg = await wcfg.load_config(db, force=True, scope="web")  # digest / token checks below belong to the website's WhatsApp
     app_cfg = await wcfg.load_config(db, force=True, scope="app")
@@ -609,6 +623,11 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
         logger.exception("sweep of unprocessed messages failed")
         await db.rollback()
     try:
+        out["sms_unconfirmed"] = await expire_unconfirmed_sms(db, now)
+    except Exception:  # noqa: BLE001
+        logger.exception("unconfirmed SMS check failed")
+        await db.rollback()
+    try:
         out["task_reminded"] = await send_task_reminders(db, now)
     except Exception:  # noqa: BLE001
         logger.exception("task reminders failed")
@@ -617,6 +636,11 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
         out["reminded"] = await send_unanswered_reminders(db, now)
     except Exception:  # noqa: BLE001 - a reminder must never stop the housekeeping below
         logger.exception("unanswered reminders failed")
+        await db.rollback()
+    try:  # urgent alerts held back by the quiet time / daily cap are summarised once the owner can be told
+        out["held_digest"] = await alerts.send_held_digest(db, app_cfg)
+    except Exception:  # noqa: BLE001
+        logger.exception("held alert digest failed")
         await db.rollback()
 
     local = brain.now_dhaka()

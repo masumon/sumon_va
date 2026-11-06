@@ -224,3 +224,121 @@ def test_wp2b_guard_blocks_invented_promises():
     # a promise already present in the allowed facts is not invented
     assert guard_text("কালকের মধ্যে হয়ে যাবে", "কালকের মধ্যে হয়ে যাবে") is not None
     assert guard_text("আপনার বার্তা পেয়েছি, দেখে জানাচ্ছি।", "") is not None
+
+
+@pytest.mark.asyncio
+async def test_wp3_held_alert_is_recorded_and_summarised(monkeypatch):
+    """A quiet-time / over-cap alert is not silently lost: recorded with a reason, then summarised once."""
+    from app.assistant.channels import alerts
+    from app.assistant import wa_flow as flow
+
+    store: dict[str, str] = {}
+
+    async def get(db, key):
+        return store.get(key, "")
+
+    async def put(db, key, val):
+        store[key] = val
+
+    class DB:
+        def add(self, o): self.added = getattr(self, "added", []) + [o]
+        async def commit(self): pass
+
+    monkeypatch.setattr(flow, "_get_val", get)
+    monkeypatch.setattr(flow, "_set_val", put)
+    db = DB()
+    await alerts._record_held(db, "রহিম", 2, "নীরব সময়")
+    await alerts._record_held(db, "করিম", 2, "নীরব সময়")
+    held = await alerts.held_alerts(db)
+    assert [h["who"] for h in held] == ["রহিম", "করিম"] and held[0]["why"] == "নীরব সময়"
+    cfg = {"limits": {"quiet_from": "23:00", "quiet_to": "07:00"}}
+    monkeypatch.setattr(alerts, "in_quiet_hours", lambda l, n: True)
+    assert await alerts.send_held_digest(db, cfg) == 0  # still quiet: keep holding
+    monkeypatch.setattr(alerts, "in_quiet_hours", lambda l, n: False)
+    assert await alerts.send_held_digest(db, cfg) == 2
+    assert await alerts.held_alerts(db) == []  # told once, not repeated
+    assert "রহিম" in db.added[-1].body
+
+
+def test_wp2d_pseudonymize_round_trip():
+    from app.assistant import privacy
+
+    text = "আমার নম্বর 01712345678, মেইল rahim@example.com, হিসাব 123456789012, 5 টি পণ্য"
+    masked, mp = privacy.pseudonymize(text)
+    assert "01712345678" not in masked and "rahim@example.com" not in masked and "123456789012" not in masked
+    assert "5 টি পণ্য" in masked  # ordinary short numbers stay
+    assert privacy.restore(masked, mp) == text
+    same, _ = privacy.pseudonymize("01712345678 আবার 01712345678")
+    assert same.count("[PHONE_1]") == 2
+
+
+@pytest.mark.asyncio
+async def test_wp2d_hub_sends_placeholders(monkeypatch):
+    from app.assistant import ai_hub
+
+    seen = {}
+
+    async def fake_call(conn, model, system, user, **kw):
+        seen["user"], seen["system"] = user, system
+        return "ঠিক আছে [PHONE_1]"
+
+    async def noop(*a, **k): return None
+
+    monkeypatch.setattr(ai_hub, "_load", noop)
+    monkeypatch.setattr(ai_hub, "_flush_stats", noop)
+    monkeypatch.setattr(ai_hub, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(ai_hub, "_candidates", lambda task, vis: [({"id": "c", "label": "x", "tier": "free"}, {"id": "m"})])
+    monkeypatch.setattr(ai_hub, "_call", fake_call)
+    out = await ai_hub.run(None, "chat", "sys", "ফোন 01712345678")
+    assert "01712345678" not in seen["user"] and "[PHONE_1]" in seen["user"] and "placeholders" in seen["system"]
+    assert out == "ঠিক আছে 01712345678"
+
+
+def test_wp23_client_ip_not_forgeable():
+    from starlette.requests import Request
+    from app.core.rate_limit import client_ip
+
+    def req(headers, host="10.0.0.1"):
+        return Request({"type": "http", "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()], "client": (host, 1)})
+
+    # direct hit on the server address with a forged header: the header is ignored
+    assert client_ip(req({"X-Forwarded-For": "9.9.9.9, 5.6.7.8", "CF-Connecting-IP": "1.2.3.4"})) == "5.6.7.8"
+    # through Cloudflare: its edge is the last hop, so the real visitor header is believed
+    assert client_ip(req({"X-Forwarded-For": "1.2.3.4, 172.68.1.1", "CF-Connecting-IP": "1.2.3.4"})) == "1.2.3.4"
+    # no proxy headers at all: the socket address
+    assert client_ip(req({}, host="7.7.7.7")) == "7.7.7.7"
+
+
+@pytest.mark.asyncio
+async def test_wp23_custom_ai_address_must_be_https(monkeypatch):
+    from app.assistant import ai_hub
+
+    async def noop(*a, **k): return None
+
+    monkeypatch.setattr(ai_hub, "_load", noop)
+    with pytest.raises(ai_hub.HubError):
+        await ai_hub.add(None, "", "custom", "http://evil.example/v1", "", "x")
+    with pytest.raises(ai_hub.HubError):
+        await ai_hub.add(None, "", "custom", "file:///etc", "", "x")
+
+
+@pytest.mark.asyncio
+async def test_wp12_unconfirmed_sms_fails_honestly_not_resent(Session):
+    from app.assistant.wa_flow import expire_unconfirmed_sms, utcnow
+
+    async with Session() as db:
+        contact = WaContact(phone="sms:+8801711000000", name="রহিম", channel="sms")
+        db.add(contact)
+        await db.flush()
+        msg = WaMessage(contact_id=contact.id, direction="out", body="hi", status="sending")
+        db.add(msg)
+        await db.flush()
+        old = InboxCommand(device_id=None, kind="sms", target="+8801711000000", body="hi", msg_id=msg.id, status="fetched")
+        old.created_at = utcnow() - timedelta(minutes=30)
+        fresh = InboxCommand(device_id=None, kind="sms", target="+8801711000001", body="x", status="fetched")
+        db.add_all([old, fresh])
+        await db.commit()
+        assert await expire_unconfirmed_sms(db, utcnow()) == 1
+        await db.refresh(old); await db.refresh(msg); await db.refresh(fresh)
+        assert old.status == "failed" and msg.status == "failed" and "আবার পাঠানো হয়নি" in msg.error
+        assert fresh.status == "fetched"  # the recent one is still waiting for the phone's confirmation

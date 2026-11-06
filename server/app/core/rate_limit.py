@@ -47,19 +47,39 @@ def _valid_ip(value: str | None) -> str | None:
         return None
 
 
+# Cloudflare's published edge ranges (cloudflare.com/ips). CF-Connecting-IP is believed only when the connection really came from one of them.
+_CF_NETS = [
+    "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18",
+    "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+    "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22", "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32",
+    "2405:b500::/32", "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32",
+]
+
+
+def _is_cloudflare(ip: str | None) -> bool:
+    import ipaddress
+
+    try:
+        addr = ipaddress.ip_address(ip or "")
+    except ValueError:
+        return False
+    return any(addr in ipaddress.ip_network(n) for n in _CF_NETS)
+
+
 def client_ip(request: Request) -> str:
-    """Real client IP. All public traffic arrives through Cloudflare, which sets
-    CF-Connecting-IP itself (a visitor cannot forge it), so it wins; then the
-    first X-Forwarded-For hop (Render's proxy), then the socket address."""
-    cf = _valid_ip(request.headers.get("cf-connecting-ip"))
-    if cf:
-        return cf
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        first = _valid_ip(forwarded.split(",")[0])
-        if first:
-            return first
-    return request.client.host if request.client else "unknown"
+    """Real client IP that a visitor cannot forge.
+
+    The last X-Forwarded-For hop is the address Render's own proxy saw (not forgeable). When that hop is a Cloudflare edge address,
+    Cloudflare sat in front and CF-Connecting-IP is the real visitor. Otherwise the header is ignored, so someone calling the Render
+    address directly cannot dodge a rate limit or a lock by inventing it."""
+    forwarded = request.headers.get("x-forwarded-for") or ""
+    hops = [h for h in (_valid_ip(x) for x in forwarded.split(",")) if h]
+    peer = hops[-1] if hops else (request.client.host if request.client else None)
+    if _is_cloudflare(peer):
+        cf = _valid_ip(request.headers.get("cf-connecting-ip"))
+        if cf:
+            return cf
+    return peer or "unknown"
 
 
 def rate_limit(name: str, max_requests: int, window_seconds: int):
