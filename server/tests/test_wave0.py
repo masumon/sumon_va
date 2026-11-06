@@ -506,3 +506,37 @@ def test_schema_guard_knows_every_object_it_would_create():
 
     names = [object_name(s) for s in WA_TABLES_SQL]
     assert all(names) and "wa_contacts" in names and "ix_wa_tasks_open" in names
+
+
+# -- spam folder: operator / shop promotions (owner 2026-11-06) ---------------------------------------------------
+
+@pytest.mark.parametrize("ch,key,name,body", [
+    ("sms", "sms:GP", "GP", "মাত্র ৪৯ টাকায় ৫ GB ইন্টারনেট প্যাক! ডায়াল করুন *121*3#"),
+    ("sms", "sms:Robi", "Robi", "Recharge 99 Tk and get 10% cashback"),
+    ("sms", "sms:Daraz", "Daraz", "Flash sale: 70% off today only"),
+    ("sms", "sms:MyBrand", "MyBrand", "Limited time offer, buy now"),
+])
+def test_promotions_go_to_spam(ch, key, name, body):
+    from app.assistant import promo
+
+    assert promo.is_promo(ch, key, name, body, {})
+
+
+@pytest.mark.parametrize("ch,key,name,body", [
+    ("sms", "sms:bKash", "bKash", "You have received Tk 500 from 01711000000. TrxID 9X8Y"),
+    ("sms", "sms:GP", "GP", "Your OTP is ••••••"),
+    ("sms", "sms:+8801711000000", "রহিম", "ভাই অফারটা কেমন? কাল কথা বলি"),          # a person, not a sender id
+    ("notif", "notif:com.whatsapp:Rahim", "Rahim", "ফ্রি আছো? দাম কত?"),           # a chat, not a shop
+])
+def test_money_codes_and_people_are_never_spam(ch, key, name, body):
+    from app.assistant import promo
+
+    assert not promo.is_promo(ch, key, name, body, {})
+
+
+def test_owner_lists_win():
+    from app.assistant import promo
+
+    assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"allow": ["gp"]}})
+    assert promo.is_promo("sms", "sms:+8801711000000", "x", "hello", {"promo": {"block": ["+8801711000000"]}})
+    assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"enabled": False}})

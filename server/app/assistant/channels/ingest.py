@@ -8,7 +8,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assistant import privacy
+from app.assistant import privacy, promo
+from app.assistant import wa_config as wcfg
 from app.assistant import wa_flow as flow
 from app.models.wa import WaContact, WaMessage
 
@@ -33,8 +34,15 @@ async def ingest(db: AsyncSession, *, channel: str, key: str, name: str | None, 
         contact.channel = channel
     ts = at or datetime.now(timezone.utc)
     safe_body, masked = privacy.mask_secrets((body or "")[:MAX_BODY])  # a one-time code is never stored, alerted or sent to an AI
+    junk = False
+    try:
+        junk = promo.is_promo(channel, key, name, safe_body, await wcfg.load_config(db, scope="app"))
+    except Exception:  # noqa: BLE001 - a filter problem must never lose a message
+        junk = False
+    if junk:
+        contact.category = "spam"  # straight to the spam folder: never in the inbox, no reply, no alert; kept 3 days
     msg = WaMessage(contact_id=contact.id, direction="in", channel=channel, wa_id=ext, kind=kind,
-                    body=safe_body, status="received", meta={**(meta or {}), **({"masked": True} if masked else {})}, created_at=ts)
+                    body=safe_body, status="received", meta={**(meta or {}), **({"masked": True} if masked else {}), **({"promo": True} if junk else {})}, created_at=ts)
     db.add(msg)
     contact.unread += 1
     contact.last_inbound_at = contact.last_message_at = ts

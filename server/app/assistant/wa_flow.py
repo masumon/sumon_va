@@ -311,6 +311,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     cfg = await presence.apply(db, await wcfg.load_config(db))
     if not cfg.get("enabled"):
         return
+    if (msg.meta or {}).get("promo"):
+        return  # promotional (operator / shop offer): spam folder only, nothing to answer or alert
     if not platforms.settings_for(cfg, platforms.platform_key(contact, cfg.get("custom_platforms")))["enabled"]:
         return  # this platform is paused in its own settings: the message stays in the inbox, no draft, no alert
     now = utcnow()
