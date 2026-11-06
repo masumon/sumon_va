@@ -85,6 +85,7 @@ export type Message = {
 export type Overview = {
   enabled: boolean; mode: 'auto' | 'shadow'; waiting: number; urgent: number; drafts: number; queued: number; failed_24h: number;
   tasks_open: number; tasks_late: number;
+  alerts_held?: { count: number; items: { who: string; p: number; why: string; ts: string }[] };
   presence?: { state: 'active' | 'idle' | 'still' | 'moving' | 'unknown'; seen_at: string | null };
 };
 
@@ -111,6 +112,10 @@ export type AssistantConfig = {
   categories: Record<Category, { auto?: boolean; silent?: boolean }>;
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
   notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };
+  calls?: { burst_min: number; escalate_after: number; reply: boolean };
+  grouping?: { window_min: number };
+  reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
+  limits?: Limits;
 };
 
 export type HubModel = { id: string; label?: string; free?: boolean };
@@ -132,9 +137,13 @@ export type Fact = {
   provenance: 'owner' | 'ai' | 'imported' | 'platform'; status: 'active' | 'disputed' | 'superseded' | 'corrected'; at: string;
 };
 export type RelationshipObservation = { text: string; confidence: 'high' | 'medium' | 'low'; basis: string };
+export type HistoryReport = {
+  found: number; imported: number; duplicates: number; skipped_old?: number; skipped_period?: number; truncated?: boolean; note?: string;
+  need_consent?: boolean; need_owner?: boolean; speakers?: string[];
+};
 export type F0Draft = { id: string; to: string; channel: string; body: string; warnings: string[] };
 export type F0Result = {
-  intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'unknown';
+  intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'unknown';
   answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
   choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
 };
@@ -175,7 +184,7 @@ export const va = {
   overview: () => cachedGet<Overview>('/admin/wa/overview', 8000),
   contacts: (view: View, q = '', page = 1, src: string[] = []) =>
     call<{ items: Contact[]; total: number; page: number }>('GET', `/admin/wa/contacts?view=${view}&q=${encodeURIComponent(q)}&page=${page}&src=${encodeURIComponent(src.join(','))}`),
-  business: () => call<{ pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
+  business: () => call<{ available?: boolean; pending_orders: number; pending_bookings: number; new_leads: number; new_applications: number }>('GET', '/admin/inbox/business'),
   contact: (id: string) => call<{ contact: Contact; messages: Message[]; notes: { id: string; text: string }[]; tasks: { id: string; title: string; is_done: boolean }[] }>('GET', `/admin/wa/contacts/${id}`),
   patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state' | 'category' | 'tags'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
   reply: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/reply`, { text }),
@@ -192,7 +201,11 @@ export const va = {
   addFact: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts`, { text }),
   correctFact: (contactId: string, fid: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts/${fid}/correct`, { text }),
   removeFact: (contactId: string, fid: string) => call<unknown>('DELETE', `/admin/wa/contacts/${contactId}/facts/${fid}`),
+  aliases: (contactId: string) => call<{ aliases: string[] }>('GET', `/admin/wa/contacts/${contactId}/aliases`),
+  setAliases: (contactId: string, aliases: string[]) => call<{ aliases: string[] }>('PUT', `/admin/wa/contacts/${contactId}/aliases`, { aliases }),
   relationship: (contactId: string) => call<{ observations: RelationshipObservation[] }>('GET', `/admin/wa/contacts/${contactId}/relationship`),
+  importHistory: (id: string, chat_text: string, owner_speaker: string | undefined, days: number, consent_private: boolean) =>
+    call<HistoryReport>('POST', `/admin/wa/contacts/${id}/import-history`, { chat_text, owner_speaker, days, consent_private }),
   f0Command: (text: string) => call<F0Result>('POST', '/admin/wa/f0/command', { text }),
   channels: () => cachedGet<ChannelsInfo>('/admin/inbox/channels', 8000),
   killSwitch: (on: boolean) => call<{ kill_switch_on: boolean }>('POST', '/admin/inbox/kill-switch', { on }),

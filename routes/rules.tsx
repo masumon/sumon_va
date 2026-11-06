@@ -14,6 +14,11 @@ const SECS = ['10', '20', '40', '60', '120'] as const;
 const PER_HOUR = ['3', '5', '10', '20'] as const;
 const HOLD = ['2', '6', '12', '24'] as const;
 const KEEP = ['30', '60', '90', '180'] as const;
+const GROUP = ['0', '3', '5', '7'] as const;
+const REMIND = ['0', '10', '15', '20', '30'] as const;
+const LEAD = ['0', '30', '60', '120'] as const;
+const BURST = ['5', '10', '15'] as const;
+const URGENT_PER_DAY = ['3', '5', '10', '20'] as const;
 
 /** How the assistant behaves, as in the admin WhatsApp settings: its names, how fast and how often it replies, when it stays quiet. */
 export default function RulesScreen() {
@@ -66,6 +71,21 @@ export default function RulesScreen() {
             <ChipGroup<(typeof SECS)[number]> label={bn ? 'উত্তরের আগে অপেক্ষা (সর্বোচ্চ সেকেন্ড)' : 'Wait before replying (max seconds)'} options={SECS} value={String(c.delay.max) as (typeof SECS)[number]} labelOf={(s) => s} onChange={(s) => { if (s) void save({ delay: { min: Math.min(20, Number(s)), max: Number(s) } }); }} />
             <ChipGroup<(typeof PER_HOUR)[number]> label={bn ? 'একজনকে ঘণ্টায় সর্বোচ্চ অটো-উত্তর' : 'Max auto-replies to one person per hour'} options={PER_HOUR} value={String(c.per_sender_hour) as (typeof PER_HOUR)[number]} labelOf={(s) => s} onChange={(s) => { if (s) void save({ per_sender_hour: Number(s) }); }} />
             <ChipGroup<(typeof HOLD)[number]> label={bn ? 'আমি নিজে উত্তর দিলে সহকারী চুপ থাকবে (ঘণ্টা)' : 'Stay quiet after I answer (hours)'} options={HOLD} value={String(c.hold_hours) as (typeof HOLD)[number]} labelOf={(s) => s} onChange={(s) => { if (s) void save({ hold_hours: Number(s) }); }} />
+          </Card>
+
+          <Card icon="brain" title={bn ? 'বুদ্ধিমান সহকারীর সেটিং' : 'Smart assistant settings'}>
+            <InfoHint text={bn ? 'এগুলো বন্ধ থাকলে সহকারী ওই কাজ করে না। এখানে চালু করলে তবেই রিমাইন্ডার ও গ্রুপিং কাজ করবে।' : 'While these are off the assistant skips that job. Switch them on here.'} />
+            <ChipGroup<(typeof GROUP)[number]> label={bn ? 'একই মানুষের কয়েকটি বার্তা একসঙ্গে ধরে একটি উত্তর (মিনিট, ০ = বন্ধ)' : 'Group several messages from one person into one reply (minutes, 0 = off)'} options={GROUP} value={String(c.grouping?.window_min ?? 5) as (typeof GROUP)[number]} labelOf={(s) => s}
+              onChange={(s) => { if (s) void save({ grouping: { window_min: Number(s) } }); }} hint={bn ? 'জরুরি বার্তা অপেক্ষা করে না।' : 'Urgent messages never wait.'} />
+            <ChipGroup<(typeof REMIND)[number]> label={bn ? '“উত্তর বাকি” মনে করানো (মিনিট পর, ০ = বন্ধ)' : '“Still unanswered” reminder (after minutes, 0 = off)'} options={REMIND} value={String(c.reminders?.unanswered_min ?? 0) as (typeof REMIND)[number]} labelOf={(s) => s}
+              onChange={(s) => { if (s) void save({ reminders: { unanswered_min: Number(s) } }); }} hint={bn ? 'শুধু বলে “উত্তর দেওয়ার প্রমাণ পাইনি”। বার্তা পড়া হয়েছে কি না, তা কখনও বলে না।' : 'It only says no answer was found. It never claims the message was read.'} />
+            <ToggleRow icon="star-outline" label={bn ? 'শুধু গুরুত্বপূর্ণ মানুষের জন্য মনে করানো' : 'Remind only for important people'} value={c.reminders?.only_important ?? true} onChange={(v) => void save({ reminders: { only_important: v } })} />
+            <ChipGroup<(typeof LEAD)[number]> label={bn ? 'কাজের সময়ের আগে মনে করানো (মিনিট, ০ = বন্ধ)' : 'Remind before a task is due (minutes, 0 = off)'} options={LEAD} value={String(c.reminders?.task_lead_min ?? 0) as (typeof LEAD)[number]} labelOf={(s) => s}
+              onChange={(s) => { if (s) void save({ reminders: { task_lead_min: Number(s) } }); }} />
+            <ChipGroup<(typeof BURST)[number]> label={bn ? 'বারবার মিসড কল: এই সময়ের মধ্যে একটাই অ্যালার্ট (মিনিট)' : 'Repeated missed calls: one alert within (minutes)'} options={BURST} value={String(c.calls?.burst_min ?? 10) as (typeof BURST)[number]} labelOf={(s) => s}
+              onChange={(s) => { if (s) void save({ calls: { burst_min: Number(s) } }); }} />
+            <ChipGroup<(typeof URGENT_PER_DAY)[number]> label={bn ? 'দিনে সর্বোচ্চ জরুরি অ্যালার্ট' : 'Max urgent alerts per day'} options={URGENT_PER_DAY} value={String(c.limits?.urgent_per_day ?? 5) as (typeof URGENT_PER_DAY)[number]} labelOf={(s) => s}
+              onChange={(s) => { if (s) void save({ limits: { urgent_per_day: Number(s) } }); }} hint={bn ? 'সীমা বা নীরব সময়ে আটকে গেলে অ্যালার্ট হারায় না: আপনি পরে সারাংশ পাবেন।' : 'Alerts held back by the limit or quiet hours are not lost: you get a summary later.'} />
           </Card>
 
           <Card icon="bell-outline" title={bn ? 'জানানো ও রাখা' : 'Notify and keep'}>

@@ -721,6 +721,12 @@ async def delete_fact(cid: uuid.UUID, fid: str, db: AsyncSession = Depends(get_d
     return ApiResponse(message="তথ্যটি সম্পূর্ণ মুছে ফেলা হলো")
 
 
+@router.get("/admin/wa/contacts/{cid}/aliases", response_model=ApiResponse)
+async def get_aliases(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    return ApiResponse(data={"aliases": list((c.profile or {}).get("aliases") or [])})
+
+
 class AliasesIn(BaseModel):
     aliases: list[str] = Field(default_factory=list, max_length=10)
 

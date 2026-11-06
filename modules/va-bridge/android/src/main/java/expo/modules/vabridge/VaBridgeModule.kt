@@ -232,7 +232,7 @@ class VaBridgeModule : Module() {
       val c = ctx
       io.execute {
         // Testing an AI key asks an outside company and can take a while (and a sleeping free server needs ~30 s to wake): wait longer there.
-        val r = try { Http.call(c, m, path, body, readMs = if (path.startsWith("/admin/ai-hub") || path.contains("/learn")) 90000 else 20000) } catch (e: Exception) { Http.Resp(0, e.javaClass.simpleName) }
+        val r = try { Http.call(c, m, path, body, readMs = if (path.startsWith("/admin/ai-hub") || path.contains("/learn") || path.contains("/import-history")) 90000 else 20000) } catch (e: Exception) { Http.Resp(0, e.javaClass.simpleName) }
         promise.resolve(mapOf("status" to r.code, "body" to r.body))
       }
     }

@@ -83,6 +83,8 @@ export default function DashboardScreen() {
                 <HeroStat value={n(o.urgent)} label={bn ? 'জরুরি' : 'Urgent'} onPress={() => go('/inbox', { view: 'urgent' })} />
                 <HeroStat value={n(o.tasks_open)} label={bn ? 'কাজ বাকি' : 'Open tasks'} onPress={() => go('/tasks')} />
               </>
+            ) : biz.data?.available === false ? (
+              <Text style={{ color: colors.onPrimary, opacity: 0.85 }}>{bn ? 'ব্যবসার সংখ্যা এখনো সংযুক্ত নয়' : 'Business numbers are not connected yet'}</Text>
             ) : (
               <>
                 <HeroStat value={n(biz.data?.pending_orders ?? 0)} label={bn ? 'অর্ডার' : 'Orders'} />
@@ -98,6 +100,28 @@ export default function DashboardScreen() {
 
       {o?.presence && o.presence.state !== 'unknown' ? (
         <Text style={{ opacity: 0.7, fontSize: 12, textAlign: 'center' }}>{bn ? PRESENCE[o.presence.state].bn : PRESENCE[o.presence.state].en}</Text>
+      ) : null}
+
+      {o ? (
+        <Card icon="message-text-outline" title={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'}>
+          <AppButton variant="secondary" icon="message-text-outline" label={bn ? 'লিখে জিজ্ঞেস করুন বা কাজ দিন' : 'Ask or give a command'} onPress={() => go('/f0')} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {[{ bn: 'মিসড কল', en: 'Missed calls' }, { bn: 'কার উত্তর বাকি', en: 'Who is waiting' }, { bn: 'আমার কাজ', en: 'My tasks' }].map((q) => (
+              <Pressable key={q.bn} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} onPress={() => go('/f0')}
+                style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+                <Text>{bn ? q.bn : q.en}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+      ) : null}
+
+      {o?.alerts_held && o.alerts_held.count > 0 ? (
+        <Card icon="bell-sleep-outline" title={bn ? 'আটকে থাকা অ্যালার্ট' : 'Held-back alerts'}>
+          <Text>{bn ? `${n(o.alerts_held.count)}টি জরুরি অ্যালার্ট নীরব সময় বা দৈনিক সীমার কারণে আটকে ছিল (হারায়নি)।` : `${o.alerts_held.count} urgent alert(s) were held back by quiet hours or the daily limit (not lost).`}</Text>
+          <Text style={{ opacity: 0.7, fontSize: 12, marginTop: 4 }}>{[...new Set(o.alerts_held.items.map((i) => i.who))].join(', ')}</Text>
+          <View style={{ marginTop: 8 }}><AppButton variant="secondary" label={bn ? 'জরুরিগুলো দেখুন' : 'See urgent'} onPress={() => go('/inbox', { view: 'urgent' })} /></View>
+        </Card>
       ) : null}
 
       {setupNeeded ? (
@@ -144,12 +168,13 @@ export default function DashboardScreen() {
 
       {o && lens === 'business' ? (
         <>
+          {biz.data?.available === false ? <EmptyNote icon="link-off" text={bn ? 'ABO-র সঙ্গে সংযোগ নেই, তাই অর্ডার/বুকিংয়ের সংখ্যা দেখানো হচ্ছে না (০ নয়)।' : 'Not connected to ABO, so order/booking numbers are not shown (this is not zero).'} /> : (
           <TileGrid>
             <StatTile icon="cart-outline" label={bn ? 'বাকি অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
             <StatTile icon="briefcase-outline" label={bn ? 'বাকি বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
             <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} onPress={() => go('/inbox', { view: 'work' })} />
             <StatTile icon="file-account-outline" label={bn ? 'চাকরির আবেদন' : 'Applications'} value={n(biz.data?.new_applications ?? 0)} />
-          </TileGrid>
+          </TileGrid>)}
           <AppSectionHeader title={bn ? 'নতুন কাজের খোঁজ' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
           {work.data && work.data.items.length === 0 ? <EmptyNote icon="briefcase-check-outline" text={bn ? 'নতুন কাজের খোঁজ নেই' : 'No new work enquiries'} /> : null}
           <View style={{ gap: 12 }}>{(work.data?.items ?? []).slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}</View>

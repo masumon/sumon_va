@@ -12,6 +12,7 @@ import { Page, Status } from '../src/va/Page';
 import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
 import { TagEditor } from '../src/va/TagEditor';
 import { ChatTransfer } from '../src/va/ChatTransfer';
+import { HistoryImport } from '../src/va/HistoryImport';
 import { ContactMemory } from '../src/va/ContactMemory';
 import { ChatMenuButton } from '../src/va/ChatMenu';
 import { AppIcon } from '../src/ui/AppIcon';
@@ -56,6 +57,8 @@ export default function ContactScreen() {
   const detail = useLoad(() => va.contact(String(id)), `contact:${String(id)}`, 10000);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [aliasText, setAliasText] = useState('');
+  const aliases = useLoad(() => va.aliases(String(id)), `aliases:${String(id)}`, 60000);
 
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
@@ -87,8 +90,6 @@ export default function ContactScreen() {
             {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
           </Card>
 
-          <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
-
           {drafts.map((d) => (
             <Card key={d.id} title={bn ? 'সহকারীর খসড়া উত্তর' : "Assistant's draft reply"}>
               <Text style={{ marginBottom: 6 }}>{d.body}</Text>
@@ -100,6 +101,8 @@ export default function ContactScreen() {
             </Card>
           ))}
 
+          <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
+
           <Card title={bn ? 'আপনার উত্তর' : 'Your reply'}>
             <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'এখানে লিখুন…' : 'Write here…'} />
             <View style={{ gap: 8, marginTop: 10 }}>
@@ -110,7 +113,15 @@ export default function ContactScreen() {
             </View>
           </Card>
 
+          <Card title={bn ? 'অ্যাপের বাইরে উত্তর দিয়েছেন?' : 'Already answered outside the app?'}>
+            <Text style={{ opacity: 0.75, marginBottom: 8 }}>{bn ? 'আপনি নিজে WhatsApp বা অন্য অ্যাপে উত্তর দিলে এখানে জানিয়ে দিন। তাহলে সহকারী দ্বিতীয়বার উত্তর দেবে না, আর “উত্তর বাকি” মনে করাবে না।' : 'If you answered in the chat app yourself, tell the assistant here so it does not answer again or remind you.'}</Text>
+            <AppButton variant="secondary" icon="check-circle-outline" label={bn ? 'আমি নিজে উত্তর দিয়েছি' : 'I answered myself'} loading={busy}
+              onPress={() => void act(() => va.sentByHand(c.id, text.trim() || (bn ? '(নিজে উত্তর দিয়েছি)' : '(I answered myself)')), bn ? 'লিখে রাখা হলো। সহকারী কিছুক্ষণ চুপ থাকবে' : 'Noted. The assistant will stay quiet for a while')} />
+          </Card>
+
           <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
+
+          <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
 
           <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
 
@@ -131,6 +142,14 @@ export default function ContactScreen() {
               {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি দেখছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
               {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
               {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'সহকারীর হাতে দিন' : 'Hand back'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
+            </View>
+          </Card>
+          <Card title={bn ? 'অন্য নাম / ডাকনাম' : 'Other names'}>
+            <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'এই মানুষকে আপনি আর কী নামে চেনেন? (যেমন Rahim, বড় ভাই)। একই মানুষ কি না মেলাতে এটা সহকারীকে সাহায্য করে। কমা দিয়ে লিখুন।' : 'Other names you know this person by (e.g. Rahim). Helps the assistant spot the same person. Separate with commas.'}</Text>
+            <Field label="" value={aliasText || (aliases.data?.aliases ?? []).join(', ')} onChangeText={setAliasText} placeholder={bn ? 'যেমন: Rahim, বড় ভাই' : 'e.g. Rahim, Boro Vai'} />
+            <View style={{ marginTop: 8 }}>
+              <AppButton variant="secondary" label={bn ? 'সংরক্ষণ' : 'Save'} disabled={!aliasText.trim() && !(aliases.data?.aliases ?? []).length}
+                onPress={() => void act(async () => { await va.setAliases(c.id, aliasText.split(',').map((x) => x.trim()).filter(Boolean)); setAliasText(''); await aliases.reload(); }, bn ? 'সংরক্ষণ হয়েছে' : 'Saved')} />
             </View>
           </Card>
           <ContactMemory contactId={c.id} />
