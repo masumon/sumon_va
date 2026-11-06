@@ -15,6 +15,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant import assignments
+from app.assistant import identity
 from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
 from app.assistant import thread_state as ts
@@ -49,9 +50,10 @@ async def upsert_contact(db: AsyncSession, phone: str, name: str | None) -> WaCo
     return c
 
 
-async def recent_messages(db: AsyncSession, contact_id: uuid.UUID, n: int = 14) -> list[dict[str, Any]]:
-    rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact_id)
-                             .order_by(WaMessage.created_at.desc()).limit(n))).scalars().all()
+async def recent_messages(db: AsyncSession, contact_id: "uuid.UUID | list[uuid.UUID]", n: int = 14) -> list[dict[str, Any]]:
+    """Newest first. `contact_id` may be a list: all the contacts of ONE linked person (identity.py)."""
+    where = WaMessage.contact_id.in_(contact_id) if isinstance(contact_id, (list, tuple, set)) else WaMessage.contact_id == contact_id
+    rows = (await db.execute(select(WaMessage).where(where).order_by(WaMessage.created_at.desc()).limit(n))).scalars().all()
     return [{"id": m.id, "direction": m.direction, "body": privacy.unseal(m.transcript or m.body), "reason": m.reason, "status": m.status,
              "created_at": m.created_at, "meta": m.meta or {}} for m in rows]
 
@@ -261,6 +263,13 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     contact = await db.get(WaContact, msg.contact_id) if msg else None
     if not msg or not contact:
         return
+    try:
+        await identity.auto_link(db, contact)  # same phone number on another channel = same human (high confidence only; logged, reversible)
+    except Exception:  # noqa: BLE001 - linking must never stop a message from being processed
+        logger.exception("identity auto_link failed")
+        await db.rollback()
+        contact = await db.get(WaContact, msg.contact_id)
+    person_ids = await identity.person_contact_ids(db, contact)  # [contact.id] while nothing is linked
     wcfg.use_scope(wcfg.scope_for_channel(contact.channel))  # Cloud-API WhatsApp: the website's rules; everything else: the app's
     cfg = await presence.apply(db, await wcfg.load_config(db))
     if not cfg.get("enabled"):
@@ -289,9 +298,9 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     call_insight = None
     if is_missed_call:
         # A missed call is not a sentence: explain it from what the inbox really knows, one alert per burst (call_context.py).
-        wide = [m for m in await recent_messages(db, contact.id, 60) if m["id"] != msg.id]
+        wide = [m for m in await recent_messages(db, person_ids, 60) if m["id"] != msg.id]  # the whole person: SMS + WhatsApp + ...
         tasks = [{"title": t, "due_at": due} for t, due in (await db.execute(
-            select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id == contact.id).limit(10))).all()]  # noqa: E712
+            select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id.in_(person_ids)).limit(10))).all()]  # noqa: E712
         ins = call_ctx.analyze(cfg, contact, wide, tasks, now, d.priority)
         if call_ctx.apply(d, ins, cfg):
             call_insight = ins
@@ -318,7 +327,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
                 open_titles.add(title)
                 d.note = (d.note + " · " if d.note else "") + "কাজের অনুরোধ ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)"
         if assignments.asks_status(text_in) or assignments.asks_status(asked):
-            rows = (await db.execute(select(WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id == contact.id)
+            rows = (await db.execute(select(WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id.in_(person_ids))
                                      .order_by(WaTask.created_at.desc()).limit(5))).all()
             known = [{"title": t, "due_at": due, "is_done": done, "done_at": at, "source": src} for t, due, done, at, src in rows]
             d.note = (d.note + " · " if d.note else "") + assignments.status_note(known, now, private)

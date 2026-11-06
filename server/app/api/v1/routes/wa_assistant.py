@@ -23,7 +23,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.assistant import presence, privacy
+from app.assistant import identity, presence, privacy
 from app.assistant import wa_brain as brain
 from app.assistant import wa_coexist as coexist
 from app.assistant import wa_config as wcfg
@@ -655,6 +655,62 @@ async def add_task(body: TaskIn, db: AsyncSession = Depends(get_db), _a: str = D
     db.add(t)
     await db.commit()
     return ApiResponse(data={"id": str(t.id)}, message="কাজ যোগ হয়েছে")
+
+
+class LinkIn(BaseModel):
+    contact_ids: list[uuid.UUID] = Field(min_length=2, max_length=6)
+
+
+def _who(c: WaContact) -> dict[str, Any]:
+    return {"id": str(c.id), "name": c.name, "channel": c.channel, "key": c.phone.split(":", 1)[-1] if ":" in c.phone else c.phone}
+
+
+async def _identity_ready(db: AsyncSession) -> None:
+    if not await identity.column_ready(db):
+        raise HTTPException(status_code=409, detail="পরিচয় যুক্ত করার জন্য ডাটাবেসে manual_sql/0002 এখনো চালানো হয়নি")
+
+
+@router.get("/admin/wa/identity/suggestions", response_model=ApiResponse)
+async def identity_suggestions(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """People who may be the SAME human on different channels. Medium confidence = only a suggestion, the owner decides."""
+    await _identity_ready(db)
+    contacts = (await db.execute(select(WaContact).where(WaContact.name.isnot(None)).limit(2000))).scalars().all()
+    pairs = identity.suggestions(contacts, await identity.group_contact_ids(db), await identity.person_map(db))
+    return ApiResponse(data=[{"a": _who(p["a"]), "b": _who(p["b"]), "level": p["level"], "reasons": p["reasons"]} for p in pairs[:50]])
+
+
+@router.post("/admin/wa/identity/link", response_model=ApiResponse)
+async def identity_link(body: LinkIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """The owner says these contacts are one human. Refused for groups and for contacts whose phone numbers differ."""
+    await _identity_ready(db)
+    ids = list(dict.fromkeys(body.contact_ids))
+    contacts = [await _get_contact(db, i) for i in ids]
+    groups = await identity.group_contact_ids(db)
+    if any(c.id in groups for c in contacts):
+        raise HTTPException(status_code=422, detail="গ্রুপ চ্যাট কোনো ব্যক্তির সঙ্গে যুক্ত করা যায় না")
+    numbers = {identity.number_of(c.phone) for c in contacts} - {None}
+    if len(numbers) > 1:
+        raise HTTPException(status_code=422, detail="এই দুই জনের ফোন নম্বর আলাদা, তাই একজন ব্যক্তি হিসেবে যুক্ত করা হলো না")
+    pid = await identity.link(db, contacts, "owner", "মালিকের নিশ্চিতকরণ")
+    await db.commit()
+    return ApiResponse(data={"person_id": str(pid), "contacts": [_who(c) for c in contacts]}, message="একজন ব্যক্তি হিসেবে যুক্ত হলো (আবার আলাদা করা যাবে)")
+
+
+@router.post("/admin/wa/identity/unlink/{cid}", response_model=ApiResponse)
+async def identity_unlink(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    await _identity_ready(db)
+    await _get_contact(db, cid)
+    done = await identity.unlink(db, cid, "owner")
+    await db.commit()
+    return ApiResponse(data={"unlinked": done}, message="আলাদা করা হলো, কোনো বার্তা বা কাজ মোছা হয়নি" if done else "এটি কারও সঙ্গে যুক্ত ছিল না")
+
+
+@router.get("/admin/wa/contacts/{cid}/identity", response_model=ApiResponse)
+async def contact_identity(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    c = await _get_contact(db, cid)
+    ids = await identity.person_contact_ids(db, c)
+    rows = (await db.execute(select(WaContact).where(WaContact.id.in_(ids)))).scalars().all()
+    return ApiResponse(data={"linked": [_who(r) for r in rows if r.id != c.id]})
 
 
 @router.post("/admin/wa/tasks/{tid}/confirm", response_model=ApiResponse)
