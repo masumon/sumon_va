@@ -15,6 +15,8 @@ Everything works with OR without the two SQL files. Without them: identity linki
 7. **Local debug APK build** (owner says go). Order: emulator `Pixel_6` first, then the phone `10EDAX04RL0002X` (`tools\build-apk.ps1`, ask before each build). The first build in a clean cache is long.
 8. **Real tests on the phone** (checklist below), then record results in TRANSFER.md.
 
+**Status 2026-11-06:** steps 1-4 are DONE (push `2871038`; backup held by the owner; SQL 0002 and 0003 run by the owner and verified). Next: step 5 (merge to `main`, Render Manual Deploy), then 6, 7, 8.
+
 ## 2. Real-device checklist (nothing here is verified yet)
 - Missed call from a number with an earlier message: one alert with "অনুমান" and confidence; two more calls within 10 min add no second alert.
 - Three calls from an unknown number: exactly one alert.
