@@ -124,12 +124,20 @@ def tokens(text: str) -> list[str]:
     return [t for t in _SPLIT.split((text or "").lower()) if t]
 
 
+_BN_SPELL = str.maketrans({"ী": "ি", "ূ": "ু", "ঈ": "ই", "ঊ": "উ"})
+
+
+def _spell(text: str) -> str:
+    """Same word, different spelling: long/short vowel signs and a stray end hasanta are treated alike (জরুরী = জরুরি, অসুস্থ্য = অসুস্থ)."""
+    return re.sub(r"্(?=\s|$|[^\u0980-\u09FF])", "", (text or "").translate(_BN_SPELL))
+
+
 def has_any(text: str, words: list[str]) -> str | None:
     """First matching word. Short words (≤3 chars) must be a whole token so "কই" does not hit "কইতে"."""
-    low = (text or "").lower()
+    low = _spell((text or "").lower())
     toks = set(tokens(low))
     for w in words or []:
-        wl = (w or "").strip().lower()
+        wl = _spell((w or "").strip().lower())
         if not wl:
             continue
         if (len(wl) <= 3 and wl in toks) or (len(wl) > 3 and wl in low):
