@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SmsHistoryCard } from '../src/va/SmsHistoryCard';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
@@ -130,6 +131,7 @@ export default function SettingsScreen() {
         <ToggleRow icon="motion-pause-outline" label={bn ? 'কম অ্যানিমেশন' : 'Reduce motion'} value={p.reduceMotion} onChange={(v) => void p.setReduceMotion(v)} />
       </Card>
 
+      <SmsHistoryCard />
       <Card icon="shield-lock-outline" title={bn ? 'নিরাপত্তা' : 'Security'}>
         <ToggleRow icon="cellphone-lock" label={bn ? 'স্ক্রিনশট ও রিসেন্ট অ্যাপে লুকান' : 'Hide from screenshots and recents'} hint={bn ? 'স্ক্রিনশটে বা রিসেন্ট অ্যাপের তালিকায় আপনার চ্যাট দেখা যাবে না।' : 'Nobody can capture your chats.'}
           value={p.blockScreenshots} onChange={(v) => void p.setBlockScreenshots(v)} />

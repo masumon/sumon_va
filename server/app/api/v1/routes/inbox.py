@@ -126,7 +126,7 @@ async def device_pair(body: PairIn, db: AsyncSession = Depends(get_db)):
 
 
 class IngestItem(BaseModel):
-    type: str = Field(default="msg", pattern="^(msg|call|seen)$")  # seen = a chat notification was dismissed (NOT proof it was read)
+    type: str = Field(default="msg", pattern="^(msg|call|seen|guard)$")  # seen = a chat notification was dismissed (NOT proof it was read); guard = the phone's protection was touched
     channel: str = Field(pattern="^(sms|notif)$")
     sender: str = Field(min_length=1, max_length=60)      # SMS number, or the person's name shown in the notification
     app: str | None = Field(default=None, max_length=60)  # package name, for notif
@@ -167,6 +167,9 @@ async def device_ingest(body: IngestIn, background: BackgroundTasks, dev: InboxD
         try:
             async with db.begin_nested():  # one bad item rolls back only itself
                 key = f"sms:{sender}" if it.channel == "sms" else f"notif:{(app_ or 'app')[:30]}:{sender}"
+                if it.type == "guard":  # someone is switching off the app's protection / access on the phone: tell the owner on Telegram at once
+                    await _guard_alert(db, dev, text_in)
+                    continue
                 if it.type == "seen":  # only a signal on the person's latest message; it never creates a message or an alert
                     await flow.mark_dismissed(db, key, datetime.fromtimestamp(it.at / 1000, tz=timezone.utc) if it.at and it.at > 10**11 else None)
                     continue
@@ -198,6 +201,25 @@ async def device_ingest(body: IngestIn, background: BackgroundTasks, dev: InboxD
     for mid in ids:
         background.add_task(flow.process_inbound, mid)
     return {"stored": len(ids), "filtered": dropped, "skipped": skipped}
+
+
+GUARD_TEXT = {
+    "admin_disable": "ফোনে সুমন সহকারীর \"ডিভাইস অ্যাডমিন\" সুরক্ষা বন্ধ করার চেষ্টা হচ্ছে (অ্যাপ মোছার আগের ধাপ)।",
+    "admin_off": "ফোনে সুমন সহকারীর ডিভাইস অ্যাডমিন সুরক্ষা বন্ধ হয়ে গেছে।",
+    "listener_off": "ফোনে সুমন সহকারীর নোটিফিকেশন পড়ার অনুমতি বন্ধ হয়ে গেছে: চ্যাটের বার্তা আর আসবে না।",
+}
+
+
+async def _guard_alert(db: AsyncSession, dev: InboxDevice, what: str) -> None:
+    from app.assistant.channels import telegram
+
+    text = GUARD_TEXT.get(what, "ফোনে সুমন সহকারীর সুরক্ষা-সেটিং বদলানো হয়েছে।")
+    _log = f"{text} (ফোন: {dev.name or 'ফোন'})"
+    try:
+        if telegram.configured() and settings.TELEGRAM_OWNER_ID:
+            await telegram.send_text(settings.TELEGRAM_OWNER_ID, "🛡 " + _log)
+    except Exception:  # noqa: BLE001 - the alert must never break the upload
+        logger.warning("guard alert failed", exc_info=True)
 
 
 @router.get("/device/poll", dependencies=[Depends(rate_limit("dev-poll", 240, 60))])

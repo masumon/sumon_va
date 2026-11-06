@@ -956,6 +956,49 @@ async def import_history(cid: uuid.UUID, body: ImportIn, db: AsyncSession = Depe
     return ApiResponse(data=rep, message=f"{rep['imported']}টি নতুন বার্তা ইতিহাসে রাখা হলো, {rep['duplicates']}টি আগেই ছিল")
 
 
+class SmsItem(BaseModel):
+    a: str = Field(min_length=1, max_length=40)       # address (number or sender id)
+    b: str = Field(default="", max_length=4000)      # body
+    t: int = Field(ge=0)                             # time, ms since epoch
+    k: int = Field(default=1, ge=1, le=6)            # Telephony type: 1 inbox, 2 sent
+
+
+class SmsImportIn(BaseModel):
+    items: list[SmsItem] = Field(default_factory=list, max_length=3000)
+    days: int = Field(default=30)
+
+
+@router.post("/admin/wa/sms/import", response_model=ApiResponse)
+async def sms_import(body: SmsImportIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
+    """Old SMS read on the phone (READ_SMS, the owner's choice). Context only, like an exported chat: never answered, never
+    alerted, safe to run again. Codes are masked; operator/shop promotions are left out."""
+    from app.assistant import promo
+
+    if body.days not in history_import.PERIODS:
+        raise HTTPException(status_code=422, detail="সময়সীমা ঠিক নয়: ১, ৩, ৫, ৭, ১৫, ৩০ দিন অথবা ০ (সবটুকু)")
+    cfg = await wcfg.load_config(db, scope="app")
+    per: dict[str, list[dict]] = {}
+    skipped = 0
+    for it in body.items:
+        text, _m = privacy.mask_secrets(it.b)
+        if promo.is_promo("sms", f"sms:{it.a}", it.a, text, cfg):
+            skipped += 1
+            continue
+        per.setdefault(it.a.strip(), []).append({"at": datetime.fromtimestamp(it.t / 1000, tz=timezone.utc), "speaker": "me" if it.k == 2 else "them", "text": text})
+    total = {"people": 0, "found": len(body.items), "imported": 0, "duplicates": 0, "promotions_left_out": skipped}
+    for addr, rows in per.items():
+        contact = await flow.upsert_contact(db, f"sms:{addr}", None)
+        if not contact.channel:
+            contact.channel = "sms"
+        rep = await history_import.import_rows(db, contact, rows, "me", body.days, int(cfg.get("retention_days", 90)), _now())
+        total["people"] += 1
+        total["imported"] += rep["imported"]
+        total["duplicates"] += rep["duplicates"]
+    _audit(db, admin_id, "wa_sms_import", None, {k: total[k] for k in ("people", "imported", "duplicates")})
+    await db.commit()
+    return ApiResponse(data=total, message=f"{total['imported']}টি পুরোনো SMS রাখা হলো ({total['people']} জন)")
+
+
 class LearnIn(BaseModel):
     chat_text: str = Field(min_length=20, max_length=400_000)
     owner_speaker: str | None = Field(default=None, max_length=80)

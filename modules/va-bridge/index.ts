@@ -29,6 +29,10 @@ export type BridgeStatus = {
   microphone: boolean;
   exactAlarm: boolean;
   fullScreen: boolean;
+  /** READ_SMS granted (old SMS can be brought in). */
+  smsRead?: boolean;
+  /** The device-admin guard is on. */
+  deviceAdmin?: boolean;
 };
 
 type Native = {
@@ -62,6 +66,8 @@ type Native = {
   openAppSettings(): boolean;
   openExactAlarmSettings(): boolean;
   openFullScreenSettings(): boolean;
+  smsHistory(days: number, limit: number): Promise<string>;
+  requestDeviceAdmin(): boolean;
 };
 
 // Optional, like device-state: null in tests and in any build without the native side.
@@ -146,6 +152,19 @@ export const flush = () => (native ? native.flush() : Promise.resolve(false));
 export const openChat = (pkg: string, name: string, text: string): { how: 'chat' | 'share' | 'app' | 'none'; hasNumber: boolean } => {
   try { return native ? native.openChat(pkg, name, text) : { how: 'none', hasNumber: false }; } catch { return { how: 'none', hasNumber: false }; }
 };
+
+/** Old SMS from the phone (needs READ_SMS): newest first. An empty list when not allowed; `error` says why. */
+export type SmsRow = { a: string; b: string; t: number; k: number };
+export async function smsHistory(days: number, limit = 3000): Promise<{ rows: SmsRow[]; error?: string }> {
+  try {
+    const raw = native?.smsHistory ? await native.smsHistory(days, limit) : 'ERR:unsupported';
+    if (raw.startsWith('ERR:')) return { rows: [], error: raw.slice(4) };
+    const rows = JSON.parse(raw) as SmsRow[];
+    return { rows: Array.isArray(rows) ? rows : [] };
+  } catch (e) { return { rows: [], error: e instanceof Error ? e.message : 'error' }; }
+}
+/** Opens Android's own "activate device admin" page for the app guard. */
+export const requestDeviceAdmin = (): boolean => { try { return !!native?.requestDeviceAdmin?.(); } catch { return false; } };
 
 /** Every app on the phone that has an icon, A to Z. Used by "add a new app". */
 export const installedApps = (): { pkg: string; label: string }[] => {

@@ -202,6 +202,8 @@ export const va = {
   addFact: (contactId: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts`, { text }),
   correctFact: (contactId: string, fid: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${contactId}/facts/${fid}/correct`, { text }),
   removeFact: (contactId: string, fid: string) => call<unknown>('DELETE', `/admin/wa/contacts/${contactId}/facts/${fid}`),
+  smsImport: (items: { a: string; b: string; t: number; k: number }[], days: number) =>
+    call<{ people: number; found: number; imported: number; duplicates: number; promotions_left_out: number }>('POST', '/admin/wa/sms/import', { items, days }),
   clearSpam: () => call<{ messages: number; people: number }>('POST', '/admin/wa/spam/clear', {}),
   aliases: (contactId: string) => call<{ aliases: string[] }>('GET', `/admin/wa/contacts/${contactId}/aliases`),
   setAliases: (contactId: string, aliases: string[]) => call<{ aliases: string[] }>('PUT', `/admin/wa/contacts/${contactId}/aliases`, { aliases }),

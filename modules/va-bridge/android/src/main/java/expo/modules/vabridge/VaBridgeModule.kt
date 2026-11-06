@@ -57,6 +57,8 @@ class VaBridgeModule : Module() {
         "storage" to (if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_IMAGES) else granted(Manifest.permission.READ_EXTERNAL_STORAGE)),
         "microphone" to granted(Manifest.permission.RECORD_AUDIO),
         "exactAlarm" to (if (Build.VERSION.SDK_INT >= 31) (c.getSystemService(android.app.AlarmManager::class.java)?.canScheduleExactAlarms() ?: false) else true),
+        "smsRead" to granted(Manifest.permission.READ_SMS),
+        "deviceAdmin" to Guard.active(c),
         "fullScreen" to (if (Build.VERSION.SDK_INT >= 34) (nm?.canUseFullScreenIntent() ?: false) else true),
         "serviceAlive" to PollService.alive,
         "queued" to Outbox.size(c),
@@ -274,6 +276,30 @@ class VaBridgeModule : Module() {
     Function("openFullScreenSettings") {
       val i = if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + ctx.packageName)) else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))
       open(i); true
+    }
+    // Old SMS from the phone's own store (READ_SMS, owner decision): newest first, at most `limit`, only the last `days` (0 = all).
+    AsyncFunction("smsHistory") { days: Int, limit: Int, promise: Promise ->
+      val c = ctx
+      io.execute {
+        val out = org.json.JSONArray()
+        try {
+          val from = if (days > 0) System.currentTimeMillis() - days * 86_400_000L else 0L
+          c.contentResolver.query(android.provider.Telephony.Sms.CONTENT_URI, arrayOf("address", "body", "date", "type"),
+            "date >= ? AND (type = 1 OR type = 2)", arrayOf(from.toString()), "date DESC")?.use { cur ->
+            while (cur.moveToNext() && out.length() < limit.coerceIn(1, 3000)) {
+              val a = cur.getString(0) ?: continue
+              out.put(org.json.JSONObject().put("a", a.take(40)).put("b", (cur.getString(1) ?: "").take(4000)).put("t", cur.getLong(2)).put("k", cur.getInt(3)))
+            }
+          }
+          promise.resolve(out.toString())
+        } catch (e: Exception) { promise.resolve("ERR:" + e.javaClass.simpleName) }
+      }
+    }
+    Function("requestDeviceAdmin") {
+      open(Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+        .putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, Guard.component(ctx))
+        .putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "চালু থাকলে কেউ সুমন সহকারী মুছতে বা সুরক্ষা বন্ধ করতে চাইলে আপনার Telegram-এ সঙ্গে সঙ্গে খবর যাবে। এটি কখনো ফোনের কিছু মোছে না।"))
+      true
     }
     Function("openAppSettings") { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))); true }
   }
