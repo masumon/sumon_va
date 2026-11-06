@@ -137,6 +137,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 12 | সুমন | ABO Render এর `EMAIL_IMAP_*`, `EMAIL_INBOUND_SECRET`, `DEVICE_PASSKEY_*`, `TELEGRAM_*` মোছা | ABO পরিষ্কার deploy হওয়ার পর |
 | 13 | সুমন | ABO ডাটাবেসের সুমন VA ডেটা মোছা (ম্যানুয়াল SQL, ব্যাকআপ নিয়ে) | সবার শেষে |
 | 14 | সুমন | ডাটাবেস ব্যাকআপ workflow | **স্থগিত (সিদ্ধান্ত খ), মনে করানো হবে** |
-| 15 | সুমন+Claude | `docs/PROJECT_RULES.draft.md` দেখে ফাইনাল | সুমনের অনুমতির অপেক্ষা |
+| 15 | সুমন+Claude | `docs/START_HERE.md` ও `docs/PROJECT_RULES.md` ফাইনাল | [x] 2026-11-06 সুমন অনুমোদন দিয়েছে |
 | 16 | Claude | পুরোনো তালিকা: অনুমতি কমানো, TalkBack, premium/warm ও ইংরেজি UI যাচাই, সিস্টেম মেইল মানুষ হিসেবে, `allowBackup` | পরে |
 | 2026-11-06 | সুমন | merge ও Render deploy সম্পন্ন (ফিচার branch 477fe2c পর্যন্ত); বিল্ড পরে |
+| 2026-11-06 | সুমন+Claude | `START_HERE.md` ও `PROJECT_RULES.md` ফাইনাল; `CLAUDE.md` এর শুরুতে লিংক; নতুন যে-ই আসবে সে আগে START_HERE পড়বে, কাজ শেষে TRANSFER ও HANDOFF আপডেট করবে |

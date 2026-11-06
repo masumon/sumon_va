@@ -1,6 +1,7 @@
 # সুমনের ভার্চুয়াল সহকারী — HANDOFF (read this FIRST, before any work)
 
 ## 0. CURRENT STATE (2026-11-06, newest; everything below section 0 is older history and may be outdated)
+> Newcomers: read `docs/START_HERE.md` first, rules in `docs/PROJECT_RULES.md`. Whoever works must update this section and `docs/TRANSFER.md` before calling the work done.
 Sumon VA is now **separate from ABO**. Full checklist and decisions: `docs/TRANSFER.md` (living file, update it when work finishes). Plan details: `docs/SERVER_SEPARATION_MASTER_PLAN.md`.
 - **Server (own):** repo `masumon/sumon_va`, folder `server/` (FastAPI, fork of ABO `main` 9b258a45, 67 modules, 275 tests green: `cd server; pytest`). Render service `sumon-va-api` (free, Singapore, root dir `server`, auto-deploy OFF: owner presses Manual Deploy after merging to `main`). Public address `https://va-api.aboenterprise.com` (Cloudflare CNAME). Health `/health`, `/health/db`.
 - **Database (own):** new Supabase project `Sumon_va` (free, Singapore pooler). Schema = `server/manual_sql/0001_sumon_va_schema.sql` (14 tables, RLS on, already run). Starts EMPTY on purpose: the owner does not want the old ABO data.
