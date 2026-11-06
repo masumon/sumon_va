@@ -68,7 +68,7 @@ def _audit(db: AsyncSession, admin_id: str, action: str, entity_id: uuid.UUID | 
 
 # ── Meta webhook (public) ───────────────────────────────────────────────────────
 
-@router.get("/wa/webhook")
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def verify(request: Request, db: AsyncSession = Depends(get_db)):
     q = request.query_params
     expected = (await wcfg.get_secrets(db)).get("verify_token", "")
@@ -99,7 +99,7 @@ def _text_of(m: dict[str, Any]) -> tuple[str, str, str]:
     return "other", f"[{t}]", ""
 
 
-@router.post("/wa/webhook", dependencies=[Depends(rate_limit("wa-hook", 1500, 60))])
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def receive(request: Request, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if int(request.headers.get("content-length") or 0) > MAX_HOOK_BYTES:
         raise HTTPException(status_code=413, detail="too large")
@@ -366,7 +366,7 @@ async def connect_webhook(db: AsyncSession = Depends(get_db), admin_id: str = De
     return ApiResponse(data={"ok": True}, message="Meta-কে বলা হয়েছে: এই অ্যাকাউন্টের সব ঘটনা সরাসরি আমাদের ঠিকানায় পাঠাও। এক মিনিট পর কার্ডে “এখনই পরীক্ষা করুন” চাপুন।")
 
 
-@router.put("/admin/wa/secrets", response_model=ApiResponse)
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def put_secrets(body: SecretsIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(require_role(OWNER))):
     data = await wcfg.save_secrets(db, body.model_dump())
     _audit(db, admin_id, "wa_secrets", values={"fields": [k for k, v in body.model_dump().items() if v]})
@@ -378,7 +378,7 @@ async def put_secrets(body: SecretsIn, db: AsyncSession = Depends(get_db), admin
     return ApiResponse(data={"secrets": wcfg.masked(data)}, message="গোপনভাবে সংরক্ষণ হয়েছে" + note)
 
 
-@router.post("/admin/wa/secrets/test", response_model=ApiResponse)
+# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
 async def test_secrets(db: AsyncSession = Depends(get_db), _a: str = Depends(require_role(OWNER))):
     return ApiResponse(data=await wa_send.check(await wcfg.get_secrets(db)))
 
