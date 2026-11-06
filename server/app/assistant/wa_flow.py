@@ -14,7 +14,9 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
+from app.assistant import thread_state as ts
 from app.assistant import wa_brain as brain
 from app.assistant import wa_config as wcfg
 from app.assistant import wa_send
@@ -166,11 +168,11 @@ async def _later(msg_id: uuid.UUID, seconds: float) -> None:
 
 # ── inbound ───────────────────────────────────────────────────────────────────
 
-async def _notify(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: brain.Decision, recent: list[dict[str, Any]]) -> bool:
+async def _notify(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: brain.Decision, recent: list[dict[str, Any]], force: bool = False) -> bool:
     if not (d.notify and cfg.get("notify", {}).get("urgent", True)):
         return False
     cut = utcnow() - timedelta(minutes=10)
-    if any((m.get("meta") or {}).get("notified") and m["created_at"] >= cut for m in recent if m["direction"] == "in"):
+    if not force and any((m.get("meta") or {}).get("notified") and m["created_at"] >= cut for m in recent if m["direction"] == "in"):
         return False
     who = contact.name or contact.phone
     if wcfg.scope_for_channel(contact.channel) == "app":
@@ -215,9 +217,37 @@ async def _transcribe_telegram(db: AsyncSession, cfg: dict[str, Any], file_id: s
         return None
 
 
+async def _group_gate(msg_id: uuid.UUID) -> bool:
+    """True = go on now. Messages from one person inside the grouping window are answered ONCE: every message waits the window,
+    and only the last one of the burst carries on (it reads the whole burst, see ts.grouped_text). Urgent ones, calls and group
+    chats never wait. No database connection is held while waiting (the free server has few)."""
+    async with AsyncSessionLocal() as db:
+        msg = await db.get(WaMessage, msg_id)
+        contact = await db.get(WaContact, msg.contact_id) if msg else None
+        if not msg or not contact or msg.direction != "in" or (msg.meta or {}).get("group") or call_ctx.is_call({"meta": msg.meta, "body": msg.body}):
+            return True
+        wcfg.use_scope(wcfg.scope_for_channel(contact.channel))
+        cfg = await wcfg.load_config(db)
+        window = ts.settings_grouping(cfg)
+        if not window or not cfg.get("enabled"):
+            return True
+        body = privacy.unseal(msg.transcript or msg.body) or ""
+        urgent = brain.rule_priority(body, cfg, contact, "other", False)[0] <= 2 or any(t.get("important") for t in (contact.tags or []))
+        if urgent:
+            return True
+        contact_id, created = contact.id, msg.created_at
+    await asyncio.sleep(window * 60)
+    async with AsyncSessionLocal() as db:
+        later = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact_id, WaMessage.direction == "in", WaMessage.created_at > created)
+                                  .limit(20))).scalars().all()
+        return not any(not (m.meta or {}).get("group") and not call_ctx.is_call({"meta": m.meta, "body": m.body}) for m in later)
+
+
 async def process_inbound(msg_id: uuid.UUID) -> None:
     """Background job started by the webhook for each new incoming message."""
     try:
+        if not await _group_gate(msg_id):
+            return  # a newer message of the same burst will answer for all of them
         async with AsyncSessionLocal() as db:
             await _process(db, msg_id)
         wake.notify()  # a draft or a status change may be waiting: tell the phone's open screens at once
@@ -249,7 +279,25 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
             transcript = msg.transcript = await _transcribe_telegram(db, cfg, (msg.meta or {}).get("file_id", ""))
     recent = [m for m in await recent_messages(db, contact.id) if m["id"] != msg.id]
     notes = await active_notes(db, contact.id) + await abo_order_facts(db, cfg, contact, msg.body or transcript or "")
-    d = await brain.decide(db, cfg, contact, msg.body or "", msg.kind, transcript, recent, notes)
+    is_missed_call = msg.direction == "in" and call_ctx.is_call({"meta": msg.meta, "body": msg.body})
+    text_in, burst_n = (msg.body or "", 1) if is_missed_call or (msg.meta or {}).get("group") or transcript else ts.grouped_text(
+        recent, msg.body or "", msg.created_at, ts.settings_grouping(cfg))
+    d = await brain.decide(db, cfg, contact, text_in, msg.kind, transcript, recent, notes)
+    if burst_n > 1:
+        d.note = (d.note + " · " if d.note else "") + f"{burst_n}টি বার্তা একসঙ্গে পড়ে একটি উত্তর"
+    call_insight = None
+    if is_missed_call:
+        # A missed call is not a sentence: explain it from what the inbox really knows, one alert per burst (call_context.py).
+        wide = [m for m in await recent_messages(db, contact.id, 60) if m["id"] != msg.id]
+        tasks = [{"title": t, "due_at": due} for t, due in (await db.execute(
+            select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id == contact.id).limit(10))).all()]  # noqa: E712
+        ins = call_ctx.analyze(cfg, contact, wide, tasks, now, d.priority)
+        if call_ctx.apply(d, ins, cfg):
+            call_insight = ins
+    else:
+        late = call_ctx.after_call_note(recent, now)
+        if late:
+            d.note = f"{d.note} · {late}" if d.note else late
     plain = msg.body or transcript or ""  # before sealing: the owner's own Telegram card shows the words
     via_tg = getattr(contact, "mode", None) == "telegram"
 
@@ -258,9 +306,12 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     contact.priority, contact.lang = d.priority, d.lang
     if d.category and (contact.category in (None, "", "spam", "social") or d.category == "spam"):
         contact.category = d.category  # a person sorted as business/personal keeps it until the owner changes it
-    contact.need, contact.summary = d.need[:400] or contact.need, d.summary[:600] or contact.summary
-    if d.notify and await _notify(db, cfg, contact, d, recent):
+    if not call_insight:  # a call must not overwrite what we know the person needs / the conversation summary
+        contact.need, contact.summary = d.need[:400] or contact.need, d.summary[:600] or contact.summary
+    if d.notify and await _notify(db, cfg, contact, d, recent, force=bool(call_insight and call_insight.escalated)):
         msg.meta = {**(msg.meta or {}), "notified": True}
+        if call_insight:
+            msg.meta = {**msg.meta, "call_alert": {"p": d.priority, "n": call_insight.attempts_burst}}
     open_titles = {t for (t,) in (await db.execute(select(WaTask.title).where(WaTask.is_done == False, WaTask.contact_id == contact.id))).all()}  # noqa: E712
     for t in d.tasks[:3]:
         if t["title"] not in open_titles:
@@ -327,6 +378,34 @@ async def _telegram_card(db: AsyncSession, contact: WaContact, msg: WaMessage, t
     await telegram.send_approval(db, contact, msg, text, draft)
 
 
+async def send_unanswered_reminders(db: AsyncSession, now: datetime) -> int:
+    """"Nobody answered yet" reminders for the phone app's chats (owner switch `reminders.unanswered_min`, off by default).
+    It says only that NO ANSWER WAS FOUND, never that the message was read. A reminder is sent once per waiting message and stops
+    by itself as soon as the owner answers (ts.assess sees the answer)."""
+    cfg = await wcfg.load_config(db, force=True, scope="app")
+    minutes, _ = ts.settings_reminders(cfg)
+    if not minutes or not cfg.get("enabled"):
+        return 0
+    rows = (await db.execute(select(WaContact).where(WaContact.last_inbound_at >= now - timedelta(hours=24), WaContact.last_inbound_at <= now - timedelta(minutes=minutes),
+                                                     WaContact.is_blocked == False, WaContact.state != "owner").limit(50))).scalars().all()  # noqa: E712
+    sent = 0
+    for c in rows:
+        if wcfg.scope_for_channel(c.channel) != "app":
+            continue
+        st = ts.assess(await recent_messages(db, c.id, 20))
+        last = await db.get(WaMessage, st.last_in_id) if st.last_in_id else None
+        reason = ts.reminder_reason(cfg, c, st, now, bool(last and (last.meta or {}).get("unanswered_reminded")))
+        if not reason or not last:
+            continue
+        d = brain.Decision(priority=max(2, min(c.priority or 4, 4)), summary=("ব্যক্তিগত বার্তা (লেখা সুরক্ষিত)" if privacy.is_private(c) else reason), notify=True)
+        d.summary = reason if not privacy.is_private(c) else reason.split(" — ")[0]
+        if await alerts.push_owner(db, cfg, c, d, label="উত্তর বাকি"):
+            last.meta = {**(last.meta or {}), "unanswered_reminded": True}
+            await db.commit()
+            sent += 1
+    return sent
+
+
 # ── cron housekeeping ─────────────────────────────────────────────────────────
 
 async def _get_val(db: AsyncSession, key: str) -> str:
@@ -385,6 +464,11 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
             await wcfg.save_config(db, {"status": {"key": "free", "until": None, "custom": ""}}, scope="web")
             out["expired_status"] = True
     await db.commit()
+    try:
+        out["reminded"] = await send_unanswered_reminders(db, now)
+    except Exception:  # noqa: BLE001 - a reminder must never stop the housekeeping below
+        logger.exception("unanswered reminders failed")
+        await db.rollback()
 
     local = brain.now_dhaka()
     today = local.date().isoformat()

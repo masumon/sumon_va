@@ -147,6 +147,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "personal": ["কেমন আছ", "কেমন আছেন", "খেয়েছ", "কোথায় তুমি", "আম্মু", "আব্বু", "আপু", "বন্ধু", "দোস্ত", "মামা", "চাচা", "খালা", "how are you", "where are you", "miss you"],
     },
     # Unified inbox: how loud the assistant may be, and which channels are switched on.
+    # Missed calls: one alert per burst (minutes); escalate_after 0 = a later call in the same burst alerts again only with new evidence;
+    # reply False = the assistant never writes to a caller by itself (the owner hears about the call).
+    "calls": {"burst_min": 10, "escalate_after": 0, "reply": False},
+    # Several messages from one person within `window_min` minutes are answered once (0 = off). Urgent ones never wait.
+    "grouping": {"window_min": 5},
+    # "No answer found" reminder after N minutes (0 = off): never claims the message was read.
+    "reminders": {"unanswered_min": 0, "only_important": True},
     "limits": {"urgent_per_day": 5, "quiet_from": "23:00", "quiet_to": "07:00", "quiet_urgent_only": True},
     "channels": {"telegram": {"enabled": False, "auto": False}, "device": {"enabled": True, "auto_sms": False}, "email": {"enabled": False}},
     "platforms": platforms.default_block(),
