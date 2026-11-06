@@ -126,7 +126,7 @@ const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.cre
   name: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
   email: { color: 'rgba(255,255,255,0.88)', fontSize: 12 },
   tile: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  x: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  x: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   section: { color: colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, marginBottom: 4, marginLeft: 4 },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.smd, minHeight: 52, paddingHorizontal: spacing.smd, borderRadius: design.radiusButton },
   itemActive: { backgroundColor: colors.primaryTint },

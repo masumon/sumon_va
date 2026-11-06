@@ -44,7 +44,7 @@ export default function DashboardScreen() {
   const o = overview.data;
   const c = cfg.data?.config;
   const auto = o ? o.mode === 'auto' && o.enabled : false;
-  const setupNeeded = !bridge.notificationAccess || !bridge.smsReceive || !bridge.phoneState || !bridge.batteryExempt;
+  const setupNeeded = !bridge.notificationAccess || !bridge.smsReceive || !bridge.phoneState || !bridge.batteryExempt || !bridge.fullScreen;
   const status = c?.statuses.find((s) => s.key === c.status.key);
   // The name the owner gave the assistant (Rules) comes first; the login account's name is only a fallback, and "Admin" is not a name.
   const rawName = (c?.owner_name || bridge.accountName || '').trim();

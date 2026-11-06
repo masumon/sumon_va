@@ -105,7 +105,7 @@ export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownCh
 }
 
 const styles = StyleSheet.create({
-  dots: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  dots: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   veil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: { position: 'absolute', left: spacing.sm, right: spacing.sm, bottom: spacing.sm, borderRadius: radius.xl, borderWidth: border.thin, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.smd, padding: spacing.md, borderBottomWidth: border.thin },
