@@ -29,7 +29,7 @@ export function HealthBanner() {
     main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.sm, height: 48 },
     badge: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     action: { width: 36, height: 36, alignItems: 'center', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth * 2, justifyContent: 'center' },
-    close: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center' },
+    close: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   }), []);
 
   // A NEW serious problem also rings a normal notification, so it is noticed even when the app is in your pocket.
