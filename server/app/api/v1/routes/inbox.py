@@ -218,6 +218,11 @@ async def device_poll(wait: int = Query(default=0, ge=0, le=25), dev: InboxDevic
         await db.commit()  # hand the connection back before waiting
         changed = await wake.wait(wait)
         rows = await pending()
+    for c in rows:
+        if c.kind == "sms":  # at most once: a text message must never be sent twice because the same command was served again
+            c.status = "fetched"
+    if any(c.status == "fetched" for c in rows):
+        await db.commit()
     return {"commands": [{"id": str(c.id), "kind": c.kind, "target": c.target, "body": c.body} for c in rows],
             "state": {"enabled": bool(cfg.get("enabled")), "auto": cfg.get("mode") == "auto", "limits": cfg.get("limits")},
             "changed": changed}
@@ -234,7 +239,7 @@ async def device_ack(body: AckIn, dev: InboxDevice = Depends(current_device), db
     now = _now()
     for cid in body.done:
         c = await db.get(InboxCommand, cid)
-        if c and c.status == "pending" and c.device_id in (None, dev.id):
+        if c and c.status in ("pending", "fetched") and c.device_id in (None, dev.id):
             c.status, c.done_at = "done", now
             if c.msg_id and (m := await db.get(WaMessage, c.msg_id)) and m.status in ("sending", "queued"):
                 m.status, m.sent_at, m.delivery, m.error = "sent", now, "sent", None  # the phone really handed it to the network
@@ -247,7 +252,7 @@ async def device_ack(body: AckIn, dev: InboxDevice = Depends(current_device), db
             c = await db.get(InboxCommand, uuid.UUID(str(f.get("id"))))
         except ValueError:
             continue
-        if c and c.status == "pending" and c.device_id in (None, dev.id):
+        if c and c.status in ("pending", "fetched") and c.device_id in (None, dev.id):
             c.status, c.done_at, c.error = "failed", now, str(f.get("error") or "")[:290]
             if c.msg_id and (m := await db.get(WaMessage, c.msg_id)):
                 m.status, m.error = "failed", f"ফোন পাঠাতে পারেনি: {c.error}"[:290]
@@ -737,7 +742,7 @@ async def email_inbound(request: Request, background: BackgroundTasks, x_inbound
     return {"ok": True, "kept": bool(mid), "dropped": dropped}
 
 
-@router.get("/email/cron")
+@router.get("/email/cron", dependencies=[Depends(rate_limit("email-cron", 30, 60))])
 async def email_cron(background: BackgroundTasks, token: str = Query(default="", max_length=64), db: AsyncSession = Depends(get_db)):
     """Called by cron-job.org every few minutes (secret token in the URL): reads new mail, keeps what matters."""
     wcfg.use_scope("app")  # e-mail belongs to the phone app's inbox and settings

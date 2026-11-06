@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant import ai_gemini as ag
 from app.assistant import ai_providers as ap
+from app.assistant import privacy
 from app.core.totp_crypto import decrypt_totp_secret, encrypt_totp_secret
 from app.models.models import Setting
 
@@ -303,6 +304,10 @@ async def run(db: AsyncSession, task: str, system: str, user: str, *, images=Non
                        "No AI connection is available right now — see Admin → AI connections.", 503)
     budget = budget or (14.0 if task == "chat" else 150.0)
     per_call = 9.0 if task == "chat" else 90.0
+    # Free AI tiers may train on what they receive: other people's phone numbers / e-mails / long numbers leave only as placeholders.
+    user, _mapping = privacy.pseudonymize(user)
+    if _mapping:
+        system = system + "\n" + privacy.PLACEHOLDER_NOTE
     started = time.monotonic()
     last = ""
     for conn, model in pairs[:5]:
@@ -319,7 +324,7 @@ async def run(db: AsyncSession, task: str, system: str, user: str, *, images=Non
             if meta is not None:
                 meta.update(label=conn.get("label"), model=model["id"], ms=round((time.monotonic() - t0) * 1000))
             await _flush_stats()
-            return text
+            return privacy.restore(text, _mapping)
         except Exception as exc:  # noqa: BLE001 — every failure just moves on to the next option
             _record(conn["id"], model["id"], task, False, 0, False)
             last = f"{conn.get('label')}: {_why(exc)}"
@@ -484,6 +489,8 @@ async def add(db: AsyncSession, key: str, provider: str = "auto", base_url: str 
         raise HubError("কী-টা পুরোটা কপি করে বসান।", "Paste the whole key.", 400)
     if prov in ("local", "custom") and not base_url:
         raise HubError("সার্ভারের ঠিকানা (Base URL) দিন।", "Enter the server address (Base URL).", 400)
+    if prov in ("local", "custom") and not re.match(r"https://[^\s/]+", base_url.strip()):
+        raise HubError("সার্ভারের ঠিকানা https:// দিয়ে শুরু হতে হবে।", "The server address must start with https://.", 400)
     conns = list(_state["conns"] or [])
     if key and any(c.get("key") == key and c.get("base_url", "") == (base_url or "") for c in conns):
         raise HubError("এই কী আগেই যোগ করা আছে।", "This key is already added.", 409)

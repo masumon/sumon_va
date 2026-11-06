@@ -2,6 +2,8 @@
 
 > **START HERE: `docs/START_HERE.md`** (what the project is, where things are, where to work, reading order, what to update when you finish). Rules: `docs/PROJECT_RULES.md`. Work order: `docs/TRANSFER.md` section 13.
 >
+> **Brain upgrade (2026-11-06):** the owner's master directive is `Brain_Prompt.md` (limits: `docs/PROJECT_RULES.md` §9). **All remaining work, its exact order and the owner's open decisions: `docs/REMAINING_WORK.md`.** Device checklist: `docs/BRAIN_ROLLOUT_PLAN.md`.
+>
 > **READ FIRST: `docs/HANDOFF.md`** — current status, owner rules, what is verified, and the ordered TODO. Do not start work before reading it. Update it at the end of every work session.
 
 ## What this project is
@@ -37,7 +39,7 @@
 - Server SQL changes: give the manual SQL in chat first.
 
 ## Commands
-- Type check: `npx tsc --noEmit`; lint: `npx eslint .`; one-command build + install: `powershell -ExecutionPolicy Bypass -File tools\ship.ps1`.
+- Type check: `npx tsc --noEmit`; lint: `npx eslint .` (the third-party `.claude/skills/impeccable/` files fail it; use `npx eslint routes src modules`); server tests: `cd server; python -m pytest`; one-command build + install: `powershell -ExecutionPolicy Bypass -File tools\ship.ps1`.
 - Phone adb id `10EDAX04RL0002X`, package `com.masumon.sumonva`; emulator AVD `Pixel_6`.
 
 ## Using the design resources (after install)

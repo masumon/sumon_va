@@ -1,6 +1,6 @@
 # Brain rollout plan (written 2026-11-06, after all code phases)
 
-Nothing below has been done. SQL, build, push, merge and deploy each need the owner's separate OK, in this order.
+Steps 1-5 below are DONE (see the Status line); steps 6-8 are not. Each remaining step needs the owner's separate OK, in this order. The complete backlog (also the older owner list, unverified audit items and missing deliverables) is `docs/REMAINING_WORK.md`.
 
 ## 0. What the code does today without anything else
 Everything works with OR without the two SQL files. Without them: identity linking and task progress answer HTTP 409 with a plain Bangla reason; all other Brain features run. New automation is off or draft-only by default.
@@ -15,7 +15,7 @@ Everything works with OR without the two SQL files. Without them: identity linki
 7. **Local debug APK build** (owner says go). Order: emulator `Pixel_6` first, then the phone `10EDAX04RL0002X` (`tools\build-apk.ps1`, ask before each build). The first build in a clean cache is long.
 8. **Real tests on the phone** (checklist below), then record results in TRANSFER.md.
 
-**Status 2026-11-06:** steps 1-4 are DONE (push `2871038`; backup held by the owner; SQL 0002 and 0003 run by the owner and verified). Next: step 5 (merge to `main`, Render Manual Deploy), then 6, 7, 8.
+**Status 2026-11-06:** steps 1-4 are DONE (push `2871038`; backup held by the owner; SQL 0002 and 0003 run by the owner and verified). Step 5 is DONE too (PR #8 merged, Render deployed; live probe 2026-11-06: health 200, db connected, new routes answer 401 = present). Still open in step 5: one real test SMS. Next: 6, 7, 8.
 
 ## 2. Real-device checklist (nothing here is verified yet)
 - Missed call from a number with an earlier message: one alert with "অনুমান" and confidence; two more calls within 10 min add no second alert.

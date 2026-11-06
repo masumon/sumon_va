@@ -223,13 +223,24 @@ def mood_prefix(now: datetime, lang: str = "bn") -> str:
     return en if lang == "en" else bn
 
 
+_PROMISE = re.compile(
+    r"আজই|আজকেই|আজকের মধ্যে|কালকের মধ্যে|কালই|কাল সকালে|এখনই পাঠ|পাঠিয়ে দেব|পাঠিয়ে দিচ্ছি|পাঠাব|পাঠাবো|দিয়ে দেব|করে দেব|"
+    r"ঘণ্টার মধ্যে|মিনিটের মধ্যে|i will send|i'll send|will be delivered|by tomorrow|by today|within \d+ (?:hour|minute|day)s?|today itself",
+    re.IGNORECASE,
+)
+
+
 def guard_text(candidate: str, allowed: str, limit: int = 420) -> str | None:
-    """A generated sentence is used only if it adds no money word and no number that is not in the allowed facts."""
+    """A generated sentence is used only if it adds no money word, no number and no time/delivery promise that is not in the allowed facts."""
     c = (candidate or "").strip()
     if not c or len(c) > limit:
         return None
     if _CURRENCY.search(c) and not _CURRENCY.search(allowed or ""):
         return None
+    made = {m.group(0).lower() for m in _PROMISE.finditer(c)}
+    known = {m.group(0).lower() for m in _PROMISE.finditer(allowed or "")}
+    if made - known:
+        return None  # a promise about time/delivery the facts never gave
     nums = re.findall(r"[0-9০-৯]+", c)
     pool = set(re.findall(r"[0-9০-৯]+", allowed or ""))
     if any(n not in pool for n in nums):

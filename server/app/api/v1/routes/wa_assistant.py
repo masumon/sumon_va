@@ -33,6 +33,7 @@ from app.assistant import wa_config as wcfg
 from app.assistant import wa_flow as flow
 from app.assistant import wa_health
 from app.assistant import wa_send
+from app.assistant.channels import alerts as alerts_mod
 from app.assistant.channels import wake
 from app.core.config import settings
 from app.core.database import get_db
@@ -185,7 +186,7 @@ async def receive(request: Request, background: BackgroundTasks, db: AsyncSessio
     return {"ok": True}
 
 
-@router.get("/wa/cron", response_model=ApiResponse)
+@router.get("/wa/cron", response_model=ApiResponse, dependencies=[Depends(rate_limit("wa-cron", 30, 60))])
 async def cron(token: str = Query(default="", max_length=64), db: AsyncSession = Depends(get_db)):
     """cron-job.org, every minute."""
     if not hmac.compare_digest(token, cron_token()):
@@ -407,6 +408,7 @@ async def overview(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_o
         "waiting": waiting, "urgent": urgent, "drafts": drafts, "queued": queued, "failed_24h": failed,
         "tasks_open": tasks_open, "tasks_late": tasks_late, "window_closing": [_contact(c) for c in closing],
         "presence": await presence.summary(db),
+        "alerts_held": (lambda h: {"count": len(h), "items": h[-5:]})(await alerts_mod.held_alerts(db)),
     })
 
 

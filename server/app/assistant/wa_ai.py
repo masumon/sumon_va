@@ -41,7 +41,8 @@ async def overview_text(db: AsyncSession, cfg: dict[str, Any]) -> str:
     tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False).order_by(WaTask.due_at.asc().nullslast()).limit(8))).scalars().all()  # noqa: E712
     lines = [f"আমার অবস্থা এখন: {st['label']}। উত্তর দেওয়ার সময়: {cfg.get('reply_by', '')}।", f"অপেক্ষায় মোট {total_waiting} জন।"]
     for c in waiting:
-        lines.append(f"- {_who(c)} · {PRIO.get(c.priority, '')} · {_ago(c.last_message_at)} · চাইছে: {(c.need or c.summary or '')[:90]}")
+        want = "ব্যক্তিগত বার্তা (লেখা দেওয়া হয়নি)" if privacy.is_private(c) else (c.need or c.summary or "")[:90]  # their words never go to an AI
+        lines.append(f"- {_who(c)} · {PRIO.get(c.priority, '')} · {_ago(c.last_message_at)} · চাইছে: {want}")
     if tasks:
         lines.append("বাকি কাজ:")
         lines += [f"- {t.title[:90]}" + (f" (সময়: {t.due_at.astimezone(brain.DHAKA):%d/%m %H:%M})" if t.due_at else "") for t in tasks]
@@ -53,7 +54,9 @@ async def ask(db: AsyncSession, question: str, contact_id: uuid.UUID | None = No
     context = await overview_text(db, cfg)
     if contact_id:
         c = await db.get(WaContact, contact_id)
-        if c:
+        if c and privacy.is_private(c):
+            context += f"\n\nএই ব্যক্তি: {_who(c)}। এটি ব্যক্তিগত/পরিবারের চ্যাট, তাই এর বার্তার লেখা এখানে দেওয়া হয়নি।"
+        elif c:
             msgs = (await db.execute(select(WaMessage).where(WaMessage.contact_id == c.id).order_by(WaMessage.created_at.desc()).limit(6))).scalars().all()
             context += f"\n\nএই ব্যক্তি: {_who(c)}, সম্পর্ক: {c.relation or '—'}।\nশেষ বার্তা:\n" + "\n".join(
                 f"{'সে' if m.direction == 'in' else 'আমরা'}: {(privacy.unseal(m.transcript or m.body) or '')[:140]}" for m in reversed(msgs))
@@ -70,6 +73,8 @@ async def suggest_reply(db: AsyncSession, contact_id: uuid.UUID, instruction: st
     c = await db.get(WaContact, contact_id)
     if not c:
         raise LookupError("contact")
+    if privacy.is_private(c):  # family / personal: the words are never given to an AI service, even when the owner asks
+        return {"text": "", "private": True, "warning": "এটি ব্যক্তিগত/পরিবারের চ্যাট। এর লেখা AI-কে দেওয়া হয় না, তাই খসড়া বানানো হয়নি: নিজে লিখুন।"}
     st = brain.current_status(cfg)
     notes = await flow.active_notes(db, c.id)
     msgs = (await db.execute(select(WaMessage).where(WaMessage.contact_id == c.id).order_by(WaMessage.created_at.desc()).limit(8))).scalars().all()
