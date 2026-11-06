@@ -452,3 +452,91 @@ async def test_f0_system_answer_shows_a_label_not_a_raw_dict(Session):
     async with Session() as db:
         r = await f0.run(db, "সহকারীর অবস্থা")
     assert "{" not in r["answer"] and "'key'" not in r["answer"]
+
+
+# -- live-phone findings (2026-11-06): WhatsApp missed calls, spelling of urgent words, honest "you were informed" ---------
+
+@pytest.mark.parametrize("body", ["Missed voice call", "2 missed voice calls", "Missed video call", "মিসড ভয়েস কল", "৩টি মিসড কল"])
+def test_chat_app_missed_call_notifications_count_as_calls(body):
+    from app.assistant.call_context import is_call
+
+    assert is_call({"meta": {}, "body": body})
+
+
+@pytest.mark.parametrize("body", ["I missed you", "call me", "কল দিন", "missed the bus"])
+def test_ordinary_text_is_not_a_call(body):
+    from app.assistant.call_context import is_call
+
+    assert not is_call({"meta": {}, "body": body})
+
+
+@pytest.mark.parametrize("text", ["ভাই খুউব জরুরী", "খুব জরুরি মা অসুস্থ্", "জরুরী কল দেন", "হাসপাতালে আছি"])
+def test_urgent_words_survive_spelling(text):
+    from app.assistant import wa_brain
+
+    assert wa_brain.has_any(text, wc.DEFAULT_CONFIG["priority_rules"]["p1"])
+
+
+@pytest.mark.asyncio
+async def test_app_alert_counts_as_sent_only_when_it_really_went_out(monkeypatch):
+    from types import SimpleNamespace as NS
+    from app.assistant import wa_brain
+
+    sent = {"ok": False}
+
+    async def fake_push(db, cfg, contact, d, label=None):
+        return sent["ok"]
+
+    monkeypatch.setattr(wa_flow.alerts, "push_owner", fake_push)
+    contact = NS(channel="notif", name="রহিম", phone="notif:com.whatsapp:রহিম")
+    d = wa_brain.Decision(notify=True, priority=1)
+    cfg = {"notify": {"urgent": True}}
+    assert await wa_flow._notify(None, cfg, contact, d, []) is False      # held / not delivered -> not "notified"
+    sent["ok"] = True
+    assert await wa_flow._notify(None, cfg, contact, d, []) is True
+    now = wa_flow.utcnow()
+    recent = [{"direction": "in", "created_at": now, "meta": {"notified": True, "notified_p": 2}}]
+    assert await wa_flow._notify(None, cfg, contact, d, recent) is True    # more urgent than the last alert: may alert again
+    recent = [{"direction": "in", "created_at": now, "meta": {"notified": True, "notified_p": 1}}]
+    assert await wa_flow._notify(None, cfg, contact, d, recent) is False   # same urgency inside 10 minutes: one alert only
+
+
+def test_schema_guard_knows_every_object_it_would_create():
+    from app.core.schema_guard import WA_TABLES_SQL, object_name
+
+    names = [object_name(s) for s in WA_TABLES_SQL]
+    assert all(names) and "wa_contacts" in names and "ix_wa_tasks_open" in names
+
+
+# -- spam folder: operator / shop promotions (owner 2026-11-06) ---------------------------------------------------
+
+@pytest.mark.parametrize("ch,key,name,body", [
+    ("sms", "sms:GP", "GP", "মাত্র ৪৯ টাকায় ৫ GB ইন্টারনেট প্যাক! ডায়াল করুন *121*3#"),
+    ("sms", "sms:Robi", "Robi", "Recharge 99 Tk and get 10% cashback"),
+    ("sms", "sms:Daraz", "Daraz", "Flash sale: 70% off today only"),
+    ("sms", "sms:MyBrand", "MyBrand", "Limited time offer, buy now"),
+])
+def test_promotions_go_to_spam(ch, key, name, body):
+    from app.assistant import promo
+
+    assert promo.is_promo(ch, key, name, body, {})
+
+
+@pytest.mark.parametrize("ch,key,name,body", [
+    ("sms", "sms:bKash", "bKash", "You have received Tk 500 from 01711000000. TrxID 9X8Y"),
+    ("sms", "sms:GP", "GP", "Your OTP is ••••••"),
+    ("sms", "sms:+8801711000000", "রহিম", "ভাই অফারটা কেমন? কাল কথা বলি"),          # a person, not a sender id
+    ("notif", "notif:com.whatsapp:Rahim", "Rahim", "ফ্রি আছো? দাম কত?"),           # a chat, not a shop
+])
+def test_money_codes_and_people_are_never_spam(ch, key, name, body):
+    from app.assistant import promo
+
+    assert not promo.is_promo(ch, key, name, body, {})
+
+
+def test_owner_lists_win():
+    from app.assistant import promo
+
+    assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"allow": ["gp"]}})
+    assert promo.is_promo("sms", "sms:+8801711000000", "x", "hello", {"promo": {"block": ["+8801711000000"]}})
+    assert not promo.is_promo("sms", "sms:GP", "GP", "offer", {"promo": {"enabled": False}})

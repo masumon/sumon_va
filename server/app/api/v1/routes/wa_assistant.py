@@ -19,7 +19,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -390,7 +390,7 @@ async def overview(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_o
     cfg = await wcfg.load_config(db)
     now = _now()
     # three queries (one per table) instead of eight: conditional counts
-    waiting_c = (WaContact.unread > 0) & (WaContact.state != "done")
+    waiting_c = (WaContact.unread > 0) & (WaContact.state != "done") & WaContact.category.is_distinct_from("spam")
     waiting, urgent = (await db.execute(select(
         func.count().filter(waiting_c), func.count().filter(waiting_c & WaContact.priority.in_((1, 2, 4)))).select_from(WaContact))).one()
     drafts, queued, failed = (await db.execute(select(
@@ -412,6 +412,26 @@ async def overview(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_o
     })
 
 
+@router.post("/admin/wa/spam/clear", response_model=ApiResponse)
+async def clear_spam(db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
+    """The owner empties the spam folder now (it also empties itself after 3 days). Family and VIP are never touched; a person
+    with notes or tasks keeps the row (only the messages go)."""
+    ids = [r[0] for r in (await db.execute(select(WaContact.id).where(WaContact.category == "spam", WaContact.is_family == False, WaContact.is_vip == False))).all()]  # noqa: E712
+    if not ids:
+        return ApiResponse(data={"messages": 0, "people": 0}, message="স্প্যাম ফোল্ডার খালি")
+    gone = (await db.execute(delete(WaMessage).where(WaMessage.contact_id.in_(ids)))).rowcount or 0
+    keep = {r[0] for r in (await db.execute(select(WaNote.contact_id).where(WaNote.contact_id.in_(ids)))).all()} | \
+           {r[0] for r in (await db.execute(select(WaTask.contact_id).where(WaTask.contact_id.in_(ids)))).all()}
+    drop = [i for i in ids if i not in keep]
+    if drop:
+        await db.execute(delete(WaContact).where(WaContact.id.in_(drop)))
+    if keep:
+        await db.execute(update(WaContact).where(WaContact.id.in_(list(keep))).values(unread=0))
+    _audit(db, admin_id, "wa_spam_clear", None, {"messages": gone, "people": len(drop)})
+    await db.commit()
+    return ApiResponse(data={"messages": gone, "people": len(drop)}, message=f"স্প্যাম মুছে ফেলা হলো: {gone}টি বার্তা")
+
+
 @router.get("/admin/wa/contacts", response_model=ApiResponse)
 async def contacts(view: str = Query("all", max_length=10), q: str = Query("", max_length=60), page: int = Query(1, ge=1, le=500),
                    src: str = Query("", max_length=300),
@@ -419,6 +439,8 @@ async def contacts(view: str = Query("all", max_length=10), q: str = Query("", m
     preview = select(func.coalesce(WaMessage.transcript, WaMessage.body)).where(WaMessage.contact_id == WaContact.id) \
         .order_by(WaMessage.created_at.desc()).limit(1).scalar_subquery()
     stmt = select(WaContact, preview)
+    if view not in ("spam", "blocked"):
+        stmt = stmt.where(WaContact.category.is_distinct_from("spam"))  # spam lives only in its own folder
     if view == "urgent":
         stmt = stmt.where(WaContact.unread > 0, WaContact.state != "done", WaContact.priority.in_((1, 2, 4)))
     elif view == "waiting":

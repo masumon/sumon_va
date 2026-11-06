@@ -14,6 +14,8 @@ Burst control (no schema, state lives in `WaMessage.meta["call_alert"]` of the c
 """
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -46,8 +48,13 @@ def _at(v: Any) -> datetime | None:
     return v if v.tzinfo else v.replace(tzinfo=UTC)  # SQLite hands back naive times; the database stores UTC
 
 
+# WhatsApp / IMO / Messenger write these themselves; the phone forwards them as ordinary chat notifications.
+_APP_MISSED = re.compile(r"^\s*(?:\d+\s+)?missed\s+(?:voice\s+|video\s+|group\s+)?calls?\b|^\s*(?:[\d০-৯]+টি\s+)?মিসড\s*(?:ভয়েস\s*|ভিডিও\s*)?কল", re.I)
+
+
 def is_call(m: dict[str, Any]) -> bool:
-    return bool((m.get("meta") or {}).get("call")) or (m.get("body") or "").strip() == MISSED_TEXT
+    body = (m.get("body") or "").strip()
+    return bool((m.get("meta") or {}).get("call")) or body == MISSED_TEXT or bool(_APP_MISSED.match(body))
 
 
 @dataclass

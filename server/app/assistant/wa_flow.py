@@ -202,13 +202,15 @@ async def _notify(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: 
     if not (d.notify and cfg.get("notify", {}).get("urgent", True)):
         return False
     cut = utcnow() - timedelta(minutes=10)
-    if not force and any((m.get("meta") or {}).get("notified") and m["created_at"] >= cut for m in recent if m["direction"] == "in"):
+    # one alert per 10 minutes per person, unless this message is MORE urgent than the one already alerted (older rows count as p1)
+    if not force and any((m.get("meta") or {}).get("notified") and m["created_at"] >= cut and int((m.get("meta") or {}).get("notified_p", 1)) <= d.priority
+                         for m in recent if m["direction"] == "in"):
         return False
     who = contact.name or contact.phone
     if wcfg.scope_for_channel(contact.channel) == "app":
         # The phone app's conversations alert only in the app (phone alarm + its Telegram bot), never in the website's bell.
-        await alerts.push_owner(db, cfg, contact, d)
-        return True
+        # True only when the alert really went out (held by quiet time / daily cap / the platform's own setting = False).
+        return await alerts.push_owner(db, cfg, contact, d)
     await create_notification(db, type="wa_message", severity="warning" if d.priority in (1, 2, 4) else "info",
                               title=f"WhatsApp · {who} · {PRIO_LABEL.get(d.priority, '')}", body=d.summary or None,
                               link=f"/sumon/whatsapp?c={contact.id}", meta={"contact_id": str(contact.id), "priority": d.priority})
@@ -309,6 +311,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     cfg = await presence.apply(db, await wcfg.load_config(db))
     if not cfg.get("enabled"):
         return
+    if (msg.meta or {}).get("promo"):
+        return  # promotional (operator / shop offer): spam folder only, nothing to answer or alert
     if not platforms.settings_for(cfg, platforms.platform_key(contact, cfg.get("custom_platforms")))["enabled"]:
         return  # this platform is paused in its own settings: the message stays in the inbox, no draft, no alert
     now = utcnow()
@@ -382,8 +386,14 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
             d.notify = True  # the owner hears what is really on record; nothing is promised to the person
     if not call_insight:  # a call must not overwrite what we know the person needs / the conversation summary
         contact.need, contact.summary = d.need[:400] or contact.need, d.summary[:600] or contact.summary
-    if d.notify and await _notify(db, cfg, contact, d, recent, force=bool(call_insight and call_insight.escalated)):
-        msg.meta = {**(msg.meta or {}), "notified": True}
+    told = bool(d.notify) and await _notify(db, cfg, contact, d, recent, force=bool(call_insight and call_insight.escalated))
+    if d.reply and d.reason == "urgent" and not told:
+        # the scripted urgent answer says the owner "has been informed": never claim that unless the alert really went out
+        owner = cfg.get("owner_name") or ("he" if d.lang == "en" else "তিনি")
+        d.reply = (f"I received your message. It looks urgent; {owner} will see it as soon as possible." if d.lang == "en"
+                   else f"আপনার বার্তা পেয়েছি। বিষয়টি জরুরি মনে হচ্ছে, {owner} যত দ্রুত সম্ভব দেখবেন।")
+    if told:
+        msg.meta = {**(msg.meta or {}), "notified": True, "notified_p": d.priority}
         if call_insight:
             msg.meta = {**msg.meta, "call_alert": {"p": d.priority, "n": call_insight.attempts_burst}}
     for t in d.tasks[:3]:
