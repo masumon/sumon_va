@@ -269,7 +269,13 @@ async def _group_gate(msg_id: uuid.UUID) -> bool:
     async with AsyncSessionLocal() as db:
         later = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact_id, WaMessage.direction == "in", WaMessage.created_at > created)
                                   .limit(20))).scalars().all()
-        return not any(not (m.meta or {}).get("group") and not call_ctx.is_call({"meta": m.meta, "body": m.body}) for m in later)
+        skip = any(not (m.meta or {}).get("group") and not call_ctx.is_call({"meta": m.meta, "body": m.body}) for m in later)
+        if skip:  # answered through the newest message of the burst: remember that, so the sweep never mistakes it for a lost one
+            mine = await db.get(WaMessage, msg_id)
+            if mine is not None:
+                mine.meta = {**(mine.meta or {}), "grouped": True}
+                await db.commit()
+        return not skip
 
 
 async def process_inbound(msg_id: uuid.UUID) -> None:
@@ -437,6 +443,47 @@ async def _telegram_card(db: AsyncSession, contact: WaContact, msg: WaMessage, t
     await telegram.send_approval(db, contact, msg, text, draft)
 
 
+HANDLED = ("priority", "grouped", "swept")  # meta keys that mean "the flow already looked at this message"
+
+
+async def sweep_unprocessed(db: AsyncSession, now: datetime) -> int:
+    """Catch up messages the server never got to (a restart, a deploy or the free host's sleep killed the background task, possibly
+    during the grouping wait). Looks at the phone app's channels only, 3+ minutes old and at most 2 hours old. Per person only the
+    NEWEST text is processed (it reads the whole burst); the older ones are just marked. Missed calls are each processed (their own
+    burst control applies). Every message is marked `swept` BEFORE it is processed, so nothing can ever be handled twice."""
+    cfg = await wcfg.load_config(db, force=True, scope="app")
+    if not cfg.get("enabled"):
+        return 0
+    older = now - timedelta(minutes=ts.settings_grouping(cfg) + 2)
+    rows = (await db.execute(select(WaMessage).join(WaContact, WaContact.id == WaMessage.contact_id)
+                             .where(WaMessage.direction == "in", WaMessage.status == "received", WaContact.channel != "whatsapp",
+                                    WaMessage.created_at <= older, WaMessage.created_at >= now - timedelta(hours=2))
+                             .order_by(WaMessage.created_at.desc()).limit(200))).scalars().all()
+    lost = [m for m in rows if not any(k in (m.meta or {}) for k in HANDLED)]
+    if not lost:
+        return 0
+    stamp = now.isoformat(timespec="seconds")
+    run: list[uuid.UUID] = []
+    seen_text: set[uuid.UUID] = set()
+    for m in lost:  # newest first
+        m.meta = {**(m.meta or {}), "swept": stamp}
+        if call_ctx.is_call({"meta": m.meta, "body": m.body}):
+            run.append(m.id)
+        elif m.contact_id not in seen_text:
+            seen_text.add(m.contact_id)
+            run.append(m.id)
+    await db.commit()
+    done = 0
+    for mid in reversed(run):  # oldest first, so a call alert comes before the later text
+        try:
+            await _process(db, mid)
+            done += 1
+        except Exception:  # noqa: BLE001 - one bad message must not stop the others
+            logger.exception("sweep: processing failed")
+            await db.rollback()
+    return done
+
+
 async def send_task_reminders(db: AsyncSession, now: datetime) -> int:
     """A confirmed (never merely proposed) task is due soon or overdue: tell the owner once per stage. Off by default (`reminders.task_lead_min`)."""
     import json
@@ -556,6 +603,11 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
             await wcfg.save_config(db, {"status": {"key": "free", "until": None, "custom": ""}}, scope="web")
             out["expired_status"] = True
     await db.commit()
+    try:
+        out["swept"] = await sweep_unprocessed(db, now)
+    except Exception:  # noqa: BLE001 - recovery must never stop the housekeeping below
+        logger.exception("sweep of unprocessed messages failed")
+        await db.rollback()
     try:
         out["task_reminded"] = await send_task_reminders(db, now)
     except Exception:  # noqa: BLE001
