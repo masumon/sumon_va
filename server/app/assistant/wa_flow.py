@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant import assignments
 from app.assistant import identity
+from app.assistant import obligations
 from app.assistant import call_context as call_ctx
 from app.assistant import presence, privacy
 from app.assistant import task_details
@@ -378,6 +379,17 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
                 await task_details.set_details(db, task.id, status="proposed", source_msg_id=msg.id, confidence=cand["confidence"], assigner_contact_id=contact.id)
                 open_titles.add(title)
                 d.note = (d.note + " · " if d.note else "") + "কাজের অনুরোধ ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)"
+        ob = obligations.detect(text_in, cfg, now)  # domains 3/6: a DATED invitation or official matter is not forgotten
+        if ob and ob["due_at"] is not None:
+            title = obligations.proposal_title(contact, ob["kind"], text_in, private)
+            if title not in open_titles:
+                task = WaTask(contact_id=contact.id, title=title, due_at=ob["due_at"], source=assignments.PROPOSED)
+                db.add(task)
+                await db.flush()
+                await task_details.set_details(db, task.id, status="proposed", source_msg_id=msg.id, confidence="medium", assigner_contact_id=contact.id)
+                open_titles.add(title)
+                d.note = (d.note + " · " if d.note else "") + ("তারিখসহ দাপ্তরিক বিষয় ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)" if ob["kind"] == "official"
+                                                              else "তারিখসহ দাওয়াত ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)")
         if assignments.asks_status(text_in) or assignments.asks_status(asked):
             rows = (await db.execute(select(WaTask.id, WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id.in_(person_ids))
                                      .order_by(WaTask.created_at.desc()).limit(5))).all()

@@ -124,6 +124,7 @@ ABO এর ওয়েবসাইট, অ্যাডমিন, WhatsApp assis
 | 2026-11-06 | সুমন | ইমেইল: `info@aboenterprise.com` → Worker `abo-mail-to-inbox` → `va-api` (ABO এর কাস্টমার-মেইলও Sumon VA ইনবক্সে চাই, সিদ্ধান্ত); Gmail ফরোয়ার্ড আগের মতো; ইমেইল চ্যানেল অ্যাপ সরার পর চালু হবে |
 | 2026-11-06 | Claude | AI কোড যাচাই (৭ ফাইল হুবহু ABO); S12 সুমনের কথায় সম্পন্ন; ব্যাকআপ workflow নিরাপত্তা-ব্লকে আটকা; HANDOFF নতুন করে লেখা |
 | 2026-11-06 | সুমন | ডাটাবেস ব্যাকআপ workflow: খ (আপাতত বাদ), নোট রাখা হয়েছে |
+| 2026-11-07 | Claude | **১৮-domain কাজ (কমিটহীন, deploy হয়নি):** নতুন `server/app/assistant/obligations.py`; `wa_config`-এ `official_words`/`invite_words`; দাপ্তরিক/আইনি বার্তায় সহকারী উত্তর দেয় না, অগ্রাধিকার ≤২; তারিখসহ দাওয়াত/দাপ্তরিক বিষয় = প্রস্তাবিত কাজ; `.gitignore`-এ ব্যক্তিগত ফোল্ডার; `APP_NAME` "Sumon VA API"। টেস্ট ৪৬৬ পাস। ডক: `SUMON_VA_SYSTEM_KNOWLEDGE.md`, `SUMON_VA_18_DOMAIN_*.md`। পরের ধাপ: মালিকের commit/push অনুমতি → merge → deploy |
 
 ## ১৩. এখনকার বাকি কাজের ক্রম (2026-11-06 রাত)
 | # | কে | কাজ | অবস্থা |

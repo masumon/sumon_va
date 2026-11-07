@@ -17,7 +17,10 @@ modules/*/android/build/
 *.jks
 keystore.properties
 local.properties
-# Personal data
+# Personal data (also in .git/info/exclude, but that file is local to one PC; here it protects every clone)
+_private/
+sumon-va-audit-*/
+sumon-va-design-*/
 *.xlsx
 *.db
 .gradle-build-cache/

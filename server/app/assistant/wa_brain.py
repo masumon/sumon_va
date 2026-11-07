@@ -375,10 +375,14 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
 
     mode = getattr(contact, "mode", "inherit")
     never = has_any(body, cfg.get("never_auto_words") or [])
-    if never or mode == "notify" or getattr(contact, "is_family", False):
+    official = has_any(body, cfg.get("official_words") or [])  # domain 6: a legal/government matter is the owner's own call
+    if official and d.priority > 2:
+        p = d.priority = 2
+    if never or official or mode == "notify" or getattr(contact, "is_family", False):
         d.handoff, d.notify = True, True
         d.reason = "family" if getattr(contact, "is_family", False) else "sensitive"
-        d.note = "পরিবার/সংবেদনশীল বিষয় — সহকারী নিজে কিছু বলেনি, শুধু আপনাকে জানানো হয়েছে"
+        d.note = ("দাপ্তরিক/আইনি বিষয় — সহকারী নিজে কিছু বলেনি, শুধু আপনাকে জানানো হয়েছে" if official and not never
+                  and not getattr(contact, "is_family", False) else "পরিবার/সংবেদনশীল বিষয় — সহকারী নিজে কিছু বলেনি, শুধু আপনাকে জানানো হয়েছে")
         if p == 1 and not _recent_out(recent, ("urgent",), 30, now):
             d.reply, d.reason = say("urgent_ack"), "urgent"
         return d
