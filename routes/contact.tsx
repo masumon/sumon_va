@@ -80,7 +80,7 @@ export default function ContactScreen() {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
               onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
-            <View style={{ flex: 1 }}><AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখুক' : 'Draft it'} loading={busy}
+            <View style={{ flex: 1 }}><AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let it write'} loading={busy}
               onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} /></View>
           </View>
         </View>
@@ -108,7 +108,7 @@ export default function ContactScreen() {
               {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
               <View style={{ gap: 8 }}>
                 <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানোর জন্য দেওয়া হয়েছে (পৌঁছালে তালিকায় দেখাবে)' : 'Handed over for sending (shows in the list once delivered)')} />
-                <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />
+                <AppButton variant="secondary" label={bn ? 'পাঠাবেন না' : 'Do not send'} onPress={() => void act(() => va.discard(d.id))} />
               </View>
             </Card>
           ))}
@@ -124,12 +124,6 @@ export default function ContactScreen() {
 
           <AppButton variant="secondary" icon={more ? 'chevron-up' : 'chevron-down'} label={more ? (bn ? 'তথ্য ও নিয়ম লুকান' : 'Hide details and rules') : (bn ? 'এই মানুষের তথ্য ও নিয়ম' : 'This person’s details and rules')} onPress={() => setMore((v) => !v)} />
           {more ? (<>
-          <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
-
-          <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
-
-          <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
-
           <Card title={bn ? 'ইনি কেমন মানুষ?' : 'What kind of person is this?'}>
             <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
             <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
@@ -144,9 +138,9 @@ export default function ContactScreen() {
               hint={bn ? '“নিজে উত্তর”: সহকারী এই মানুষকে নিজেই উত্তর দেবে। “Telegram-এ অনুমোদন”: প্রতিটি বার্তা খসড়াসহ আপনার Telegram বটে যাবে, সেখানে “পাঠান” চাপুন বা Reply-তে নিজে লিখুন। “শুধু খসড়া”: আপনি অ্যাপে দেখে পাঠাবেন। পরিবার ও ব্যক্তিগত মানুষকে কখনও নিজে উত্তর যায় না।' : '“Auto-reply”: the assistant answers this person itself. “Approve in Telegram”: each message comes to your Telegram bot with a draft; tap Send or reply there. “Drafts only”: you send from the app. Family and personal people never get auto-replies.'}
               onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি দেখছি' : "I'll handle it"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
-              {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
-              {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'সহকারীর হাতে দিন' : 'Hand back'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
+              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি নিজে দেখব (সহকারী চুপ থাকবে)' : "I'll handle it (assistant stays quiet)"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
+              {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'কাজ শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
+              {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'আবার সহকারীকে দিন' : 'Hand back to the assistant'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
             </View>
           </Card>
           <Card title={bn ? 'অন্য নাম / ডাকনাম' : 'Other names'}>
@@ -158,6 +152,12 @@ export default function ContactScreen() {
             </View>
           </Card>
           <ContactMemory contactId={c.id} />
+          <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
+
+          <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
+
+          <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
+
           </>) : null}
         </>
       ) : null}

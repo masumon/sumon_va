@@ -58,7 +58,7 @@ export function HistoryImport({ contactId, isPrivate }: { contactId: string; isP
   };
 
   return (
-    <Card title={bn ? 'আগের চ্যাট ইতিহাস হিসেবে রাখুন' : 'Keep an earlier chat as history'}>
+    <Card title={bn ? 'পুরোনো চ্যাট এখানে রাখুন (শুধু দেখার জন্য, কাউকে কিছু যায় না)' : 'Keep an earlier chat as history'}>
       <Text style={{ opacity: 0.8, lineHeight: 21, marginBottom: 8 }}>{bn ? 'নিজের এক্সপোর্ট করা চ্যাট ফাইল দিন। সহকারী এটা শুধু প্রসঙ্গ হিসেবে মনে রাখবে। এই পুরোনো বার্তার কোনো উত্তর দেবে না, কোনো অ্যালার্টও দেবে না। দুবার দিলেও বার্তা দ্বিগুণ হয় না।' : 'Give your own exported chat file. It is kept only as context: no replies and no alerts from old messages, and running it twice adds nothing.'}</Text>
       <ChipGroup<Days> label={bn ? 'কত দিনের বার্তা (০ = ফাইলের সবটুকু)' : 'How many days (0 = everything in the file)'} options={DAYS} value={days} labelOf={(d) => d} onChange={(d) => { if (d) setDays(d); }} />
       {speakers.length > 0 && text ? (
