@@ -314,7 +314,7 @@ class PollService : Service() {
       val nm = ctx.getSystemService(NotificationManager::class.java)
       nm.notify(id.hashCode(), b.build())
       if (groupKey != null) postSummary(ctx, nm, groupKey, p.sub, open)
-      try { addHistory(ctx, id, p, if (family) plainFamily else p.text, target, zone) } catch (_: Exception) {}
+      try { addHistory(ctx, id, p, if (family) plainFamily else p.text, target, zone, openPath) } catch (_: Exception) {}
       Alert.fire(ctx, target)
     }
 
@@ -367,9 +367,9 @@ class PollService : Service() {
     // ---- alert history (for the in-app notification centre) ----
     private val historyLock = Any()
 
-    private fun addHistory(ctx: Context, id: String, p: Parsed, text: String, target: String, zone: String) = synchronized(historyLock) {
+    private fun addHistory(ctx: Context, id: String, p: Parsed, text: String, target: String, zone: String, open: String = "") = synchronized(historyLock) {
       val arr = loadHistory(ctx)
-      arr.put(JSONObject().put("id", id.take(80)).put("title", p.title.take(200)).put("text", text.take(200)).put("sub", p.sub.take(200)).put("target", target).put("zone", zone).put("at", System.currentTimeMillis()))
+      arr.put(JSONObject().put("id", id.take(80)).put("title", p.title.take(200)).put("text", text.take(200)).put("sub", p.sub.take(200)).put("target", target).put("open", open).put("zone", zone).put("at", System.currentTimeMillis()))
       val out = JSONArray()
       for (i in maxOf(0, arr.length() - 50) until arr.length()) out.put(arr.get(i))
       Store.prefs(ctx).edit().putString("alert_history", out.toString()).apply()

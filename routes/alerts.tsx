@@ -28,12 +28,18 @@ export default function AlertsScreen() {
   const load = useCallback(() => { setItems([...alertHistory()].sort((a, b) => b.at - a.at)); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // Every alert opens its place: the chat it is about, else the right inbox list (never a dead tap).
   const open = (a: AlertHistoryItem) => {
+    const id = (a.open ?? '').match(/^contact\?id=([0-9a-fA-F-]{32,36})$/)?.[1];
+    if (id) { router.push({ pathname: '/contact', params: { id } } as never); return; }
     if (a.target.startsWith('/')) {
       const [path, query] = a.target.split('?');
       const params = Object.fromEntries(new URLSearchParams(query ?? '').entries());
       router.push((query ? { pathname: path, params } : path) as never);
+      return;
     }
+    if (a.id.startsWith('problem-')) { router.push('/health' as never); return; }
+    router.push({ pathname: '/inbox', params: { view: a.target === 'p1' ? 'urgent' : 'waiting' } } as never);
   };
 
   return (
