@@ -68,7 +68,7 @@ function AppNavigator() {
   if (!prefsLoaded) return null;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />{/* edge-to-edge: Android ignores a background colour (it only logged a warning) */}
       {signedIn ? <AppHeader /> : null}
       {signedIn ? <HealthBanner /> : null}
       {signedIn ? <AutoSync /> : null}

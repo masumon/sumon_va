@@ -68,7 +68,7 @@ export function computeIssues({ bridge, overview, overviewError, channels, hub, 
   if (channels && !overviewError) {
     const tg = channels.telegram;
     if (channels.settings.telegram.enabled && !tg.configured) {
-      out.push({ key: 'tg-missing', severity: 'warn', bn: 'Telegram চালু আছে, কিন্তু বট নেই', en: 'Telegram is on but no bot', whyBn: 'Render-এ TELEGRAM_BOT_TOKEN বসানো হয়নি। “দেখুন” চেপে ধাপগুলো অনুসরণ করুন।', whyEn: 'TELEGRAM_BOT_TOKEN is not set.', fix: { route: '/m/telegram', bn: 'দেখুন', en: 'Review' } });
+      out.push({ key: 'tg-missing', severity: 'warn', bn: 'Telegram চালু আছে, কিন্তু বট নেই', en: 'Telegram is on but no bot', whyBn: 'বটের গোপন চাবি এখনো সার্ভারে বসানো হয়নি। “দেখুন” চেপে ধাপগুলো অনুসরণ করুন।', whyEn: 'TELEGRAM_BOT_TOKEN is not set.', fix: { route: '/m/telegram', bn: 'দেখুন', en: 'Review' } });
     } else if (tg.configured && (tg.error || tg.last_error)) {
       out.push({ key: 'tg-error', severity: 'warn', bn: 'Telegram সংযোগে সমস্যা আছে', en: 'Telegram problem', whyBn: tg.error || tg.last_error || '', whyEn: tg.error || tg.last_error || '', fix: { route: '/m/telegram', bn: 'দেখুন', en: 'Review' } });
     }
