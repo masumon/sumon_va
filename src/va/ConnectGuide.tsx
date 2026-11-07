@@ -17,6 +17,8 @@ const WAIT_S = 90;
  * Connect a platform with no code: the steps in plain words, a live tick for every step, and a test that waits for a real message.
  * Success = a message from this platform actually reached the inbox. Failure names the step that is missing.
  */
+const nowMs = () => Date.now(); // outside the component: only ever called from a button press
+
 export function ConnectGuide({ mod, channels, received, pending = false, onTested }: { mod: ModuleDef; channels: ChannelsInfo | null; received: number; pending?: boolean; onTested: () => void }) {
   const { bn, colors } = useKit();
   const { showSnackbar } = useAppFeedback();
@@ -52,7 +54,10 @@ export function ConnectGuide({ mod, channels, received, pending = false, onTeste
 
   const start = async () => {
     setResult(null);
-    let base = { total: received, time: Date.now() };
+    // A step that is still missing makes the test pointless: say at once what to fix instead of waiting and then "failing".
+    const blocking = checks.filter((c) => !c.ok && c.key !== 'received' && c.key !== 'battery');
+    if (blocking.length) { setResult('fail'); return; }
+    let base = { total: received, time: nowMs() };
     try {
       const r = await va.contacts('all', '', 1, mod.sources);
       base = { total: r.total, time: Math.max(0, ...r.items.map((c) => (c.last_message_at ? Date.parse(c.last_message_at) : 0))) };

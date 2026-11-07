@@ -12,7 +12,9 @@ import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
 import { getStatus, isInstalled, unpair, unsentWarning } from '../../modules/va-bridge';
-import { MODULES, notOnPhone } from './modules';
+import { MODULES } from './modules';
+import { computeChecks, verdict } from './connect';
+import { useLoad } from './hooks';
 import { va } from './api';
 import { MENU } from './menu';
 import { useShell } from './shell';
@@ -26,8 +28,16 @@ export function Drawer() {
   const bn = language === 'bn';
   const { drawer, close } = useShell();
   const pathname = usePathname();
-  // Like the AI keys page: an app that is not on this phone is not listed here; it can still be connected from "All apps".
-  const hidden = useMemo(() => { try { return notOnPhone(MODULES, isInstalled); } catch { return new Set<string>(); } }, []);
+  // Like the AI keys page: only the apps you really connected are listed; every other app is connected from "All apps".
+  const chans = useLoad(() => va.channels(), 'channels', 60000);
+  const hidden = useMemo(() => {
+    const out = new Set<string>();
+    for (const m of MODULES) {
+      try { if (verdict(computeChecks(m, { bridge: getStatus(), channels: chans.data ?? null, received: 0, installed: isInstalled })) === 'off') out.add(m.key); }
+      catch { out.add(m.key); }
+    }
+    return out;
+  }, [chans.data]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { showSnackbar } = useAppFeedback();
