@@ -332,3 +332,39 @@ async def test_f0_without_ai_still_gives_the_help_text(Session, monkeypatch):
     async with Session() as s:
         r = await f0.run(s, "এটা কোনো চেনা কথা না")
     assert r["intent"] == "unknown" and r["answer"] == f0.UNKNOWN_HELP
+
+
+# -- Telegram bot = the same assistant as F0 ---------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_owner_words_to_the_bot_go_through_f0_with_buttons(monkeypatch):
+    from app.assistant import f0
+    from app.assistant.channels import telegram as tg
+
+    sent, seen = [], []
+
+    async def fake_send(chat_id, text, business_connection_id=None, reply_markup=None):
+        sent.append((text, reply_markup))
+
+    async def fake_run(db, text, now=None):
+        seen.append(text)
+        if "#" in text:
+            return {"intent": "reply", "answer": "খসড়া তৈরি", "items": [], "choices": [],
+                    "draft": {"id": "d1", "to": "করিম (SMS)", "body": "কাল আসব", "warnings": []}}
+        return {"intent": "reply", "answer": "কোন জন?", "items": [], "choices": [{"contact_id": "c1", "label": "করিম (SMS)"}, {"contact_id": "c2", "label": "করিম (WhatsApp)"}], "draft": None}
+
+    monkeypatch.setattr(tg, "send_text", fake_send)
+    monkeypatch.setattr(f0, "run", fake_run)
+    await tg.owner_f0(None, 1, "করিমকে বলো কাল আসব")
+    assert [b["callback_data"] for row in sent[-1][1]["inline_keyboard"] for b in row] == ["p:0", "p:1"]
+    monkeypatch.setattr(tg, "is_owner", lambda uid: True)
+    monkeypatch.setattr(tg, "answer_callback", lambda *a, **k: asyncio.sleep(0))
+
+    async def fake_cfg(db, force=False, scope=None):
+        return cfg()
+
+    monkeypatch.setattr(tg.wcfg, "load_config", fake_cfg)
+    await tg.handle_callback(None, {"id": "q", "from": {"id": 7}, "data": "p:1", "message": {"chat": {"id": 1}, "message_id": 5}})
+    assert seen[-1] == "করিমকে বলো কাল আসব #c2"
+    text, markup = sent[-1]
+    assert "কাল আসব" in text and [b["callback_data"] for b in markup["inline_keyboard"][0]] == ["a:d1", "x:d1"]
