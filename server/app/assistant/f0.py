@@ -89,6 +89,65 @@ def parse(text: str) -> dict[str, Any]:
     return {"intent": "unknown", "name": "", "msg": "", "contact_id": cid}
 
 
+AI_INTENTS = ("reply", "search", "task_status", "memory", "person", "missed_calls", "pending", "tasks", "alerts", "drafts", "history", "system", "rules")
+_AI_SYSTEM = (
+    "You turn the owner's short command (Bangla, Banglish or English) into JSON for his personal assistant app. Reply with JSON only: "
+    '{"intent": one of ' + ", ".join(AI_INTENTS) + ', "name": the person he means or "", "msg": the exact words to send (for reply) or the search words, or ""}. '
+    "reply = he wants a message sent to someone; search = find what someone said or find words; task_status = how a person's work/payment/order stands; "
+    "memory = what is known about a person; person = who someone is; missed_calls; pending = who is waiting for an answer; tasks = his own task list; "
+    "alerts = urgent things; drafts = messages waiting for approval; history = what was sent; system = is the assistant working; rules = settings. "
+    "Keep the message in the owner's own language and words; never invent facts, prices or dates. Unknown: {\"intent\": \"unknown\"}."
+)
+
+
+async def ai_parse(db: AsyncSession, text: str) -> dict[str, Any] | None:
+    """When the fixed patterns do not fit, the owner's own command (never a contact's message) is read by the connected AI.
+    Only an allowed intent is accepted; the server then does the real work with the owner's own data. None = AI unavailable/unsure."""
+    import json as _json
+
+    from app.assistant import ai_hub
+
+    try:
+        out = await ai_hub.run(db, "json", _AI_SYSTEM, (text or "")[:400], json_mode=True, max_tokens=200)
+        data = _json.loads(out[out.find("{"):out.rfind("}") + 1])
+    except Exception:  # noqa: BLE001 - no AI, quota, bad JSON: fall back to the fixed help text
+        return None
+    intent = str(data.get("intent") or "")
+    if intent not in AI_INTENTS:
+        return None
+    name, msg = str(data.get("name") or "").strip()[:60], str(data.get("msg") or "").strip()[:1000]
+    if intent in ("reply", "task_status", "memory", "person") and not name:
+        return None
+    if intent == "reply" and len(msg) < 2:
+        return None
+    return {"intent": intent, "name": name, "msg": msg, "contact_id": None, "via_ai": True}
+
+
+async def auto_send_on(db: AsyncSession) -> bool:
+    """The owner's F0 switch: True = a clear "tell X ..." command is sent at once (no preview). Default off (manual)."""
+    cfg = await wcfg.load_config(db, scope="app")
+    return bool((cfg.get("f0") or {}).get("auto_send"))
+
+
+async def _auto_send(db: AsyncSession, res: dict[str, Any]) -> dict[str, Any]:
+    """Send the draft just made, but only when nothing needs a second look (any warning keeps the preview)."""
+    d = res.get("draft")
+    if not d or d.get("warnings"):
+        if d and d.get("warnings"):
+            res["answer"] = res["answer"] + " · অটো-পাঠানো হয়নি: আগে একবার দেখে নিন"
+        return res
+    m = await db.get(WaMessage, uuid.UUID(d["id"]))
+    if not m or m.status != "draft":
+        return res
+    m.status, m.send_after, m.error = "queued", flow.utcnow(), None
+    await db.commit()
+    ok = await flow.deliver(db, m.id)
+    await db.refresh(m)
+    label = {"sent": "পাঠানো হয়েছে", "sending": "ফোনকে পাঠাতে দেওয়া হয়েছে", "queued": "পাঠানোর লাইনে আছে"}.get(m.status or "", m.status or "")
+    answer = f"{d['to']}-কে {label}" if ok or m.status in ("sent", "sending", "queued") else f"{d['to']}-কে পাঠানো যায়নি: {m.error or 'কারণ জানা নেই'}"
+    return {**res, "answer": brain.bn_digits(answer), "draft": None, "sent": {"status": m.status, "error": m.error}}
+
+
 def _reply(intent: str, answer: str, items=None, choices=None, draft=None) -> dict[str, Any]:
     answer = brain.bn_digits(answer)  # the owner reads Bangla: ৭ জন, not 7 জন
     return {"intent": intent, "answer": answer, "items": items or [], "choices": choices or [], "draft": draft}
@@ -169,6 +228,12 @@ async def _reply_draft(db: AsyncSession, contacts: list[WaContact], msg: str, no
 async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[str, Any]:
     now = now or flow.utcnow()
     p = parse(text)
+    if p["intent"] == "unknown":  # free words: let the connected AI read the owner's own command
+        clean = _ID.sub("", text or "").strip()
+        ai = await ai_parse(db, clean) if len(clean) >= 3 else None
+        if ai:
+            ai["contact_id"] = p["contact_id"]
+            p = ai
     intent = p["intent"]
     if intent == "unknown":
         return _reply("unknown", UNKNOWN_HELP)
@@ -207,7 +272,8 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
         return _reply(intent, f"“{p['name']}” নামে কাউকে পাইনি" if p["name"] else "কার কথা বলছেন বুঝতে পারিনি")
     who = contacts[0].name or p["name"]
     if intent == "reply":
-        return await _reply_draft(db, contacts, p["msg"], now)
+        res = await _reply_draft(db, contacts, p["msg"], now)
+        return await _auto_send(db, res) if await auto_send_on(db) else res
     if intent == "search":
         return await _search_person(db, contacts, who)
     if intent == "task_status":

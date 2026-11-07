@@ -11,7 +11,7 @@ import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
-import { getStatus, unpair } from '../../modules/va-bridge';
+import { getStatus, unpair, unsentWarning } from '../../modules/va-bridge';
 import { va } from './api';
 import { MENU } from './menu';
 import { useShell } from './shell';
@@ -109,7 +109,7 @@ export function Drawer() {
         </View>
       </Animated.View>
       <AppConfirmDialog visible={confirm} danger icon="logout" title={bn ? 'সাইন আউট করবেন?' : 'Sign out?'}
-        description={bn ? 'এই ফোন থেকে আর বার্তা সার্ভারে যাবে না, জরুরি অ্যালার্মও বাজবে না। আবার ঢুকতে ইমেইলে আসা কোড লাগবে।' : 'This phone will stop syncing and will not ring for urgent alerts. You will need an e-mailed code to sign in again.'}
+        description={(bn ? 'এই ফোন থেকে আর বার্তা সার্ভারে যাবে না, জরুরি অ্যালার্মও বাজবে না। আবার ঢুকতে নতুন কোড বা অনুমোদন লাগবে।' : 'This phone will stop syncing and will not ring for urgent alerts. You will need a new code or approval to sign in again.') + unsentWarning(bn)}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'সাইন আউট' : 'Sign out'} onCancel={() => setConfirm(false)} onConfirm={() => void signOut()} />
     </View>
   );

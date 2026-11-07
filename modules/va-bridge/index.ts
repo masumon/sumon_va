@@ -39,6 +39,7 @@ type Native = {
   getStatus(): BridgeStatus;
   pair(base: string, code: string, name: string): Promise<{ ok: boolean; error?: string }>;
   unpair(): boolean;
+  setSecure(on: boolean): boolean;
   loginPassword(base: string, email: string, password: string, totp: string | null, name: string): Promise<LoginResult>;
   loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
   installedApps(): { pkg: string; label: string }[];
@@ -114,7 +115,17 @@ export function onInboxChanged(listener: () => void): () => void {
   } catch { return () => {}; }
 }
 
+/** Shown before signing out: messages still waiting on this phone are lost when it is unpaired. Empty when nothing waits. */
+export function unsentWarning(bn: boolean): string {
+  const n = getStatus().queued;
+  if (!n) return '';
+  const d = bn ? String(n).replace(/[0-9]/g, (x) => '০১২৩৪৫৬৭৮৯'[Number(x)] ?? x) : String(n);
+  return bn ? ` সাবধান: এই ফোনে এখনো ${d}টি বার্তা সার্ভারে যায়নি; এখন বিচ্ছিন্ন করলে সেগুলো হারাবে। আগে ইন্টারনেট চালু রেখে একটু অপেক্ষা করুন।`
+    : ` Careful: ${d} message(s) on this phone have not reached the server yet; unpairing now loses them. Stay online for a moment first.`;
+}
 export const unpair = () => { try { return native?.unpair() ?? false; } catch { return false; } };
+/** Screenshot / recent-apps privacy through the app's own native code (Android FLAG_SECURE). */
+export const setSecure = (on: boolean) => { try { return native?.setSecure(on) ?? false; } catch { return false; } };
 
 /** Server call through the native side: the device token never reaches JavaScript. */
 export async function request<T = unknown>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<{ status: number; data: T | null; reason?: string }> {

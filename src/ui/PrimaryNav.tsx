@@ -22,6 +22,7 @@ import { border, getWindowSizeClass, icon as iconToken, layout, radius, spacing,
 export const primaryNavItems = [
   { href: '/', icon: 'view-dashboard-outline' as const, activeIcon: 'view-dashboard' as const, tone: 'green' as AccentName, en: 'Home', bn: 'হোম' },
   { href: '/inbox', icon: 'inbox-outline' as const, activeIcon: 'inbox' as const, tone: 'blue' as AccentName, en: 'Inbox', bn: 'ইনবক্স' },
+  { href: '/f0', icon: 'robot-happy-outline' as const, activeIcon: 'robot-happy' as const, tone: 'purple' as AccentName, en: 'Assistant', bn: 'সহকারী' },
   { href: '/tasks', icon: 'checkbox-marked-circle-outline' as const, activeIcon: 'checkbox-marked-circle' as const, tone: 'orange' as AccentName, en: 'Tasks', bn: 'কাজ' },
   { href: '/more', icon: 'dots-horizontal-circle-outline' as const, activeIcon: 'dots-horizontal-circle' as const, tone: 'yellow' as AccentName, en: 'More', bn: 'আরও' },
 ];

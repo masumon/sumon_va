@@ -45,6 +45,18 @@ function cachedGet<T>(path: string, ttlMs: number): Promise<T> {
   return p;
 }
 
+/** A failure the server did not explain, in plain words with what to do (no bare numbers for the owner). */
+function plainHttpError(status: number): string {
+  if (status === 403) return 'এই কাজের অনুমতি এই ফোনের নেই।';
+  if (status === 404) return 'জিনিসটা আর নেই (হয়তো আগেই মুছে গেছে বা পাঠানো হয়ে গেছে)। পাতাটা টেনে নতুন করে দেখুন।';
+  if (status === 409) return 'একই কাজ এখন অন্য কোথাও চলছে, একটু পরে আবার চেষ্টা করুন।';
+  if (status === 413) return 'লেখা বা ফাইলটা অনেক বড়, ছোট করে আবার দিন।';
+  if (status === 422 || status === 400) return 'যা লেখা হয়েছে তা বোঝা যায়নি, ঠিক করে আবার দিন।';
+  if (status === 429) return 'অনেকবার চাপা হয়েছে, এক মিনিট পর আবার চেষ্টা করুন।';
+  if (status >= 500) return 'সার্ভারে এখন সমস্যা হচ্ছে বা সার্ভার জেগে উঠছে, এক মিনিট পর আবার চেষ্টা করুন।';
+  return 'কাজটি হয়নি, একটু পরে আবার চেষ্টা করুন।';
+}
+
 async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   if (method === 'GET') return rawCall<T>(method, path, body);
   clearApiCache();
@@ -59,7 +71,7 @@ async function rawCall<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', p
   if (r.status === 401) throw new VaError(401, 'এই ফোনের অনুমতি বাতিল হয়েছে বা মেয়াদ শেষ। আবার জোড়া লাগান');
   if (r.status < 200 || r.status >= 300) {
     const detail = (r.data as { detail?: unknown } | null)?.detail;
-    throw new VaError(r.status, typeof detail === 'string' ? detail : `কাজটি হয়নি (${r.status})`);
+    throw new VaError(r.status, typeof detail === 'string' ? detail : plainHttpError(r.status));
   }
   return (r.data as Envelope<T>).data;
 }
@@ -111,7 +123,7 @@ export type AssistantConfig = {
   schedule?: ScheduleBlock[]; places?: SavedPlace[]; status_now?: { key: string; source?: string; label?: string };
   categories: Record<Category, { auto?: boolean; silent?: boolean }>;
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
-  notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };
+  notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean }; f0?: { auto_send: boolean };
   calls?: { burst_min: number; escalate_after: number; reply: boolean };
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
@@ -147,6 +159,8 @@ export type F0Result = {
   intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'unknown';
   answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
   choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
+  /** Present when auto mode sent it at once: the message's own stored status. */
+  sent?: { status: string; error?: string | null };
 };
 
 /** How to show an error: a slow answer is only a note, everything else is a real error. */
@@ -166,7 +180,7 @@ export const va = {
   assistantConfig: () => call<{ config: AssistantConfig }>('GET', '/admin/wa/config'),
   saveAssistantConfig: (config: Record<string, unknown>) => call<unknown>('PUT', '/admin/wa/config', { config }),
   aiHub: () => cachedGet<HubSummary>('/admin/ai-hub', 20000),
-  aiAdd: (d: { key: string; provider: string; base_url?: string; label?: string }) => call<HubConn>('POST', '/admin/ai-hub/connections', d),
+  aiAdd: (d: { key: string; provider: string; base_url?: string; account_id?: string; label?: string }) => call<HubConn>('POST', '/admin/ai-hub/connections', d),
   aiTest: (id: string) => call<HubConn>('POST', `/admin/ai-hub/connections/${id}/test`, {}),
   aiPatch: (id: string, d: { enabled?: boolean; move?: -1 | 0 | 1; tier?: 'free' | 'paid' }) => call<HubConn>('PATCH', `/admin/ai-hub/connections/${id}`, d),
   aiRemove: (id: string) => call<unknown>('DELETE', `/admin/ai-hub/connections/${id}`),
@@ -177,7 +191,6 @@ export const va = {
   learnChat: (id: string, chat_text: string, owner_speaker?: string, consent_private = false) =>
     call<{ need_owner?: boolean; speakers?: string[]; need_consent?: boolean; profile?: Record<string, unknown>; messages?: number }>('POST', `/admin/wa/contacts/${id}/learn`, { chat_text, owner_speaker, consent_private }),
   report: (days = 7) => call<{ days: number; counts: Record<string, number>; per_day: { day: string; in: number; out: number }[]; by_reason: Record<string, number>; avg_reply_seconds: number | null; approval_rate: number | null }>('GET', `/admin/wa/report?days=${days}`),
-  waHealth: (remote = false) => call<{ summary: string; ok: number; bad: number; todo: number; items: { key: string; title: string; state: 'ok' | 'bad' | 'todo' | 'warn'; detail: string; fix: { label: string; href?: string } | null }[] }>('GET', `/admin/wa/health?remote=${remote}`),
   simulate: (text: string, name = '', use_ai = true) => call<{ reply: string | null; reason: string; priority: number; kind: string; summary: string; need: string; notify: boolean; action: 'send' | 'draft' | 'silent'; note: string; ai_used: boolean }>('POST', '/admin/wa/simulate', { text, name, use_ai }),
   emailFilter: () => call<{ mode: 'important' | 'all'; allow: string[]; block: string[]; dropped_today: number }>('GET', '/admin/inbox/email-filter'),
   logout: () => call<unknown>('POST', '/device/logout', {}),

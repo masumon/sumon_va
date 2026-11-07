@@ -38,7 +38,7 @@ def greeting(now: datetime | None = None) -> str:
 
 
 GREETING = greeting()  # kept for old imports; the live reply uses greeting() so it follows the hour
-HELP = "\n".join(['সুমন ভাইয়ের ভার্চুয়াল সহকারী','','/status — এখনকার অবস্থা দেখুন ও বদলান','/today — আজকের সারসংক্ষেপ','/baki — কার উত্তর বাকি','/places — সংরক্ষিত জায়গা','/stop — সব অটো-উত্তর বন্ধ (শুধু খসড়া)','/resume — অটো-উত্তর আবার চালু','/id — আপনার Telegram আইডি'])
+HELP = "\n".join(['সুমন ভাইয়ের ভার্চুয়াল সহকারী','','যা ইচ্ছা সাধারণ কথায় লিখুন, যেমন: “রহিমকে বলো কাল আসব”, “আজ কে কে ফোন করেছিল”, “করিমের টাকার কী হলো”।','','/status — এখনকার অবস্থা দেখুন ও বদলান','/today — আজকের সারসংক্ষেপ','/baki — কার উত্তর বাকি','/places — সংরক্ষিত জায়গা','/stop — সব অটো-উত্তর বন্ধ (শুধু খসড়া)','/resume — অটো-উত্তর আবার চালু','/id — আপনার Telegram আইডি'])
 SOURCE_BN = {"manual": "আপনি নিজে বেছেছেন", "schedule": "আপনার সাপ্তাহিক রুটিন অনুযায়ী", "place": "সংরক্ষিত জায়গার সঙ্গে ফোনের অবস্থান মিলেছে",
              "presence": "ফোন দেখে স্বয়ংক্রিয়", "default": "কোনো অবস্থা সেট করা নেই"}
 DURATIONS = [(30, "৩০ মিনিট"), (60, "১ ঘণ্টা"), (120, "২ ঘণ্টা")]
@@ -302,6 +302,42 @@ async def _owner_reply_from_telegram(db: AsyncSession, chat_id: Any, reply_to: d
     await _reply(chat_id, ("✅ পাঠানো হয়েছে" if m.status == "sent" else "⏳ ফোন থেকে যাচ্ছে") if ok else f"❌ যায়নি: {m.error or 'কারণ জানা নেই'}", None)
 
 
+# The owner's plain words to the bot work like the app's "Tell the assistant" (F0): same brain, same auto/manual switch.
+_PICK: dict[str, Any] = {"cmd": "", "ids": []}  # the last "which one?" question (in memory; after a restart: just ask again)
+
+
+def _f0_text(res: dict[str, Any]) -> str:
+    lines = [str(res.get("answer") or "")]
+    for it in (res.get("items") or [])[:8]:
+        lines.append("• " + str(it.get("title") or "") + (f" — {it['subtitle']}" if it.get("subtitle") else ""))
+    d = res.get("draft")
+    if d:
+        lines += ["", f"✉ {d.get('to')}:", str(d.get("body") or "")]
+        lines += [f"⚠ {w}" for w in d.get("warnings") or []]
+    return chr(10).join(lines)[:3900]
+
+
+async def owner_f0(db: AsyncSession, chat_id: Any, text: str) -> None:
+    """The owner wrote to the bot in his own words: answer from his data; a message to someone follows the F0 switch."""
+    from app.assistant import f0
+
+    wcfg.use_scope("app")
+    try:
+        res = await f0.run(db, text)
+    except Exception:  # noqa: BLE001 - the bot must always answer something
+        logger.exception("owner F0 via Telegram failed")
+        await send_text(chat_id, "এখন কাজটা করা গেল না, একটু পরে আবার লিখুন।")
+        return
+    markup = None
+    if res.get("draft"):
+        markup = {"inline_keyboard": [[{"text": "✅ পাঠান", "callback_data": f"a:{res['draft']['id']}"},
+                                        {"text": "🗑 পাঠাবেন না", "callback_data": f"x:{res['draft']['id']}"}]]}
+    elif res.get("choices"):
+        _PICK.update(cmd=text, ids=[c["contact_id"] for c in res["choices"]][:8])
+        markup = {"inline_keyboard": [[{"text": str(c["label"])[:40], "callback_data": f"p:{i}"}] for i, c in enumerate(res["choices"][:8])]}
+    await send_text(chat_id, _f0_text(res), reply_markup=markup)
+
+
 async def _approve_from_telegram(db: AsyncSession, draft_id: str, send: bool) -> str:
     try:
         m = await db.get(WaMessage, uuid.UUID(draft_id))
@@ -343,6 +379,17 @@ async def handle_callback(db: AsyncSession, cb: dict[str, Any]) -> None:
                 await edit_text(chat_id, mid, (msg.get("text") or "")[:3800] + chr(10) * 2 + note, None)
             except SendError:
                 pass
+        return
+    if kind == "p":  # the owner picked one person after "which one?"
+        ids = _PICK.get("ids") or []
+        try:
+            await answer_callback(str(cb.get("id") or ""), "")
+        except SendError:
+            pass
+        if arg.isdigit() and int(arg) < len(ids) and _PICK.get("cmd") and chat_id is not None:
+            await owner_f0(db, chat_id, f"{_PICK['cmd']} #{ids[int(arg)]}")
+        elif chat_id is not None:
+            await send_text(chat_id, "তালিকাটা পুরোনো হয়ে গেছে, কথাটা আবার লিখুন।")
         return
     if kind in ("a", "x"):  # an approval card: send or discard the assistant's draft
         note = await _approve_from_telegram(db, arg, kind == "a")
@@ -405,6 +452,8 @@ async def handle_update(db: AsyncSession, update: dict[str, Any]) -> list[uuid.U
                 await _reply(chat_id, reply, markup)
             elif text and msg.get("reply_to_message"):  # the owner answered an approval card: send his words to that person
                 await _owner_reply_from_telegram(db, chat_id, msg["reply_to_message"], text)
+            elif text:  # his own words: the bot is the same assistant as F0 in the app
+                await owner_f0(db, chat_id, text)
             return []  # the owner's own chat with the bot is the control room, never a customer thread
         if text.startswith("/"):  # a stranger's slash command is never a command; /start from a customer is just a hello
             if text.split()[0].split("@")[0].lower() == "/start":

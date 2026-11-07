@@ -222,6 +222,17 @@ class VaBridgeModule : Module() {
 
     Function("unpair") { Store.clear(ctx); PollService.stop(ctx); true }
 
+    /** Private screen: Android's own FLAG_SECURE on the app window (no screenshots, blank recent-apps thumbnail). Our own call, so it
+     *  cannot silently vanish the way a stripped third-party module can. Returns false when no activity is in front yet. */
+    Function("setSecure") { on: Boolean ->
+      val act = appContext.currentActivity ?: return@Function false
+      act.runOnUiThread {
+        val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+        if (on) act.window.addFlags(flag) else act.window.clearFlags(flag)
+      }
+      true
+    }
+
     /** Server call with the device token. Only the owner's inbox endpoints are reachable from the screens. */
     // Every server call runs on its own worker thread. Before, all calls shared Expo's ONE async queue, so a single slow call
     // (an AI test can take 90 s) made every other screen wait behind it: endless "loading", tests that never seemed to finish.

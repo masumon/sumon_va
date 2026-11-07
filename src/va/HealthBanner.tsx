@@ -24,7 +24,7 @@ export function HealthBanner() {
   const seen = useRef<Set<string> | null>(null);
   const [dismissed, setDismissed] = useState('');
   const styles = useMemo(() => StyleSheet.create({
-    card: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginBottom: 8, height: 48, borderWidth: StyleSheet.hairlineWidth * 2, overflow: 'hidden' },
+    card: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginBottom: 8, minHeight: 48, paddingVertical: 2, borderWidth: StyleSheet.hairlineWidth * 2, overflow: 'hidden' },
     edge: { width: 4, alignSelf: 'stretch' },
     main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.sm, height: 48 },
     badge: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -79,7 +79,7 @@ export function HealthBanner() {
 function MarqueeLine({ children }: { children: ReactNode }) {
   return (
     <View style={{ flex: 1, justifyContent: 'center' }}>
-      <Text numberOfLines={1} ellipsizeMode="tail">{children}</Text>
+      <Text numberOfLines={2} ellipsizeMode="tail">{children}</Text>
     </View>
   );
 }

@@ -61,6 +61,35 @@ _sha = hash_token  # one hashing rule for codes and tokens
 
 # ── Telegram (public, secret-header protected) ───────────────────────────────
 
+TG_SEEN_KEY, TG_SEEN_MAX = "tg_seen_updates", 300
+
+
+async def _tg_seen(db: AsyncSession, uid: object) -> bool:
+    """Telegram re-sends an update when we answered too slowly (Render waking up). Already handled = True."""
+    if not isinstance(uid, int):
+        return False
+    try:
+        return uid in json.loads(await flow._get_val(db, TG_SEEN_KEY) or "[]")
+    except ValueError:
+        return False
+
+
+async def _tg_mark(db: AsyncSession, uid: object) -> None:
+    """Remember a handled update id (last 300), only AFTER it was handled, so a failed one may still be retried."""
+    if not isinstance(uid, int):
+        return
+    try:
+        try:
+            seen = json.loads(await flow._get_val(db, TG_SEEN_KEY) or "[]")
+        except ValueError:
+            seen = []
+        seen = [u for u in seen if isinstance(u, int)][-(TG_SEEN_MAX - 1):] + [uid]
+        await flow._set_val(db, TG_SEEN_KEY, json.dumps(seen))
+        await db.commit()
+    except Exception:  # noqa: BLE001 - bookkeeping must never fail the webhook
+        await db.rollback()
+
+
 @router.post("/telegram/webhook", dependencies=[Depends(rate_limit("tg-hook", 600, 60))])
 async def telegram_webhook(request: Request, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if not telegram.configured():
@@ -75,11 +104,15 @@ async def telegram_webhook(request: Request, background: BackgroundTasks, db: As
         update = json.loads(raw)
     except ValueError:
         return {"ok": True}
+    uid = update.get("update_id") if isinstance(update, dict) else None
+    if await _tg_seen(db, uid):  # a retry of something already handled: never send an owner reply twice
+        return {"ok": True}
     cb = update.get("callback_query") if isinstance(update, dict) else None
     if isinstance(cb, dict) and str(cb.get("data") or "").startswith("l:"):
         # The owner answers "may this phone sign in?". This must work even while the assistant itself is still switched off
         # (a fresh server has everything off, and without this the very first sign-in could never be approved).
         await telegram.handle_callback(db, cb)
+        await _tg_mark(db, uid)
         return {"ok": True}
     cfg = await wcfg.load_config(db)
     if not (cfg.get("enabled") and (cfg.get("channels", {}).get("telegram") or {}).get("enabled")):
@@ -90,6 +123,7 @@ async def telegram_webhook(request: Request, background: BackgroundTasks, db: As
     except IntegrityError:  # the same update twice at once (Telegram retry)
         await db.rollback()
         return {"ok": True}
+    await _tg_mark(db, uid)
     wake.notify()
     for mid in ids:
         background.add_task(flow.process_inbound, mid)

@@ -21,7 +21,7 @@ import { AppErrorBoundary } from '../src/ui/AppErrorBoundary';
 import { LockGate } from '../src/ui/LockGate';
 import { PrimaryNav, primaryNavItems } from '../src/ui/PrimaryNav';
 import { getWindowSizeClass, layout } from '../src/theme';
-import { getStatus } from '../modules/va-bridge';
+import { getStatus, setSecure } from '../modules/va-bridge';
 import { Splash } from '../src/va/Splash';
 import { AppHeader } from '../src/va/AppHeader';
 import { Drawer } from '../src/va/Drawer';
@@ -50,7 +50,9 @@ function AppNavigator() {
   useEffect(() => {
     // QA builds (tools/build-apk.ps1 -Qa) allow screenshots so the app can be inspected; real builds never do.
     const apply = () => {
-      if (blockScreenshots && process.env.EXPO_PUBLIC_QA !== '1') void preventScreenCaptureAsync().catch(() => {});
+      const block = blockScreenshots && process.env.EXPO_PUBLIC_QA !== '1';
+      setSecure(block); // the real switch: Android FLAG_SECURE set by our own module
+      if (block) void preventScreenCaptureAsync().catch(() => {});
       else void allowScreenCaptureAsync().catch(() => {});
     };
     apply();

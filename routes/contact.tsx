@@ -58,6 +58,7 @@ export default function ContactScreen() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [aliasText, setAliasText] = useState('');
+  const [more, setMore] = useState(false); // the person's details and rules stay folded, so the chat page stays simple
   const aliases = useLoad(() => va.aliases(String(id)), `aliases:${String(id)}`, 60000);
 
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
@@ -106,7 +107,7 @@ export default function ContactScreen() {
               <Text style={{ marginBottom: 6 }}>{d.body}</Text>
               {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
               <View style={{ gap: 8 }}>
-                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানো হয়েছে' : 'Sent')} />
+                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানোর জন্য দেওয়া হয়েছে (পৌঁছালে তালিকায় দেখাবে)' : 'Handed over for sending (shows in the list once delivered)')} />
                 <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />
               </View>
             </Card>
@@ -115,12 +116,14 @@ export default function ContactScreen() {
           <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
 
 
-          <Card title={bn ? 'অ্যাপের বাইরে উত্তর দিয়েছেন?' : 'Already answered outside the app?'}>
-            <Text style={{ opacity: 0.75, marginBottom: 8 }}>{bn ? 'আপনি নিজে WhatsApp বা অন্য অ্যাপে উত্তর দিলে এখানে জানিয়ে দিন। তাহলে সহকারী দ্বিতীয়বার উত্তর দেবে না, আর “উত্তর বাকি” মনে করাবে না।' : 'If you answered in the chat app yourself, tell the assistant here so it does not answer again or remind you.'}</Text>
+          <Card>
+            <Text style={{ opacity: 0.75, marginBottom: 8 }}>{bn ? 'WhatsApp বা অন্য অ্যাপে নিজে উত্তর দিয়ে থাকলে চাপুন, সহকারী তখন আর উত্তর দেবে না।' : 'Answered in the chat app yourself? Tap, and the assistant will not answer again.'}</Text>
             <AppButton variant="secondary" icon="check-circle-outline" label={bn ? 'আমি নিজে উত্তর দিয়েছি' : 'I answered myself'} loading={busy}
               onPress={() => void act(() => va.sentByHand(c.id, text.trim() || (bn ? '(নিজে উত্তর দিয়েছি)' : '(I answered myself)')), bn ? 'লিখে রাখা হলো। সহকারী কিছুক্ষণ চুপ থাকবে' : 'Noted. The assistant will stay quiet for a while')} />
           </Card>
 
+          <AppButton variant="secondary" icon={more ? 'chevron-up' : 'chevron-down'} label={more ? (bn ? 'তথ্য ও নিয়ম লুকান' : 'Hide details and rules') : (bn ? 'এই মানুষের তথ্য ও নিয়ম' : 'This person’s details and rules')} onPress={() => setMore((v) => !v)} />
+          {more ? (<>
           <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
 
           <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
@@ -155,6 +158,7 @@ export default function ContactScreen() {
             </View>
           </Card>
           <ContactMemory contactId={c.id} />
+          </>) : null}
         </>
       ) : null}
     </Page>

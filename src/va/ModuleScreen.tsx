@@ -73,7 +73,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
   const connected = !checking && verdictNow === 'ok';
 
   return (
-    <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
+    <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'অ্যাপগুলো' : 'Apps'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
       <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={checking ? (bn ? 'দেখছি…' : 'Checking…') : connected ? (bn ? '✓ সংযুক্ত, বার্তা আসছে' : '✓ Connected — messages arriving') : verdictNow === 'partial' ? (bn ? 'প্রায় হয়ে গেছে, নিচে পরীক্ষা করুন' : 'Almost there — run the test below') : (bn ? 'এখনও সংযুক্ত নয়, নিচে দেখুন' : 'Not connected yet — see below')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />
@@ -87,7 +87,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       {mod.key === 'email' && d ? (
         <Card icon="email-outline" title={bn ? 'ইমেইল চালু করা' : 'Turn on e-mail'}>
           <ToggleRow icon="power" label={bn ? 'ইমেইল চালু' : 'E-mail on'} value={!!d.settings.email?.enabled} onChange={(v) => void save({ channels: { email: { enabled: v } } })} />
-          <Text style={{ opacity: 0.8 }}>{d.email?.inbound_configured ? (bn ? 'ইমেইল গ্রহণের গোপন চাবি বসানো আছে ✓' : 'The e-mail intake secret is set ✓') : (bn ? 'এখনও গোপন চাবি বসানো হয়নি। Render-এ EMAIL_INBOUND_SECRET বসান।' : 'The intake secret is not set yet. Add EMAIL_INBOUND_SECRET in Render.')}</Text>
+          <Text style={{ opacity: 0.8 }}>{d.email?.inbound_configured ? (bn ? 'ইমেইল গ্রহণের গোপন চাবি বসানো আছে ✓' : 'The e-mail intake secret is set ✓') : (bn ? 'ইমেইল আসার গোপন চাবি এখনো বসানো হয়নি। সার্ভারের সেটিংয়ে বসাতে হবে (Render, নাম: EMAIL_INBOUND_SECRET)।' : 'The intake secret is not set yet. Add EMAIL_INBOUND_SECRET in Render.')}</Text>
         </Card>
       ) : null}
       {mod.key === 'email' ? <EmailFilterCard /> : null}

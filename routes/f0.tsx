@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppIcon } from '../src/ui/AppIcon';
-import { Card, Field, useKit } from '../src/ui/AppKit';
+import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { radius, spacing, typography } from '../src/theme';
 import { va, errTone, type F0Result } from '../src/va/api';
 import { Page } from '../src/va/Page';
+import { useLoad } from '../src/va/hooks';
 import { CHANNEL, MESSAGE_STATUS } from '../src/va/labels';
 
 /**
@@ -41,12 +42,21 @@ export default function F0Screen() {
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ text: string; ok: boolean } | null>(null);
+  const cfg = useLoad(() => va.assistantConfig(), 'assistant-config');
+  const auto = !!cfg.data?.config.f0?.auto_send;
+  const setAuto = async (v: boolean) => {
+    try { await va.saveAssistantConfig({ f0: { auto_send: v } }); await cfg.reload(); showSnackbar(v ? (bn ? 'অটো: বললেই বার্তা চলে যাবে' : 'Auto: messages go at once') : (bn ? 'ম্যানুয়াল: পাঠানোর আগে দেখাবে' : 'Manual: you check before it goes'), 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+  };
+  const [past, setPast] = useState<{ q: string; a: string }[]>([]); // earlier questions and answers, newest last (this visit only)
 
   const send = async (cmd: string) => {
     setBusy(true); setResult(null);
     try {
       const r = await va.f0Command(cmd);
-      setRes(r); setBody(r.draft?.body ?? '');
+      if (res?.answer && asked) setPast((p) => [...p.slice(-5), { q: asked, a: res.answer }]);
+      setRes(r); setBody(r.draft?.body ?? ''); setText('');
+      if (r.sent) setResult(outcome(r.sent, bn));
     } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
@@ -58,7 +68,7 @@ export default function F0Screen() {
     try {
       const edited = body.trim() !== d.body.trim() ? body.trim() : undefined;
       const r = await va.approve(d.id, edited);
-      setResult(outcome(r, bn) ?? { text: bn ? 'সার্ভার অনুরোধটি নিয়েছে। বার্তার আসল অবস্থা ইনবক্সে দেখুন।' : 'The server took the request. See the real state in the inbox.', ok: true });
+      setResult(outcome(r, bn) ?? { text: bn ? 'পাঠানোর জন্য দেওয়া হয়েছে। পৌঁছাল কি না ইনবক্সে ওই মানুষের পাতায় দেখা যাবে।' : 'Handed over for sending. See in the inbox whether it arrived.', ok: true });
       setRes({ ...res, draft: null });
     } catch (e) { setResult({ text: e instanceof Error ? e.message : '', ok: false }); }
     finally { setBusy(false); }
@@ -69,7 +79,7 @@ export default function F0Screen() {
     setBusy(true);
     try {
       const r = await va.discard(res.draft.id);
-      setResult(outcome(r, bn) ?? { text: bn ? 'সার্ভারকে জানানো হয়েছে, খসড়াটি বাতিল চেয়েছেন।' : 'The server was told to discard the draft.', ok: true });
+      setResult(outcome(r, bn) ?? { text: bn ? 'ঠিক আছে, বার্তাটা পাঠানো হবে না।' : 'OK, the message will not be sent.', ok: true });
       setRes({ ...res, draft: null });
     } catch (e) { setResult({ text: e instanceof Error ? e.message : '', ok: false }); }
     finally { setBusy(false); }
@@ -79,7 +89,7 @@ export default function F0Screen() {
   const d = res?.draft ?? null;
 
   return (
-    <Page title={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} subtitle={bn ? 'লিখে জিজ্ঞেস করুন বা কাজ দিন' : 'Ask or give a command in words'}>
+    <Page title={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} subtitle={bn ? 'যা জানতে চান বা যাকে যা বলতে চান, লিখুন' : 'Write what you want to know, or what to tell someone'}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {QUICK.map((q) => (
           <Pressable key={q.cmd} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} disabled={busy} onPress={() => { setText(q.cmd); setAsked(q.cmd); void send(q.cmd); }}
@@ -89,16 +99,27 @@ export default function F0Screen() {
         ))}
       </View>
       <Card>
+        <ToggleRow icon="send-clock-outline" label={bn ? (auto ? 'পাঠানো: অটো' : 'পাঠানো: ম্যানুয়াল') : (auto ? 'Sending: auto' : 'Sending: manual')}
+          hint={bn ? (auto ? 'কাউকে কিছু বলতে বললে সঙ্গে সঙ্গে চলে যায়। কোনো সন্দেহ থাকলে (কে, আগেই উত্তর দেওয়া, ২৪ ঘণ্টা পার) আগে দেখাবে।' : 'বার্তা আগে দেখাবে, আপনি “পাঠান” চাপলে যাবে।')
+            : (auto ? 'A message you dictate goes at once. If anything is unclear it shows it to you first.' : 'Shows the message first; it goes when you tap Send.')}
+          value={auto} onChange={(v) => void setAuto(v)} />
         <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
           hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
         <View style={{ marginTop: spacing.sm }}>
-          <AppButton label={bn ? 'নির্দেশ দিন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
+          <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
             onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
         </View>
       </Card>
 
+      {past.map((p, i) => (
+        <View key={i} style={{ gap: spacing.xs, opacity: 0.8 }}>
+          <Text style={{ ...typography.caption, color: colors.textMuted, textAlign: 'right' }}>{p.q}</Text>
+          <Text style={{ ...typography.callout, color: colors.textPrimary }}>{p.a}</Text>
+        </View>
+      ))}
+      {res && asked ? <Text style={{ ...typography.callout, color: colors.textMuted, textAlign: 'right' }}>{bn ? 'আপনি: ' : 'You: '}{asked}</Text> : null}
       {res ? (
-        <Card title={bn ? 'সহকারীর উত্তর' : 'Assistant says'}>
+        <Card title={bn ? 'সহকারী' : 'Assistant'}>
           {res.answer ? <Text>{res.answer}</Text> : null}
           {res.items.map((it, i) => (
             <Pressable key={i} accessibilityRole={it.contact_id ? 'button' : 'text'} accessibilityLabel={it.subtitle ? `${it.title}, ${it.subtitle}` : it.title}
@@ -113,7 +134,7 @@ export default function F0Screen() {
           ))}
           {res.choices.length > 0 ? (
             <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-              <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? 'কোন জন?' : 'Which one?'}</Text>
+              <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? 'কার কথা বলছেন? একজনকে বাছুন' : 'Who do you mean? Pick one'}</Text>
               {res.choices.map((c) => (
                 <AppButton key={c.contact_id} variant="secondary" label={c.label} disabled={busy} onPress={() => void send(`${asked} #${c.contact_id}`)} />
               ))}
@@ -123,7 +144,7 @@ export default function F0Screen() {
       ) : null}
 
       {d ? (
-        <Card title={bn ? 'খসড়া বার্তা' : 'Draft message'}>
+        <Card title={bn ? 'এই বার্তাটা যাবে (দেখে নিন)' : 'This message will be sent (check it)'}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center', marginBottom: spacing.sm }}>
             <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? 'কাকে: ' : 'To: '}{d.to}</Text>
             <AppBadge label={(bn ? CHANNEL[d.channel as keyof typeof CHANNEL]?.bn : CHANNEL[d.channel as keyof typeof CHANNEL]?.en) ?? d.channel} tone="neutral" />
@@ -137,13 +158,13 @@ export default function F0Screen() {
           <Field label={bn ? 'বার্তা (বদলাতে পারেন)' : 'Message (you can edit)'} value={body} onChangeText={setBody} multiline />
           <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
             <AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!body.trim()} onPress={() => void approve()} />
-            <AppButton variant="secondary" label={bn ? 'বাতিল' : 'Cancel'} disabled={busy} onPress={() => void discard()} />
+            <AppButton variant="secondary" label={bn ? 'পাঠাবেন না' : 'Do not send'} disabled={busy} onPress={() => void discard()} />
           </View>
         </Card>
       ) : null}
 
       {result ? (
-        <Card title={result.ok ? (bn ? 'সার্ভারের উত্তর' : 'Server says') : (bn ? 'হয়নি' : 'Did not work')}>
+        <Card title={result.ok ? (bn ? 'কী হলো' : 'What happened') : (bn ? 'হয়নি' : 'Did not work')}>
           <Text style={{ color: result.ok ? colors.textPrimary : colors.danger }}>{result.text}</Text>
         </Card>
       ) : null}

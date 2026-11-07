@@ -33,10 +33,20 @@ def _who(c: WaContact) -> str:
     return f"{c.name or 'নামহীন'} (…{c.phone[-4:]})"
 
 
+def _mask_names(*contacts: Any) -> None:
+    """Names (and owner-saved aliases) of the people in an AI prompt leave this server only as [PERSON_n]; the answer gets them back."""
+    names = list(privacy.NAMES.get())
+    for c in contacts:
+        if c is not None:
+            names += [n for n in (c.name, *((c.profile or {}).get("aliases") or [])) if n]
+    privacy.NAMES.set(tuple(dict.fromkeys(names)))
+
+
 async def overview_text(db: AsyncSession, cfg: dict[str, Any]) -> str:
     st = brain.current_status(cfg)
     waiting = (await db.execute(select(WaContact).where(WaContact.unread > 0, WaContact.state != "done")
                                 .order_by(WaContact.priority, WaContact.last_message_at.desc()).limit(8))).scalars().all()
+    _mask_names(*waiting)
     total_waiting = (await db.execute(select(func.count()).select_from(WaContact).where(WaContact.unread > 0, WaContact.state != "done"))).scalar_one()
     tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False).order_by(WaTask.due_at.asc().nullslast()).limit(8))).scalars().all()  # noqa: E712
     lines = [f"আমার অবস্থা এখন: {st['label']}। উত্তর দেওয়ার সময়: {cfg.get('reply_by', '')}।", f"অপেক্ষায় মোট {total_waiting} জন।"]
@@ -54,6 +64,7 @@ async def ask(db: AsyncSession, question: str, contact_id: uuid.UUID | None = No
     context = await overview_text(db, cfg)
     if contact_id:
         c = await db.get(WaContact, contact_id)
+        _mask_names(c)
         if c and privacy.is_private(c):
             context += f"\n\nএই ব্যক্তি: {_who(c)}। এটি ব্যক্তিগত/পরিবারের চ্যাট, তাই এর বার্তার লেখা এখানে দেওয়া হয়নি।"
         elif c:
@@ -75,6 +86,7 @@ async def suggest_reply(db: AsyncSession, contact_id: uuid.UUID, instruction: st
         raise LookupError("contact")
     if privacy.is_private(c):  # family / personal: the words are never given to an AI service, even when the owner asks
         return {"text": "", "private": True, "warning": "এটি ব্যক্তিগত/পরিবারের চ্যাট। এর লেখা AI-কে দেওয়া হয় না, তাই খসড়া বানানো হয়নি: নিজে লিখুন।"}
+    _mask_names(c)
     st = brain.current_status(cfg)
     notes = await flow.active_notes(db, c.id)
     msgs = (await db.execute(select(WaMessage).where(WaMessage.contact_id == c.id).order_by(WaMessage.created_at.desc()).limit(8))).scalars().all()

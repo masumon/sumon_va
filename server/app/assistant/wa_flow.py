@@ -691,6 +691,16 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
             await send_digest(db, cfg)
             await _set_val(db, "wa_digest_last", today)
             out["digest"] = True
+    # The phone app's own daily summary (its Settings switch); before this it existed only for the website's WhatsApp.
+    if app_cfg.get("enabled") and app_cfg.get("notify", {}).get("digest") and await _get_val(db, "va_app_digest_last") != today:
+        hh = brain._hhmm(app_cfg["notify"].get("digest_time", "08:00")) or 480
+        if local.hour * 60 + local.minute >= hh and not alerts.in_quiet_hours(app_cfg.get("limits") or {}, local):
+            try:
+                out["app_digest"] = await alerts.send_app_digest(db)
+            except Exception:  # noqa: BLE001 - a summary must never break the minute tick
+                logger.exception("app digest failed")
+                await db.rollback()
+            await _set_val(db, "va_app_digest_last", today)
     if cfg.get("enabled") and await _get_val(db, "wa_token_check_last") != today:
         await _set_val(db, "wa_token_check_last", today)
         await _check_token(db)
@@ -738,7 +748,7 @@ async def send_digest(db: AsyncSession, cfg: dict[str, Any]) -> None:
         (WaTask.contact_id.is_(None)) | web).order_by(WaTask.due_at).limit(20))).scalars().all()
     if not waiting and not tasks:
         return
-    lines = [f"{len(waiting)} জন অপেক্ষায়, জরুরি {len(urgent)} জন, আজকের/মেয়াদোত্তীর্ণ কাজ {len(tasks)}টি।"]
+    lines = [f"{brain.bn_digits(len(waiting))} জন অপেক্ষায়, জরুরি {brain.bn_digits(len(urgent))} জন, আজকের/মেয়াদোত্তীর্ণ কাজ {brain.bn_digits(len(tasks))}টি।"]
     lines += [f"• {(c.name or c.phone)}: {(c.need or c.summary or '')[:70]}" for c in urgent[:5]]
     lines += [f"✓ {t.title[:80]}" for t in tasks[:4]]
     await create_notification(db, type="wa_digest", severity="info", title="সকালের WhatsApp সারাংশ",

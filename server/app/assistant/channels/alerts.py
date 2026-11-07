@@ -89,7 +89,7 @@ async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
     if not items or in_quiet_hours(limits, now):
         return 0
     names = ", ".join(dict.fromkeys(i["who"] for i in items))[:300]
-    text = f"⏸ {len(items)}টি জরুরি বার্তা অপেক্ষায় ছিল ({items[-1].get('why', '')}): {names}। অ্যাপে দেখুন।"
+    text = f"⏸ {brain.bn_digits(len(items))}টি জরুরি বার্তা অপেক্ষায় ছিল ({items[-1].get('why', '')}): {names}। অ্যাপে দেখুন।"
     if telegram.configured() and settings.TELEGRAM_OWNER_ID:
         try:
             await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
@@ -100,6 +100,45 @@ async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
     await db.commit()
     wake.notify()
     return len(items)
+
+
+async def send_app_digest(db: AsyncSession) -> bool:
+    """The phone app's own morning summary (Settings: "প্রতিদিন সারাংশ"): who is waiting and which confirmed tasks are due.
+
+    Goes to the owner only (Telegram + the phone's alert list). Family and private chats appear by name only, never with their words.
+    Returns True when something was sent (nothing waiting and nothing due = no message).
+    """
+    from sqlalchemy import select
+
+    from app.assistant import assignments, privacy
+    from app.models.wa import WaTask
+
+    now = flow.utcnow()
+    app = WaContact.channel != "whatsapp"  # the website's WhatsApp (Cloud API) has its own summary
+    waiting = (await db.execute(select(WaContact).where(WaContact.unread > 0, WaContact.state != "done", WaContact.is_blocked == False, app)  # noqa: E712
+                                .order_by(WaContact.priority, WaContact.last_message_at.desc()).limit(50))).scalars().all()
+    waiting = [c for c in waiting if c.category != "spam"]
+    urgent = [c for c in waiting if c.priority in (1, 2, 4)]
+    tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False, WaTask.due_at.isnot(None), WaTask.source != assignments.PROPOSED,  # noqa: E712
+                                                   WaTask.due_at <= now + timedelta(days=1)).order_by(WaTask.due_at).limit(20))).scalars().all()
+    if not waiting and not tasks:
+        return False
+    n = brain.bn_digits
+    lines = [f"☀ সকালের সারাংশ: {n(len(waiting))} জন উত্তরের অপেক্ষায় (জরুরি {n(len(urgent))} জন), আজকের/মেয়াদোত্তীর্ণ কাজ {n(len(tasks))}টি।"]
+    for c in urgent[:5]:
+        who = c.name or c.phone.split(":", 1)[-1]
+        lines.append(f"• {who}" + ("" if (c.is_family or privacy.is_private(c)) else f": {(c.need or c.summary or '')[:70]}"))
+    lines += [f"✓ {t.title[:80]}" for t in tasks[:4]]
+    text = "\n".join(lines)
+    if telegram.configured() and settings.TELEGRAM_OWNER_ID:
+        try:
+            await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
+        except Exception:  # noqa: BLE001
+            logger.warning("app digest telegram failed", exc_info=True)
+    db.add(InboxCommand(device_id=None, kind="alert", target="p3", body=text[:400]))
+    await db.commit()
+    wake.notify()
+    return True
 
 
 async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, d: "brain.Decision", label: str | None = None) -> bool:

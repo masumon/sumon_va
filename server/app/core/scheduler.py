@@ -24,6 +24,42 @@ async def tick() -> None:
         except Exception:  # noqa: BLE001 — bookkeeping must never block the work
             await db.rollback()
         await flow.run_cron(db)
+    await _ai_daily()
+
+
+_ai_running = {"on": False}
+
+
+async def _ai_daily() -> None:
+    """Once a day after 06:00 Dhaka: test every AI connection (the old external cron-job.org call is no longer needed).
+    Runs in the background, because real AI test calls can take a minute; one at a time."""
+    from app.assistant import wa_brain as brain
+    from app.assistant import wa_flow as flow
+    from app.core.database import AsyncSessionLocal
+
+    local = brain.now_dhaka()
+    if local.hour < 6 or _ai_running["on"]:
+        return
+    today = local.date().isoformat()
+    async with AsyncSessionLocal() as db:
+        if await flow._get_val(db, "ai_daily_check_last") == today:
+            return
+        await flow._set_val(db, "ai_daily_check_last", today)
+        await db.commit()
+
+    async def run() -> None:
+        from app.assistant import ai_hub
+
+        _ai_running["on"] = True
+        try:
+            async with AsyncSessionLocal() as s:
+                logger.info("AI daily check: %s", await ai_hub.daily_check(s))
+        except Exception:  # noqa: BLE001
+            logger.exception("AI daily check failed")
+        finally:
+            _ai_running["on"] = False
+
+    asyncio.create_task(run(), name="ai-daily-check")
 
 
 async def _loop(interval: float) -> None:

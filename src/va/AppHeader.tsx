@@ -82,7 +82,7 @@ export function AppHeader() {
         <AppIcon name="menu" size={26} color={colors.textPrimary} />
       </Pressable>
       <Text numberOfLines={1} style={styles.title}>{bn ? 'সুমন সহকারী' : 'Sumon VA'}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'AI সংযোগ' : 'AI connections'} onPress={() => router.push('/ai' as never)} style={styles.iconBtn} hitSlop={0}>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} onPress={() => router.push('/f0' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="brain" size={22} color={colors.textPrimary} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? (syncOk ? 'সিঙ্ক চালু আছে, চাপলে এখনই নতুন করে আনবে' : 'সিঙ্ক চলছে না, চাপলে কারণ দেখাবে') : (syncOk ? 'Sync is on; tap to refresh now' : 'Sync is not running; tap for the reason')}

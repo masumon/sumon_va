@@ -247,8 +247,17 @@ class CallReceiver : BroadcastReceiver() {
               // The phone's own call log is the truth: it knows the number, and whether the call was really MISSED (not
               // declined by the owner). The ring-state guess is only the fallback when the log cannot be read.
               Thread.sleep(2500)  // the call log is written a moment after the line goes idle
-              val log = lastCallSince(ctx, since - 30_000L)
-              val missed = log?.second?.let { it == android.provider.CallLog.Calls.MISSED_TYPE } ?: true
+              var log = lastCallSince(ctx, since - 30_000L)
+              val canRead = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+              if ((log == null || log.second == UNREADABLE) && canRead) { Thread.sleep(3000); log = lastCallSince(ctx, since - 30_000L) }  // slow phones write it late
+              // With the log readable, "no call in the log at all" means no real call happened (for example a forged broadcast):
+              // nothing is reported. Only when the log cannot be read at all does the ring-state guess stand in.
+              val missed = when {
+                log == null -> !canRead
+                log.second == UNREADABLE -> true
+                else -> log.second == android.provider.CallLog.Calls.MISSED_TYPE
+              }
               if (missed) {
                 val from = log?.first?.takeIf { it.isNotBlank() } ?: guess ?: "অজানা নম্বর"
                 Outbox.add(ctx, item("call", "sms", from, null, "", "c:" + sha("$from|$since"), contactName(ctx, from)))
@@ -270,8 +279,9 @@ class CallReceiver : BroadcastReceiver() {
         "${android.provider.CallLog.Calls.DATE} >= ?", arrayOf(fromMs.toString()), "${android.provider.CallLog.Calls.DATE} DESC")?.use { c ->
         if (c.moveToFirst()) Pair(c.getString(0), c.getInt(1)) else null
       }
-    } catch (_: Exception) { null }
+    } catch (_: Exception) { Pair(null, UNREADABLE) }  // a read error is "unknown", never "no call happened"
 
+    const val UNREADABLE = -1
     private const val K_SINCE = "ring_since"
     private const val K_NUMBER = "ring_number"
     private const val K_ANSWERED = "ring_answered"

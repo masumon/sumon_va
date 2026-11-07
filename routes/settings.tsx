@@ -13,7 +13,7 @@ import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { DesignPicker } from '../src/va/DesignPicker';
 import { THEME_OPTIONS, type ThemeChoice } from '../src/va/labels';
-import { getStatus, passkeyRegister, setAlertLevels, testAlertLevel, unpair } from '../modules/va-bridge';
+import { getStatus, passkeyRegister, setAlertLevels, testAlertLevel, unpair, unsentWarning } from '../modules/va-bridge';
 import { APP_VERSION, SERVER } from '../src/va/config';
 import { num } from '../src/va/bd';
 
@@ -168,7 +168,7 @@ export default function SettingsScreen() {
       </Card>
 
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
-        description={bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.'}
+        description={(bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.') + unsentWarning(bn)}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
         onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } unpair(); router.replace('/login' as never); }} />
     </Page>
