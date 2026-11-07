@@ -104,13 +104,13 @@ def analyze(cfg: dict[str, Any], contact: Any, recent: list[dict[str, Any]], ope
     overdue = [t for t in tasks if (d := _at(t.get("due_at"))) and d < now]
 
     if day_texts:
-        out.facts.append(f"২৪ ঘণ্টায় {len(day_texts)}টি বার্তা পাঠিয়েছেন" + (f" (শেষটি: “{(last_in.get('body') or '')[:50]}”)" if not private and last_in and last_in.get("body") else ""))
+        out.facts.append(f"২৪ ঘণ্টায় {brain.bn_digits(len(day_texts))}টি বার্তা পাঠিয়েছেন" + (f" (শেষটি: “{(last_in.get('body') or '')[:50]}”)" if not private and last_in and last_in.get("body") else ""))
     if unanswered:
-        out.facts.append(f"{unanswered}টি বার্তার উত্তর যায়নি")
+        out.facts.append(f"{brain.bn_digits(unanswered)}টি বার্তার উত্তর যায়নি")
     if answered:
         out.facts.append("আপনি আগেই উত্তর দিয়েছেন")
     if tasks:
-        out.facts.append(f"তাঁর জন্য {len(tasks)}টি খোলা কাজ" + (f", {len(overdue)}টির সময় পেরিয়েছে" if overdue else ""))
+        out.facts.append(f"তাঁর জন্য {brain.bn_digits(len(tasks))}টি খোলা কাজ" + (f", {brain.bn_digits(len(overdue))}টির সময় পেরিয়েছে" if overdue else ""))
 
     # ── hypotheses: never facts ───────────────────────────────────────────────
     last_text = (last_in.get("body") or "") if last_in and not private else ""
@@ -185,5 +185,5 @@ def after_call_note(recent: list[dict[str, Any]], now: datetime, minutes: int = 
     for m in recent:
         a = _at(m.get("created_at"))
         if m.get("direction") == "in" and is_call(m) and a and now - a <= timedelta(minutes=minutes):
-            return f"ফোন করার পর {int((now - a).total_seconds() // 60)} মিনিটের মধ্যে বার্তা পাঠিয়েছেন"
+            return f"ফোন করার পর {brain.bn_digits(int((now - a).total_seconds() // 60))} মিনিটের মধ্যে বার্তা পাঠিয়েছেন"
     return ""

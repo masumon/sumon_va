@@ -58,7 +58,7 @@ def test_earlier_messages_and_open_tasks_are_part_of_the_alert():
     ins = cc.analyze(cfg(), person(), recent, tasks, T0, 5)
     assert ins.alert and ins.priority == 3
     joined = " ".join(ins.facts)
-    assert "১টি বার্তার উত্তর যায়নি".replace("১", "1") in joined and "1টি খোলা কাজ" in joined and "সময় পেরিয়েছে" in joined
+    assert "১টি বার্তার উত্তর যায়নি" in joined and "১টি খোলা কাজ" in joined and "সময় পেরিয়েছে" in joined
     assert "ডিজাইনটা কবে" in joined  # a business contact: the last words are shown
 
 
@@ -165,7 +165,7 @@ def test_a_blocked_number_or_a_silenced_owner_hold_is_never_reopened_by_a_call()
 
 
 def test_a_message_soon_after_a_missed_call_is_noted_as_a_fact():
-    assert "ফোন করার পর 4 মিনিট" in cc.after_call_note([call(0)], T0 + timedelta(minutes=4))
+    assert "ফোন করার পর ৪ মিনিট" in cc.after_call_note([call(0)], T0 + timedelta(minutes=4))
     assert cc.after_call_note([call(0)], T0 + timedelta(minutes=50)) == ""
     assert cc.after_call_note([text(0, "hi")], T0 + timedelta(minutes=1)) == ""
 

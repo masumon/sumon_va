@@ -150,4 +150,4 @@ def reminder_reason(cfg: dict[str, Any], contact: Any, st: ReplyState, now: date
     if st.status == "uncertain":
         return f"⏰ যাচাই করুন: {st.label}"
     seen = "নোটিফিকেশন সরানো হয়েছে (এটা পড়ার প্রমাণ নয়)" if st.dismissed else "পড়া হয়েছে কি না অ্যাপ জানে না"
-    return f"⏰ {n}টি বার্তার উত্তর বাকি ({int(waited)} মিনিট) — কেউ উত্তর দিয়েছে এমন প্রমাণ নেই; {seen}"
+    return f"⏰ {brain.bn_digits(n)}টি বার্তার উত্তর বাকি ({brain.bn_digits(int(waited))} মিনিট) — কেউ উত্তর দিয়েছে এমন প্রমাণ নেই; {seen}"

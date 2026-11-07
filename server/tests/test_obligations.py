@@ -153,3 +153,39 @@ async def test_a_family_invitation_task_stores_no_words(Session, alerts_sent):
         await wa_flow._process(s, m.id)
         titles = [t.title for t in (await s.execute(select(WaTask).where(WaTask.contact_id == c.id))).scalars().all()]
         assert ob.PRIVATE_TITLE in titles and not any("বৌভাত" in t for t in titles)
+
+
+# -- owner's own AI questions: people's names leave only as placeholders --------------
+
+def test_names_and_aliases_are_masked_for_the_owners_ai_questions():
+    import contextvars
+
+    from app.assistant import privacy, wa_ai
+
+    def run():
+        wa_ai._mask_names(SimpleNamespace(name="করিম মিয়া", profile={"aliases": ["করিম ভাই"]}), None)
+        return privacy.pseudonymize("করিম মিয়া বলেছেন করিম ভাই কাল আসবেন")
+
+    masked, mapping = contextvars.copy_context().run(run)
+    assert "করিম" not in masked and set(mapping.values()) == {"করিম মিয়া", "করিম ভাই"}
+    assert privacy.restore(masked, mapping) == "করিম মিয়া বলেছেন করিম ভাই কাল আসবেন"
+
+
+# -- the phone app's own daily summary ----------------------------------------------
+
+@pytest.mark.asyncio
+async def test_app_digest_names_family_without_words_and_skips_when_nothing_waits(Session, monkeypatch):
+    monkeypatch.setattr(alerts.telegram, "configured", lambda: False)
+    async with Session() as s:
+        assert await alerts.send_app_digest(s) is False  # nothing waiting, nothing due
+        fam = WaContact(phone="sms:+8801711000101", channel="sms", name="আম্মা", category="personal", priority=1, mode="inherit", state="assistant",
+                        is_vip=False, is_family=True, is_blocked=False, unread=2, need="শরীর ভালো না")
+        biz = WaContact(phone="notif:whatsapp:করিম", channel="notif", name="করিম", category="business", priority=2, mode="inherit", state="assistant",
+                        is_vip=False, is_family=False, is_blocked=False, unread=1, need="দাম জানতে চান")
+        web = WaContact(phone="8801711000103", channel="whatsapp", name="ওয়েব", category="business", priority=1, mode="inherit", state="assistant",
+                        is_vip=False, is_family=False, is_blocked=False, unread=1)
+        s.add_all([fam, biz, web])
+        await s.commit()
+        assert await alerts.send_app_digest(s) is True
+        body = (await s.execute(select(InboxCommand).where(InboxCommand.kind == "alert"))).scalars().one().body
+        assert "২ জন" in body and "আম্মা" in body and "শরীর" not in body and "করিম: দাম জানতে চান" in body and "ওয়েব" not in body
