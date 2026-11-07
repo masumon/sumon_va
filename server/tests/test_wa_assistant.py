@@ -227,23 +227,7 @@ def test_send_errors_are_explained_in_plain_bangla():
     assert "মেয়াদ" in wa_send.send_reason({"status": 401, "code": 190, "message": "expired"})
 
 
-def test_oversized_webhook_is_refused_before_it_is_read():
-    from fastapi import HTTPException
-
-    from app.api.v1.routes import wa_assistant as r
-
-    class Req:
-        headers = {"content-length": str(r.MAX_HOOK_BYTES + 1)}
-
-        async def body(self):
-            raise AssertionError("must not read a huge body")
-
-    try:
-        asyncio.run(r.receive(Req(), None, None))
-        raise AssertionError("should have refused")
-    except HTTPException as exc:
-        assert exc.status_code == 413
-
+# (test of the deleted WhatsApp Cloud webhook receiver removed 2026-11-07)
 
 def test_daily_token_check_warns_only_when_dead_or_ending_soon(monkeypatch):
     from app.assistant import wa_flow

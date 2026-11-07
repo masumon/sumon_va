@@ -192,7 +192,7 @@ def test_routes_a_lost_phone_must_not_reach_stay_admin_session_only():
     from app.api.v1.routes import wa_assistant as wa
 
     src = inspect.getsource(wa)
-    for name in ("put_secrets", "test_secrets", "erase_contact", "reset_config"):  # Cloud API setup/connect routes deleted 2026-11-07
+    for name in ("erase_contact", "reset_config"):  # Cloud API setup/connect routes deleted 2026-11-07
         block = src.split(f"async def {name}(")[1].split("\n@router")[0]
         assert "require_role(OWNER)" in block and "owner_or_device" not in block, name
 

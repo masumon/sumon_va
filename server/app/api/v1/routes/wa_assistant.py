@@ -9,18 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, or_, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant import f0 as f0_mod
@@ -28,10 +25,8 @@ from app.assistant import history_import
 from app.assistant import task_details
 from app.assistant import identity, memory, presence, privacy, relationship
 from app.assistant import wa_brain as brain
-from app.assistant import wa_coexist as coexist
 from app.assistant import wa_config as wcfg
 from app.assistant import wa_flow as flow
-from app.assistant import wa_health
 from app.assistant import wa_send
 from app.assistant.channels import alerts as alerts_mod
 from app.assistant.channels import wake
@@ -66,124 +61,7 @@ def _audit(db: AsyncSession, admin_id: str, action: str, entity_id: uuid.UUID | 
     db.add(ActivityLog(admin_id=uuid.UUID(admin_id), action=action, entity_type="wa_assistant", entity_id=entity_id, new_values=values))
 
 
-# ── Meta webhook (public) ───────────────────────────────────────────────────────
-
-# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
-async def verify(request: Request, db: AsyncSession = Depends(get_db)):
-    q = request.query_params
-    expected = (await wcfg.get_secrets(db)).get("verify_token", "")
-    if q.get("hub.mode") == "subscribe" and expected and hmac.compare_digest(q.get("hub.verify_token", ""), expected):
-        await wa_health.record(db, wa_health.HOOK_VERIFIED)
-        return PlainTextResponse(q.get("hub.challenge", ""))
-    raise HTTPException(status_code=403, detail="forbidden")
-
-
-def _text_of(m: dict[str, Any]) -> tuple[str, str, str]:
-    """(kind, body, media_id) from one Meta message object."""
-    t = m.get("type", "text")
-    if t == "text":
-        return "text", (m.get("text") or {}).get("body", ""), ""
-    if t == "audio":
-        return "audio", "", (m.get("audio") or {}).get("id", "")
-    if t in ("image", "video", "document"):
-        x = m.get(t) or {}
-        return t if t != "document" else "doc", x.get("caption") or x.get("filename") or f"[{t}]", x.get("id", "")
-    if t == "button":
-        return "text", (m.get("button") or {}).get("text", ""), ""
-    if t == "interactive":
-        i = m.get("interactive") or {}
-        r = i.get("button_reply") or i.get("list_reply") or {}
-        return "text", r.get("title", ""), ""
-    if t == "location":
-        return "other", "[লোকেশন পাঠিয়েছেন]", ""
-    return "other", f"[{t}]", ""
-
-
-# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
-async def receive(request: Request, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    if int(request.headers.get("content-length") or 0) > MAX_HOOK_BYTES:
-        raise HTTPException(status_code=413, detail="too large")
-    raw = await request.body()
-    if len(raw) > MAX_HOOK_BYTES:
-        raise HTTPException(status_code=413, detail="too large")
-    creds = await wcfg.get_secrets(db)
-    if not creds.get("app_secret"):
-        raise HTTPException(status_code=503, detail="not configured")
-    if not wa_send.verify_signature(creds["app_secret"], raw, request.headers.get("x-hub-signature-256")):
-        await wa_health.log_events(db, ["✗ একটি অনুরোধ এসেছে কিন্তু স্বাক্ষর মেলেনি (App Secret ভুল বা বদলে গেছে)"], throttle="bad-sig")
-        await wa_health.record(db, wa_health.HOOK_BAD)  # shown in the setup panel: "Meta sent a message but the App Secret did not match"
-        raise HTTPException(status_code=403, detail="bad signature")
-    await wa_health.record(db, wa_health.HOOK_OK)
-    cfg = await wcfg.load_config(db)
-    try:
-        payload = json.loads(raw)
-    except ValueError:
-        return {"ok": True}
-    await wa_health.log_events(db, wa_health.summarize(payload))  # shown in the setup panel: what Meta really sent
-    if not cfg.get("enabled"):
-        return {"ok": True}  # switched off: Meta gets a 200 (so it keeps the hook alive), nothing is stored
-    new_ids: list[uuid.UUID] = []
-    for entry in payload.get("entry") or []:
-        for ch in entry.get("changes") or []:
-            val, field = ch.get("value") or {}, ch.get("field")
-            names = {c.get("wa_id"): (c.get("profile") or {}).get("name") for c in val.get("contacts") or []}
-            pid = str((val.get("metadata") or {}).get("phone_number_id") or "")
-            if field in ("messages", "history", "smb_app_state_sync", "smb_message_echoes") and pid and creds.get("phone_number_id") and pid not in (creds["phone_number_id"], META_SAMPLE_PHONE_ID):
-                continue  # another WhatsApp number of the same app (e.g. a business line): not this assistant's chat
-            if field == "messages":
-                for m in val.get("messages") or []:
-                    if await coexist.edit_or_revoke(db, m, _text_of) or await coexist.unsupported(db, m):
-                        continue  # edited/deleted/unreadable: no new message, no reply
-                    wid = m.get("id")
-                    if not wid or (await db.execute(select(WaMessage.id).where(WaMessage.wa_id == wid))).first():
-                        continue
-                    phone = brain.normalize_phone(m.get("from", ""))
-                    if not phone:  # people who hide their number behind a WhatsApp username: keep them, by Meta's own user id
-                        phone = str(m.get("from_user_id") or "")[:20]
-                    if not phone:
-                        continue
-                    contact = await flow.upsert_contact(db, phone, names.get(m.get("from")))
-                    kind, body, media = _text_of(m)
-                    ts = datetime.fromtimestamp(int(m.get("timestamp") or _now().timestamp()), tz=timezone.utc)
-                    msg = WaMessage(contact_id=contact.id, direction="in", wa_id=wid, kind=kind, body=body[:4000], status="received",
-                                    meta={"media_id": media} if media else {}, created_at=ts)
-                    db.add(msg)
-                    contact.unread += 1
-                    contact.last_inbound_at = contact.last_message_at = ts
-                    await db.flush()
-                    new_ids.append(msg.id)
-                for s in val.get("statuses") or []:  # delivery ticks / failures of our own sends
-                    row = (await db.execute(select(WaMessage).where(WaMessage.wa_id == s.get("id")))).scalar_one_or_none()
-                    if row:
-                        row.delivery = str(s.get("status", ""))[:12]
-                        if s.get("status") == "failed":
-                            row.status, row.error = "failed", str((s.get("errors") or [{}])[0].get("title", ""))[:290]
-            elif field == "history":
-                await coexist.history(db, cfg, val, _text_of)
-            elif field == "smb_app_state_sync":
-                await coexist.contacts_sync(db, val)
-            elif field == "account_update":
-                await coexist.account_update(db, val)
-            elif field == "smb_message_echoes":  # Sumon typed a reply on his own phone → assistant steps back
-                for e in val.get("message_echoes") or []:
-                    phone = brain.normalize_phone(e.get("to", ""))
-                    known = (await db.execute(select(WaContact).where(WaContact.phone == phone))).scalar_one_or_none()
-                    if known and e.get("id") and not (await db.execute(select(WaMessage.id).where(WaMessage.wa_id == e["id"]))).first():
-                        kind, body, _ = _text_of(e)
-                        db.add(WaMessage(contact_id=known.id, direction="out", wa_id=e["id"], kind=kind, body=body[:4000],
-                                         status="sent", reason="owner", sent_at=_now()))
-                        known.state, known.unread = "owner", 0
-                        known.hold_until = _now() + timedelta(hours=int(cfg.get("hold_hours", 12)))
-                        known.last_outbound_at = known.last_message_at = _now()
-    try:
-        await db.commit()
-    except IntegrityError:  # the same message arrived twice at once (Meta retry): the first copy is already stored
-        await db.rollback()
-        return {"ok": True}
-    wake.notify()
-    for mid in new_ids:
-        background.add_task(flow.process_inbound, mid)
-    return {"ok": True}
+# WhatsApp Cloud API webhook (verify/receive) deleted 2026-11-07: owner dropped the Cloud API
 
 
 @router.get("/wa/cron", response_model=ApiResponse, dependencies=[Depends(rate_limit("wa-cron", 30, 60))])
@@ -220,7 +98,7 @@ def _contact(c: WaContact, preview: str | None = None) -> dict[str, Any]:
 def _tag(m: WaMessage) -> str | None:
     """A small label for messages that are not ordinary new ones."""
     meta = m.meta or {}
-    return "মুছে ফেলা হয়েছে" if meta.get("revoked") else "এডিট করা হয়েছে" if meta.get("edited") else "পুরনো চ্যাট" if m.status == coexist.IMPORTED else None
+    return "মুছে ফেলা হয়েছে" if meta.get("revoked") else "এডিট করা হয়েছে" if meta.get("edited") else "পুরনো চ্যাট" if m.status == "imported" else None
 
 
 def _message(m: WaMessage) -> dict[str, Any]:
@@ -240,14 +118,6 @@ async def _get_contact(db: AsyncSession, cid: uuid.UUID) -> WaContact:
 
 class ConfigIn(BaseModel):
     config: dict[str, Any]
-
-
-class SecretsIn(BaseModel):
-    token: str = Field(default="", max_length=600)
-    phone_number_id: str = Field(default="", max_length=60)
-    waba_id: str = Field(default="", max_length=60)
-    app_secret: str = Field(default="", max_length=200)
-    graph_version: str = Field(default="", max_length=10)
 
 
 @router.get("/admin/wa/config", response_model=ApiResponse)
@@ -324,35 +194,7 @@ async def suggest(cid: uuid.UUID, body: SuggestIn, db: AsyncSession = Depends(ge
 # WhatsApp Cloud API removed (owner decision 2026-11-07): events route deleted
 
 
-async def _bind_webhook(db: AsyncSession, creds: dict[str, str]) -> tuple[bool, str]:
-    """Tell Meta, for THIS WhatsApp account only, to send its events straight to our webhook address (override callback)."""
-    verify_token = await wcfg.ensure_verify_token(db)
-    ok, res = await wa_send.graph_post(creds, f"{creds['waba_id']}/subscribed_apps",
-                                       {"override_callback_uri": f"{_api_base()}/api/v1/wa/webhook", "verify_token": verify_token})
-    if ok:
-        return True, ""
-    e = res["error"]
-    return False, f"{wa_send.explain(e)} (Meta বলেছে: {e.get('message') or e.get('status')})"
-
-
-# WhatsApp Cloud API removed (owner decision 2026-11-07): connect_webhook route deleted
-
-
-# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
-async def put_secrets(body: SecretsIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(require_role(OWNER))):
-    data = await wcfg.save_secrets(db, body.model_dump())
-    _audit(db, admin_id, "wa_secrets", values={"fields": [k for k, v in body.model_dump().items() if v]})
-    await db.commit()
-    note = ""
-    if (body.token or body.waba_id) and data.get("token") and data.get("waba_id"):
-        ok, why = await _bind_webhook(db, data)  # automatic: no separate button press needed any more
-        note = " · Webhook নিজে থেকে যুক্ত হয়েছে" if ok else f" · Webhook নিজে যুক্ত হয়নি: {why}"
-    return ApiResponse(data={"secrets": wcfg.masked(data)}, message="গোপনভাবে সংরক্ষণ হয়েছে" + note)
-
-
-# WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more
-async def test_secrets(db: AsyncSession = Depends(get_db), _a: str = Depends(require_role(OWNER))):
-    return ApiResponse(data=await wa_send.check(await wcfg.get_secrets(db)))
+# Cloud API secrets / webhook binding helpers deleted 2026-11-07
 
 
 # ── overview / inbox ────────────────────────────────────────────────────────────
@@ -1028,7 +870,7 @@ REPORT_CAP = 20000
 async def report(days: int = Query(7, ge=1, le=30), db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
     since = _now() - timedelta(days=days)
     rows = (await db.execute(select(WaMessage.direction, WaMessage.status, WaMessage.reason, WaMessage.feedback, WaMessage.created_at, WaMessage.sent_at)
-                             .where(WaMessage.created_at >= since, WaMessage.status != coexist.IMPORTED).limit(REPORT_CAP + 1))).all()
+                             .where(WaMessage.created_at >= since, WaMessage.status != "imported").limit(REPORT_CAP + 1))).all()
     truncated = len(rows) > REPORT_CAP
     rows = rows[:REPORT_CAP]
     per_day: dict[str, dict[str, int]] = {}

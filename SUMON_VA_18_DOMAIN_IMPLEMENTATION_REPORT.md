@@ -61,3 +61,6 @@ Commits on `feature/va-server-2026-11-06` (pushed): `c7c4615`, `7ca011e`, `bd9c0
 Checked and found already done, so not redone: sticky reply box, touch targets 48 dp, home "not connected" instead of fake zero, per-category retention, honest health, decision stored on every message (`meta.reason/note/priority`), "one draft per person, updated by new messages".
 Not done, on purpose: `FlatList` (the page is a ScrollView; rewriting it is risky, and `memo` would not help because every refresh returns new objects; lists are paged).
 Tests: server **468 passed**; `tsc` and `eslint routes src modules` clean; Kotlin `:va-bridge:compileDebugKotlin` succeeded. No APK built, nothing installed, nothing deployed.
+
+## 6. Dead code removed (2026-11-07, owner: "keep the AI connections, remove the rest")
+Deleted: the WhatsApp Cloud API webhook receiver/verify, secrets and webhook-binding code in `routes/wa_assistant.py`, modules `assistant/wa_coexist.py` and `assistant/wa_health.py`, the ABO shop AI code `routes/ai_catalog.py`, `assistant/ai_catalog.py`, `assistant/link_import.py`, and the tests that only covered them. **AI connections untouched:** `ai_hub.py`, `ai_providers.py`, `ai_gemini.py` and the 9 `/admin/ai-hub*` routes; their 32 tests pass. Full suite **431 passed**; the server imports and lists 82 routes. `wa_send.py` stays (other files import it).
