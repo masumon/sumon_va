@@ -181,3 +181,4 @@ Commands: `cd server; python -m pytest` · `npx tsc --noEmit` · `npx eslint rou
 |---|---|---|
 | 2026-11-07 | 1.0 | First version from the COMPLETE SYSTEM UNDERSTANDING directive (read-only audit, no code change) |
 | 2026-11-07 | 1.1 | 18-domain work: new `assistant/obligations.py` (official notices + invitations), `official_words`/`invite_words` config, `decide` never answers official matters (p ≤ 2), dated ones → proposed task; `.gitignore` private folders (R-08 fixed); `APP_NAME` default "Sumon VA API"; tests now **466 passed**. Details: `SUMON_VA_18_DOMAIN_*.md` |
+| 2026-11-07 | 1.2 | Second round: Cloud API routes and app screen removed, `ai_catalog` unmounted (API now 88 endpoints under /api/v1 + 2), app daily summary real, deadline priority, name masking in owner AI questions, native FLAG_SECURE, call-log-verified missed calls, sign-out warning. Server tests 468. See `SUMON_VA_18_DOMAIN_IMPLEMENTATION_REPORT.md` §5 |

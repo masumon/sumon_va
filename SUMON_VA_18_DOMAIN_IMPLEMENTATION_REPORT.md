@@ -40,3 +40,24 @@ What the tests cover: detection of official messages and invitations, no invente
 
 ## 4. Remaining before release
 Owner: review, commit + push (owner's OK), PR merge, Render Manual Deploy. Then check one official-looking test SMS on the phone. No APK build is needed for this change. A build is needed later for the open Kotlin items (alarm ring, `CallReceiver`, outbox), and only after the owner says "build".
+
+
+## 5. Second round (2026-11-07, owner: "do everything, server + app, nothing fake, drop WhatsApp Cloud API")
+Commits on `feature/va-server-2026-11-06` (pushed): `c7c4615`, `7ca011e`, `bd9c09c` and the next one.
+| Item | What changed | Evidence |
+|---|---|---|
+| Bangla digits in server text | alert digest, missed-call facts, unanswered reminder, morning summary use `bn_digits` (F0 already did) | tests updated, pass |
+| Names masked for AI | `wa_ai.ask`/`suggest_reply` now mask contact names and aliases too (`_mask_names`); `_process` already did | `test_names_and_aliases_are_masked...` |
+| Daily summary switch was fake | the app's "প্রতিদিন সারাংশ" switch was never read; now `alerts.send_app_digest` sends it (Telegram + phone list, family/private by name only, not in quiet hours) | `test_app_digest_...` |
+| Same-day deadlines | `deadline_words`; a work/money/update ask due today → priority 2 (urgent stays 1) | `test_a_work_ask_due_today...` |
+| WhatsApp Cloud API removed | routes `/admin/wa/setup`, `/health`, `/events`, `/webhook/connect` deleted; app screen `routes/wa-health.tsx`, its menu entry and `va.waHealth` removed. The internal helper files stay because other files import them; no route reaches them | tests updated |
+| ABO shop AI router | `ai_catalog` no longer mounted (no shop tables here) | suite passes |
+| Screenshot block not working | own native `setSecure` (Android `FLAG_SECURE`) called on every app resume, beside the old library call | Kotlin compiled, tsc clean; **phone check after the build** |
+| Forged missed call | a missed call is reported only if the phone's own call log has it (re-checked after 3 s); the old guess is used only when the log cannot be read | Kotlin compiled; **phone check** |
+| Unsent messages on sign-out | the sign-out dialogs now say how many messages have not reached the server yet | tsc clean |
+| Misleading "পাঠানো হয়েছে" | approving a draft now says "handed over for sending" (real delivery is shown by status) | tsc clean |
+| Large font | health banner wraps to 2 lines instead of being cut | tsc clean |
+| Urgent alert did not ring (root cause) | message said "জরুরী"; the old server only knew "জরুরি", so it was not priority 1 and went to the normal channel. Spelling-proof matching (`5c4f506`) is in `main` (PR #15); it becomes live after the Render deploy | `test_wave0.py` urgent spelling tests |
+Checked and found already done, so not redone: sticky reply box, touch targets 48 dp, home "not connected" instead of fake zero, per-category retention, honest health, decision stored on every message (`meta.reason/note/priority`), "one draft per person, updated by new messages".
+Not done, on purpose: `FlatList` (the page is a ScrollView; rewriting it is risky, and `memo` would not help because every refresh returns new objects; lists are paged).
+Tests: server **468 passed**; `tsc` and `eslint routes src modules` clean; Kotlin `:va-bridge:compileDebugKotlin` succeeded. No APK built, nothing installed, nothing deployed.
