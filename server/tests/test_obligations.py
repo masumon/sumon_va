@@ -219,3 +219,44 @@ async def test_ai_daily_check_tells_the_owner_on_the_phone_when_a_key_breaks(Ses
         out = await ai_hub.daily_check(s)
         body = (await s.execute(select(InboxCommand).where(InboxCommand.kind == "alert"))).scalars().one().body
     assert out["broken"] == 1 and "Gemini" in body and "কাজ করছে না" in body
+
+
+# -- Telegram webhook replay (acceptance test 38) ----------------------------------------
+
+@pytest.mark.asyncio
+async def test_a_replayed_telegram_update_is_handled_only_once(Session, monkeypatch):
+    import json as _json
+
+    from app.api.v1.routes import inbox as ib
+
+    calls = []
+
+    async def fake_handle(db, update):
+        calls.append(update["update_id"])
+        return []
+
+    async def fake_cfg(db, force=False, scope=None):
+        return cfg(enabled=True, channels={"telegram": {"enabled": True}})
+
+    monkeypatch.setattr(ib.telegram, "configured", lambda: True)
+    monkeypatch.setattr(ib.telegram, "verify_secret", lambda s: True)
+    monkeypatch.setattr(ib.telegram, "handle_update", fake_handle)
+    monkeypatch.setattr(ib.wcfg, "load_config", fake_cfg)
+
+    class Req:
+        headers = {"x-telegram-bot-api-secret-token": "x"}
+
+        def __init__(self, uid):
+            self._b = _json.dumps({"update_id": uid, "message": {"text": "ঠিক আছে, কাল দেব"}}).encode()
+
+        async def body(self):
+            return self._b
+
+    class Bg:
+        def add_task(self, *a, **k):
+            pass
+
+    async with Session() as s:
+        for uid in (501, 501, 502, 501):  # Telegram retried 501 twice
+            assert await ib.telegram_webhook(Req(uid), Bg(), s) == {"ok": True}
+    assert calls == [501, 502]
