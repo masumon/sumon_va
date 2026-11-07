@@ -198,3 +198,24 @@ def test_a_work_ask_due_today_is_raised_to_priority_two_but_chat_is_not():
     assert brain.rule_priority("send the file asap", cfg(), who(), "work", False) == (2, "deadline")
     assert brain.rule_priority("আজকের মধ্যে দেখা হবে না মনে হয়", cfg(), who(), "other", False)[0] == 5  # not a work/money ask
     assert brain.rule_priority("জরুরি, আজকের মধ্যে লাগবে", cfg(), who(), "work", False) == (1, "urgent")  # urgent still wins
+
+
+# -- AI connections: a broken key reaches the owner (no e-mail on this server) ---------
+
+@pytest.mark.asyncio
+async def test_ai_daily_check_tells_the_owner_on_the_phone_when_a_key_breaks(Session, monkeypatch):
+    from app.assistant import ai_hub
+
+    async def fake_load(db, force=False):
+        ai_hub._state["conns"] = [{"id": "g1", "label": "Gemini", "provider": "gemini", "status": "ok", "enabled": True, "checked_at": ""}]
+
+    async def fake_test_all(db, full=True):
+        return [{"id": "g1", "label": "Gemini", "provider": "gemini", "status": "bad", "enabled": True}]
+
+    monkeypatch.setattr(ai_hub, "_load", fake_load)
+    monkeypatch.setattr(ai_hub, "test_all", fake_test_all)
+    monkeypatch.setattr(alerts.telegram, "configured", lambda: False)
+    async with Session() as s:
+        out = await ai_hub.daily_check(s)
+        body = (await s.execute(select(InboxCommand).where(InboxCommand.kind == "alert"))).scalars().one().body
+    assert out["broken"] == 1 and "Gemini" in body and "কাজ করছে না" in body

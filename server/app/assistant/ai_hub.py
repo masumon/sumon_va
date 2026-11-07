@@ -585,23 +585,27 @@ def cron_token() -> str:
 
 
 async def daily_check(db: AsyncSession) -> dict[str, Any]:
-    """Daily health check (cron-job.org). Full rediscovery once a week; e-mails the
-    owner when a connection stops working."""
+    """Daily health check (in-process scheduler; the old cron URL still works). Full rediscovery once a week;
+    tells the owner (Telegram + phone) when a connection stops working."""
     await _load(db, force=True)
     before = {c["id"]: c.get("status") for c in _state["conns"] or []}
     oldest = min((c.get("checked_at") or "" for c in _state["conns"] or []), default="")
     full = not oldest or (datetime.now(timezone.utc) - datetime.fromisoformat(oldest)).days >= 7
     result = await test_all(db, full=full)
     broken = [c for c in result if c["enabled"] and c["status"] == "bad" and before.get(c["id"]) != "bad"]
-    if broken:
+    if broken:  # this server sends no e-mail: the owner hears it on Telegram and in the phone's alert list
         try:
+            from app.assistant.channels import telegram, wake
             from app.core.config import settings
-            from app.core.email import send_email
+            from app.models.wa import InboxCommand
 
-            items = "".join(f"<li><b>{c['label']}</b> — {c['note']}</li>" for c in broken)
-            await send_email(settings.ADMIN_NOTIFY_EMAIL or settings.ADMIN_EMAIL, "AI সংযোগে সমস্যা — ABO Enterprise",
-                             f"<p>নিচের AI সংযোগ কাজ করছে না:</p><ul>{items}</ul>"
-                             "<p>Admin → AI সংযোগ পাতায় গিয়ে নতুন কী দিন। অন্য সংযোগগুলো দিয়ে AI চালু আছে।</p>")
+            names = ", ".join(str(c.get("label") or c.get("provider") or "AI") for c in broken)[:200]
+            text = f"⚠ AI সংযোগ কাজ করছে না: {names}। মেনু → AI সংযোগ পাতায় নতুন কী দিন; অন্য সংযোগ দিয়ে কাজ চলছে।"
+            if telegram.configured() and settings.TELEGRAM_OWNER_ID:
+                await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
+            db.add(InboxCommand(device_id=None, kind="alert", target="p3", body=text[:400]))
+            await db.commit()
+            wake.notify()
         except Exception as exc:  # noqa: BLE001
-            logger.warning("AI hub: alert e-mail failed: %s", exc)
+            logger.warning("AI hub: broken-connection notice failed: %s", exc)
     return {"checked": len(result), "broken": len(broken), "full": full}
