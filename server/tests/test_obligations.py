@@ -368,3 +368,19 @@ async def test_owner_words_to_the_bot_go_through_f0_with_buttons(monkeypatch):
     assert seen[-1] == "করিমকে বলো কাল আসব #c2"
     text, markup = sent[-1]
     assert "কাল আসব" in text and [b["callback_data"] for b in markup["inline_keyboard"][0]] == ["a:d1", "x:d1"]
+
+
+# -- tapping an alert opens that chat ------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_an_alert_names_its_chat_and_keeps_the_urgent_target(Session, monkeypatch):
+    monkeypatch.setattr(alerts.telegram, "configured", lambda: False)
+    async with Session() as s:
+        c = WaContact(phone="sms:+8801711000555", channel="sms", name="রহিম", category="business", priority=1, mode="inherit", state="assistant",
+                      is_vip=False, is_family=False, is_blocked=False, unread=1)
+        s.add(c)
+        await s.commit()
+        d = brain.Decision(priority=1, kind="other", lang="bn", summary="জরুরি", need="")
+        assert await alerts.push_owner(s, cfg(), c, d) is True
+        cmd = (await s.execute(select(InboxCommand).where(InboxCommand.kind == "alert"))).scalars().one()
+    assert cmd.target == "p1" and cmd.msg_id == c.id  # the alarm channel is unchanged; the chat travels separately

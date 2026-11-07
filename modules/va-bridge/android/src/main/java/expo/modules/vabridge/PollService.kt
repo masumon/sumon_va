@@ -137,7 +137,7 @@ class PollService : Service() {
         if (DoneCommands.has(ctx, id)) { done.put(id); continue }  // already carried out, only the "done" was lost: never send twice
         if (!DoneCommands.begin(ctx, id)) continue  // another thread is running this very command right now
         try {
-          val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id)
+          val error = run(ctx, c.optString("kind"), c.optString("target"), c.optString("body"), id, c.optString("open"))
           if (error == null) { DoneCommands.add(ctx, id); done.put(id) } else failed.put(JSONObject().put("id", id).put("error", error))
         } finally { DoneCommands.finish(id) }
       }
@@ -148,10 +148,10 @@ class PollService : Service() {
   }
 
   /** Runs one command. Returns null on success, or a short reason the owner can read. */
-  private fun run(ctx: Context, kind: String, target: String, body: String, id: String): String? = try {
+  private fun run(ctx: Context, kind: String, target: String, body: String, id: String, open: String = ""): String? = try {
     if ((kind == "sms" || kind == "reply") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
     else when (kind) {
-      "alert" -> { showAlert(ctx, target, body, id); null }
+      "alert" -> { showAlert(ctx, target, body, id, open); null }
       "sms" -> { val bad = smsGuard(ctx, target); if (bad != null) bad else {
         val number = target.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
         val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()
@@ -270,12 +270,21 @@ class PollService : Service() {
       } catch (_: Exception) { return fb }
     }
 
-    fun showAlert(ctx: Context, target: String, text: String, id: String) {
+    /** Tapping an alert opens the chat it is about ("contact?id=<uuid>" from the server); anything else just opens the app. */
+    private fun chatIntent(ctx: Context, open: String, id: String): PendingIntent? = try {
+      if (!Regex("""^contact\?id=[0-9a-fA-F-]{32,36}$""").matches(open)) null else {
+        val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("sumonva://$open")).setPackage(ctx.packageName)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        PendingIntent.getActivity(ctx, ("open" + id).hashCode(), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+      }
+    } catch (_: Exception) { null }
+
+    fun showAlert(ctx: Context, target: String, text: String, id: String, openPath: String = "") {
       channels(ctx)
       val urgent = target == "p1"
       val problem = target == "p3" && id.startsWith("problem-")
       val channel = if (urgent) CH_URGENT else if (problem) CH_PROBLEM else CH_NORMAL
-      val open = openIntent(ctx, 0)
+      val open = chatIntent(ctx, openPath, id) ?: openIntent(ctx, 0)
       val p = parse(urgent, text)
       val family = text.startsWith("👪")
       val zone = zoneOf(target, id)
