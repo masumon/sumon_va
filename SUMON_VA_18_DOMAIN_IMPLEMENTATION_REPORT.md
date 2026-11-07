@@ -64,3 +64,9 @@ Tests: server **468 passed**; `tsc` and `eslint routes src modules` clean; Kotli
 
 ## 6. Dead code removed (2026-11-07, owner: "keep the AI connections, remove the rest")
 Deleted: the WhatsApp Cloud API webhook receiver/verify, secrets and webhook-binding code in `routes/wa_assistant.py`, modules `assistant/wa_coexist.py` and `assistant/wa_health.py`, the ABO shop AI code `routes/ai_catalog.py`, `assistant/ai_catalog.py`, `assistant/link_import.py`, and the tests that only covered them. **AI connections untouched:** `ai_hub.py`, `ai_providers.py`, `ai_gemini.py` and the 9 `/admin/ai-hub*` routes; their 32 tests pass. Full suite **431 passed**; the server imports and lists 82 routes. `wa_send.py` stays (other files import it).
+
+## 7. AI screen and last clean-up (2026-11-07)
+- AI connections screen: per-provider key guide copied from the ABO admin (`src/va/aiGuides.ts`: link button, needs, Bangla steps, key hint), Paste button, Cloudflare Account ID and https address fields, all 13 providers selectable.
+- AI daily self-test now runs in the in-process scheduler (`core/scheduler._ai_daily`, once a day after 06:00 Dhaka); a broken key is reported on Telegram + the phone (this server sends no e-mail). Seen on the phone today: Gemini, Groq, OpenRouter, Mistral all "চলছে ✓", last test 6 Nov 12:13, 12 uses today (all Groq), paid 0.
+- Removed: 10 unused Python packages (cloudinary, reportlab, fpdf2, uharfbuzz, jinja2, pywebpush, openpyxl, deep-translator, alembic, structlog; every server module imports with them blocked) and unused ABO startup guards in `schema_guard.py`. ABO ORM classes in `models/models.py` are kept on purpose (linked mappers; removing them risks startup). All npm packages are used.
+- Tests: server **432 passed**; `tsc`/`eslint routes src modules` clean. Not built, not deployed.
