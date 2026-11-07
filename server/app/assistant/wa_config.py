@@ -125,6 +125,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "p4": ["কই", "সিন করেন না", "রিপ্লাই দেন না", "কল ধরেন না", "ধরছেন না", "why no reply", "not replying"],
     },
     "never_auto_words": ["মামলা", "থানা", "পুলিশ", "ফতোয়া", "তালাক", "আইনজীবী", "lawyer", "police", "court"],
+    # Official / legal / government matters (Brain domain 6): never answered by the assistant, raised to priority 2,
+    # and a dated one becomes a PROPOSED task. Words only, no AI. The owner can edit the list.
+    "official_words": ["নোটিশ", "শুনানি", "সমন", "আদালত", "হাজিরা", "আয়কর", "ট্যাক্স রিটার্ন", "ভ্যাট", "এনবিআর", "পাসপোর্ট",
+                       "ভিসা", "দূতাবাস", "এনআইডি", "জাতীয় পরিচয়পত্র", "ট্রেড লাইসেন্স", "জরিমানা", "শেষ তারিখ", "সরকারি চিঠি",
+                       "legal notice", "summons", "hearing", "income tax", "tax return", "passport", "visa", "embassy",
+                       "penalty", "last date"],
+    # Invitations (Brain domain 3): a dated invitation becomes a PROPOSED task so the social obligation is not forgotten.
+    "invite_words": ["দাওয়াত", "নিমন্ত্রণ", "বিয়ের অনুষ্ঠান", "জন্মদিন", "আকিকা", "মিলাদ", "বৌভাত", "invitation", "invite you",
+                     "wedding", "birthday party"],
     "call_words": ["কল দিলাম", "ফোন দিলাম", "ফোন ধরলেন না", "কল ধরলেন না", "ফোন করেছিলাম", "called you", "missed your call", "tried calling"],
     "identity_words": ["বট", "রোবট", "মেশিন", "এআই", "আপনি কি মানুষ", "সত্যিই সুমন", "are you a bot", "are you human", "real person", "chatbot"],
     "abo": {"enabled": False, "info": True, "orders": False, "leads": False, "prices": False, "facts": ""},

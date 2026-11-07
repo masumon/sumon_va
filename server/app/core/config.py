@@ -5,7 +5,7 @@ from pydantic import AliasChoices, Field, field_validator
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    APP_NAME: str = "ABO Enterprise API"
+    APP_NAME: str = "Sumon VA API"  # was the ABO name (copied from ABO); only shown at `/` and in logs
     APP_ENV: str = "development"
     DEBUG: bool = False
     STARTUP_BOOTSTRAP_ENABLED: bool = False
