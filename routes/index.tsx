@@ -98,6 +98,46 @@ export default function DashboardScreen() {
       <ChipGroup<Lens> options={['personal', 'business']} value={lens} labelOf={(l) => (l === 'personal' ? (bn ? 'ব্যক্তিগত' : 'Personal') : (bn ? 'ব্যবসায়িক' : 'Business'))} onChange={(l) => { if (l) setLens(l); }} />
       <Text style={{ marginTop: -8, color: colors.textSecondary, fontSize: 12 }}>{bn ? 'ওপরের তিনটি সংখ্যা ও নিচের তালিকা বদলায়: ব্যক্তিগত = পরিবার ও জরুরি, ব্যবসায়িক = অর্ডার ও কাজের খোঁজ।' : 'Changes the three numbers above and the list below: Personal = family and urgent, Business = orders and work enquiries.'}</Text>
 
+      {o && lens === 'personal' ? (
+        <>
+          <TileGrid>
+            <StatTile icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} value={n(familyWaiting.length)} tone={familyWaiting.length ? accents.orange : undefined} onPress={() => go('/inbox', { view: 'family' })} />
+            <StatTile icon="alert-octagon-outline" label={bn ? 'জরুরি' : 'Urgent'} value={n(o.urgent)} tone={o.urgent ? accents.red : undefined} onPress={() => go('/inbox', { view: 'urgent' })} />
+            <StatTile icon="message-reply-text-outline" label={bn ? 'উত্তর বাকি' : 'Waiting'} value={n(o.waiting)} onPress={() => go('/inbox', { view: 'waiting' })} />
+            <StatTile icon="file-document-edit-outline" label={bn ? 'খসড়া দেখে দিতে হবে' : 'Drafts to approve'} value={n(o.drafts)} onPress={() => go('/inbox', { view: 'drafts' })} />
+          </TileGrid>
+          <AppSectionHeader title={bn ? 'পরিবার ও জরুরি' : 'Family and urgent'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'urgent' })} />
+          {familyWaiting.length === 0 && (urgent.data?.items.length ?? 0) === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'পরিবারের বা জরুরি কিছু বাকি নেই ✓' : 'No family or urgent messages waiting ✓'} /> : null}
+          <View style={{ gap: 12 }}>
+            {[...familyWaiting, ...(urgent.data?.items ?? []).filter((x) => !x.is_family)].slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}
+          </View>
+        </>
+      ) : null}
+
+      {o && lens === 'business' ? (
+        <>
+          {biz.data?.available === false ? <EmptyNote icon="link-off" text={bn ? 'ABO-র সঙ্গে সংযোগ নেই, তাই অর্ডার/বুকিংয়ের সংখ্যা দেখানো হচ্ছে না (০ নয়)।' : 'Not connected to ABO, so order/booking numbers are not shown (this is not zero).'} /> : (
+          <TileGrid>
+            <StatTile icon="cart-outline" label={bn ? 'বাকি অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
+            <StatTile icon="briefcase-outline" label={bn ? 'বাকি বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
+            <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} onPress={() => go('/inbox', { view: 'work' })} />
+            <StatTile icon="file-account-outline" label={bn ? 'চাকরির আবেদন' : 'Applications'} value={n(biz.data?.new_applications ?? 0)} />
+          </TileGrid>)}
+          <AppSectionHeader title={bn ? 'নতুন কাজের খোঁজ' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
+          {work.data && work.data.items.length === 0 ? <EmptyNote icon="briefcase-check-outline" text={bn ? 'নতুন কাজের খোঁজ নেই' : 'No new work enquiries'} /> : null}
+          <View style={{ gap: 12 }}>{(work.data?.items ?? []).slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}</View>
+        </>
+      ) : null}
+
+      <AppSectionHeader title={bn ? 'আজকের কাজ' : 'To do'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/tasks')} />
+      {tasks.data && tasks.data.length === 0 ? <EmptyNote icon="check-all" text={bn ? 'কোনো কাজ বাকি নেই' : 'No open tasks'} /> : null}
+      {(tasks.data ?? []).slice(0, 3).map((t: Task) => (
+        <Pressable key={t.id} onPress={() => go('/tasks')} style={{ padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+          <Text style={{ fontWeight: '600' }}>{t.title}</Text>
+          {t.contact_name || t.contact_phone ? <Text style={{ opacity: 0.65, fontSize: 12 }}>{t.contact_name || t.contact_phone}</Text> : null}
+        </Pressable>
+      ))}
+
       {o?.presence && o.presence.state !== 'unknown' ? (
         <Text style={{ opacity: 0.7, fontSize: 12, textAlign: 'center' }}>{bn ? PRESENCE[o.presence.state].bn : PRESENCE[o.presence.state].en}</Text>
       ) : null}
@@ -152,50 +192,10 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
 
-      {o && lens === 'personal' ? (
-        <>
-          <TileGrid>
-            <StatTile icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} value={n(familyWaiting.length)} tone={familyWaiting.length ? accents.orange : undefined} onPress={() => go('/inbox', { view: 'family' })} />
-            <StatTile icon="alert-octagon-outline" label={bn ? 'জরুরি' : 'Urgent'} value={n(o.urgent)} tone={o.urgent ? accents.red : undefined} onPress={() => go('/inbox', { view: 'urgent' })} />
-            <StatTile icon="message-reply-text-outline" label={bn ? 'উত্তর বাকি' : 'Waiting'} value={n(o.waiting)} onPress={() => go('/inbox', { view: 'waiting' })} />
-            <StatTile icon="file-document-edit-outline" label={bn ? 'খসড়া দেখে দিতে হবে' : 'Drafts to approve'} value={n(o.drafts)} onPress={() => go('/inbox', { view: 'drafts' })} />
-          </TileGrid>
-          <AppSectionHeader title={bn ? 'পরিবার ও জরুরি' : 'Family and urgent'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'urgent' })} />
-          {familyWaiting.length === 0 && (urgent.data?.items.length ?? 0) === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'পরিবারের বা জরুরি কিছু বাকি নেই ✓' : 'No family or urgent messages waiting ✓'} /> : null}
-          <View style={{ gap: 12 }}>
-            {[...familyWaiting, ...(urgent.data?.items ?? []).filter((x) => !x.is_family)].slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}
-          </View>
-        </>
-      ) : null}
-
-      {o && lens === 'business' ? (
-        <>
-          {biz.data?.available === false ? <EmptyNote icon="link-off" text={bn ? 'ABO-র সঙ্গে সংযোগ নেই, তাই অর্ডার/বুকিংয়ের সংখ্যা দেখানো হচ্ছে না (০ নয়)।' : 'Not connected to ABO, so order/booking numbers are not shown (this is not zero).'} /> : (
-          <TileGrid>
-            <StatTile icon="cart-outline" label={bn ? 'বাকি অর্ডার' : 'Pending orders'} value={n(biz.data?.pending_orders ?? 0)} tone={biz.data?.pending_orders ? accents.orange : undefined} />
-            <StatTile icon="briefcase-outline" label={bn ? 'বাকি বুকিং' : 'Pending bookings'} value={n(biz.data?.pending_bookings ?? 0)} tone={biz.data?.pending_bookings ? accents.orange : undefined} />
-            <StatTile icon="account-star-outline" label={bn ? 'নতুন লিড' : 'New leads'} value={n(biz.data?.new_leads ?? 0)} tone={biz.data?.new_leads ? accents.green : undefined} onPress={() => go('/inbox', { view: 'work' })} />
-            <StatTile icon="file-account-outline" label={bn ? 'চাকরির আবেদন' : 'Applications'} value={n(biz.data?.new_applications ?? 0)} />
-          </TileGrid>)}
-          <AppSectionHeader title={bn ? 'নতুন কাজের খোঁজ' : 'New work enquiries'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/inbox', { view: 'work' })} />
-          {work.data && work.data.items.length === 0 ? <EmptyNote icon="briefcase-check-outline" text={bn ? 'নতুন কাজের খোঁজ নেই' : 'No new work enquiries'} /> : null}
-          <View style={{ gap: 12 }}>{(work.data?.items ?? []).slice(0, 4).map((x: Contact) => <ContactRow key={x.id} contact={x} onPress={() => go('/contact', { id: x.id })} />)}</View>
-        </>
-      ) : null}
-
       <AppSectionHeader title={bn ? 'আমার অ্যাপগুলো' : 'My apps'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/channels')} />
       <TileGrid>
         {MODULES.slice(0, 6).map((m) => <StatTile key={m.key} icon={m.icon} label={bn ? m.bn : m.en} value="›" onPress={() => go('/m/[key]', { key: m.key })} />)}
       </TileGrid>
-
-      <AppSectionHeader title={bn ? 'আজকের কাজ' : 'To do'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/tasks')} />
-      {tasks.data && tasks.data.length === 0 ? <EmptyNote icon="check-all" text={bn ? 'কোনো কাজ বাকি নেই' : 'No open tasks'} /> : null}
-      {(tasks.data ?? []).slice(0, 3).map((t: Task) => (
-        <Pressable key={t.id} onPress={() => go('/tasks')} style={{ padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
-          <Text style={{ fontWeight: '600' }}>{t.title}</Text>
-          {t.contact_name || t.contact_phone ? <Text style={{ opacity: 0.65, fontSize: 12 }}>{t.contact_name || t.contact_phone}</Text> : null}
-        </Pressable>
-      ))}
 
       <AppSectionHeader title={bn ? 'দ্রুত কাজ' : 'Quick actions'} />
       <TileGrid>
