@@ -55,6 +55,7 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
     <View style={styles.container}>
       <AppBackdrop />
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={pulling} onRefresh={pull} tintColor={colors.primary} /> : undefined}>
         <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
         {refreshing && !pulling ? <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.xs }}>{language === 'bn' ? 'নতুন তথ্য আনছি…' : 'Getting new data…'}</Text> : null}
