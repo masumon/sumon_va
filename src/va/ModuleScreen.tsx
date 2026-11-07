@@ -87,7 +87,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       {mod.key === 'email' && d ? (
         <Card icon="email-outline" title={bn ? 'ইমেইল চালু করা' : 'Turn on e-mail'}>
           <ToggleRow icon="power" label={bn ? 'ইমেইল চালু' : 'E-mail on'} value={!!d.settings.email?.enabled} onChange={(v) => void save({ channels: { email: { enabled: v } } })} />
-          <Text style={{ opacity: 0.8 }}>{d.email?.inbound_configured ? (bn ? 'ইমেইল গ্রহণের গোপন চাবি বসানো আছে ✓' : 'The e-mail intake secret is set ✓') : (bn ? 'এখনও গোপন চাবি বসানো হয়নি। Render-এ EMAIL_INBOUND_SECRET বসান।' : 'The intake secret is not set yet. Add EMAIL_INBOUND_SECRET in Render.')}</Text>
+          <Text style={{ opacity: 0.8 }}>{d.email?.inbound_configured ? (bn ? 'ইমেইল গ্রহণের গোপন চাবি বসানো আছে ✓' : 'The e-mail intake secret is set ✓') : (bn ? 'ইমেইল আসার গোপন চাবি এখনো বসানো হয়নি। সার্ভারের সেটিংয়ে বসাতে হবে (Render, নাম: EMAIL_INBOUND_SECRET)।' : 'The intake secret is not set yet. Add EMAIL_INBOUND_SECRET in Render.')}</Text>
         </Card>
       ) : null}
       {mod.key === 'email' ? <EmailFilterCard /> : null}
