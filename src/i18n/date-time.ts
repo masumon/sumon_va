@@ -77,8 +77,8 @@ export function bnDayPart(hour:number):string{return hour<4?'রাত':hour<6?'
 function bnClock(hour:number,minute:number):string{
   const mm=String(minute).padStart(2,'0');
   if(!hour12Default)return bnDigits(`${String(hour).padStart(2,'0')}:${mm}`);
-  // 12-hour clock as AM/PM in Bangla letters (owner's choice 2026-11-05): "১২:৪৬ এএম", "০৩:০৫ পিএম" — Bangladesh time.
-  return `${bnDigits(String(((hour+11)%12)+1).padStart(2,'0'))}:${bnDigits(mm)} ${hour<12?'এএম':'পিএম'}`;
+  // Natural Bengali clock: "রাত ৩:০০টা", with the day's part instead of AM/PM.
+  return `${bnDayPart(hour)} ${bnDigits(((hour+11)%12)+1)}:${bnDigits(mm)}টা`;
 }
 const bnDate=(w:{year:number;month:number;day:number})=>`${bnDigits(w.day)} ${BN_MONTHS[w.month-1]}, ${bnDigits(w.year)}`;
 export function formatBangladeshDate(value:string|Date,language:AppLanguage):string{if(language==='bn')return bnDate(zoneWall(value));return format(value,language,{year:'numeric',month:'long',day:'numeric'});}
