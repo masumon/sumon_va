@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppIcon } from '../src/ui/AppIcon';
-import { Card, Field, useKit } from '../src/ui/AppKit';
+import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { radius, spacing, typography } from '../src/theme';
 import { va, errTone, type F0Result } from '../src/va/api';
 import { Page } from '../src/va/Page';
+import { useLoad } from '../src/va/hooks';
 import { CHANNEL, MESSAGE_STATUS } from '../src/va/labels';
 
 /**
@@ -41,6 +42,12 @@ export default function F0Screen() {
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ text: string; ok: boolean } | null>(null);
+  const cfg = useLoad(() => va.assistantConfig(), 'assistant-config');
+  const auto = !!cfg.data?.config.f0?.auto_send;
+  const setAuto = async (v: boolean) => {
+    try { await va.saveAssistantConfig({ f0: { auto_send: v } }); await cfg.reload(); showSnackbar(v ? (bn ? 'অটো: বললেই বার্তা চলে যাবে' : 'Auto: messages go at once') : (bn ? 'ম্যানুয়াল: পাঠানোর আগে দেখাবে' : 'Manual: you check before it goes'), 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+  };
   const [past, setPast] = useState<{ q: string; a: string }[]>([]); // earlier questions and answers, newest last (this visit only)
 
   const send = async (cmd: string) => {
@@ -49,6 +56,7 @@ export default function F0Screen() {
       const r = await va.f0Command(cmd);
       if (res?.answer && asked) setPast((p) => [...p.slice(-5), { q: asked, a: res.answer }]);
       setRes(r); setBody(r.draft?.body ?? ''); setText('');
+      if (r.sent) setResult(outcome(r.sent, bn));
     } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   };
@@ -91,6 +99,10 @@ export default function F0Screen() {
         ))}
       </View>
       <Card>
+        <ToggleRow icon="send-clock-outline" label={bn ? (auto ? 'পাঠানো: অটো' : 'পাঠানো: ম্যানুয়াল') : (auto ? 'Sending: auto' : 'Sending: manual')}
+          hint={bn ? (auto ? 'কাউকে কিছু বলতে বললে সঙ্গে সঙ্গে চলে যায়। কোনো সন্দেহ থাকলে (কে, আগেই উত্তর দেওয়া, ২৪ ঘণ্টা পার) আগে দেখাবে।' : 'বার্তা আগে দেখাবে, আপনি “পাঠান” চাপলে যাবে।')
+            : (auto ? 'A message you dictate goes at once. If anything is unclear it shows it to you first.' : 'Shows the message first; it goes when you tap Send.')}
+          value={auto} onChange={(v) => void setAuto(v)} />
         <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
           hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
         <View style={{ marginTop: spacing.sm }}>

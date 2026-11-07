@@ -141,6 +141,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "identity_words": ["বট", "রোবট", "মেশিন", "এআই", "আপনি কি মানুষ", "সত্যিই সুমন", "are you a bot", "are you human", "real person", "chatbot"],
     "abo": {"enabled": False, "info": True, "orders": False, "leads": False, "prices": False, "facts": ""},
     "ai": {"enabled": True, "voice": True},
+    "f0": {"auto_send": False},  # the owner's own "tell X ..." commands: False = preview + one tap (manual), True = sent at once (auto)
     "notify": {"urgent": True, "digest": True, "digest_time": "08:00"},
     "retention_days": 90,
     # Tags that mean "this person matters": their words raise the priority; client-like tags make the chat business.

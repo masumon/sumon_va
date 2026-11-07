@@ -260,3 +260,75 @@ async def test_a_replayed_telegram_update_is_handled_only_once(Session, monkeypa
         for uid in (501, 501, 502, 501):  # Telegram retried 501 twice
             assert await ib.telegram_webhook(Req(uid), Bg(), s) == {"ok": True}
     assert calls == [501, 502]
+
+
+# -- F0: free words read by the AI, auto / manual switch -------------------------------------
+
+def _f0_cfg(auto):
+    async def fake_cfg(db, force=False, scope=None):
+        return cfg(enabled=True, ai={"enabled": True, "voice": False}, f0={"auto_send": auto})
+    return fake_cfg
+
+
+async def _f0_person(s, name="করিম", channel="sms"):
+    c = WaContact(phone=f"{channel}:+8801711000777", channel=channel, name=name, category="business", priority=5, mode="inherit", state="assistant",
+                  is_vip=False, is_family=False, is_blocked=False, unread=0, last_inbound_at=datetime.now(timezone.utc))
+    s.add(c)
+    await s.commit()
+    return c
+
+
+@pytest.mark.asyncio
+async def test_f0_free_words_are_read_by_the_ai_and_manual_mode_only_drafts(Session, monkeypatch):
+    from app.assistant import ai_hub, f0
+
+    async def fake_ai(db, task, system, user, **kw):
+        return '{"intent": "reply", "name": "করিম", "msg": "কাল বিকেলে আসছি"}'
+
+    monkeypatch.setattr(ai_hub, "run", fake_ai)
+    monkeypatch.setattr(f0.wcfg, "load_config", _f0_cfg(False))
+    async with Session() as s:
+        c = await _f0_person(s)
+        r = await f0.run(s, "করিম ভাইকে একটু জানিয়ে দাও কাল বিকেলে আসছি")
+        assert r["intent"] == "reply" and r["draft"] and r["draft"]["body"] == "কাল বিকেলে আসছি"
+        outs = (await s.execute(select(WaMessage).where(WaMessage.contact_id == c.id))).scalars().all()
+        assert [m.status for m in outs] == ["draft"]  # manual: nothing goes out by itself
+
+
+@pytest.mark.asyncio
+async def test_f0_auto_mode_sends_at_once_but_a_warning_keeps_the_preview(Session, monkeypatch):
+    from app.assistant import f0
+
+    monkeypatch.setattr(f0.wcfg, "load_config", _f0_cfg(True))
+    delivered = []
+
+    async def fake_deliver(db, mid):
+        m = await db.get(WaMessage, mid)
+        m.status = "sending"
+        await db.commit()
+        delivered.append(mid)
+        return True
+
+    monkeypatch.setattr(f0.flow, "deliver", fake_deliver)
+    async with Session() as s:
+        await _f0_person(s)
+        r = await f0.run(s, "করিমকে বলো কাল আসব")
+        assert r["draft"] is None and r["sent"]["status"] == "sending" and len(delivered) == 1
+        old = await _f0_person(s, name="জামাল", channel="whatsapp")  # WhatsApp, no inbound for 2 days: 24-hour warning
+        old.last_inbound_at = datetime.now(timezone.utc) - timedelta(days=2)
+        await s.commit()
+        r2 = await f0.run(s, "জামালকে বলো কাল আসব")
+        assert r2["draft"] and r2["draft"]["warnings"] and len(delivered) == 1 and "অটো-পাঠানো হয়নি" in r2["answer"]
+
+
+@pytest.mark.asyncio
+async def test_f0_without_ai_still_gives_the_help_text(Session, monkeypatch):
+    from app.assistant import ai_hub, f0
+
+    async def no_ai(db, *a, **k):
+        raise ai_hub.HubError("x", "x", 503)
+
+    monkeypatch.setattr(ai_hub, "run", no_ai)
+    async with Session() as s:
+        r = await f0.run(s, "এটা কোনো চেনা কথা না")
+    assert r["intent"] == "unknown" and r["answer"] == f0.UNKNOWN_HELP

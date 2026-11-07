@@ -111,7 +111,7 @@ export type AssistantConfig = {
   schedule?: ScheduleBlock[]; places?: SavedPlace[]; status_now?: { key: string; source?: string; label?: string };
   categories: Record<Category, { auto?: boolean; silent?: boolean }>;
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
-  notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean };
+  notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean }; f0?: { auto_send: boolean };
   calls?: { burst_min: number; escalate_after: number; reply: boolean };
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
@@ -147,6 +147,8 @@ export type F0Result = {
   intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'unknown';
   answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
   choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
+  /** Present when auto mode sent it at once: the message's own stored status. */
+  sent?: { status: string; error?: string | null };
 };
 
 /** How to show an error: a slow answer is only a note, everything else is a real error. */
