@@ -119,7 +119,7 @@ async def try_task(payload: TryIn, _admin: str = Depends(owner_or_device("settin
     meta: dict = {}
     question = payload.text.strip() or "আমাদের দোকান সম্পর্কে এক লাইনে একটি স্বাগত বার্তা লিখুন।"
     try:
-        text = await hub.run(db, payload.task, "You are a helpful assistant for a Bangladeshi shop. Reply briefly in Bangla.",
+        text = await hub.run(db, payload.task, "You are Sumon's personal assistant. Reply briefly in Bangla.",
                              question, max_tokens=1024, meta=meta)
     except hub.HubError as exc:
         raise _fail(exc) from exc

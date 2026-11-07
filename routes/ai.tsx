@@ -11,10 +11,12 @@ import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
 import { num } from '../src/va/bd';
 
-const PROVIDERS = ['auto', 'gemini', 'groq', 'openrouter', 'openai', 'deepseek', 'mistral', 'nvidia', 'cloudflare'] as const;
+const PROVIDERS = ['auto', 'gemini', 'groq', 'openrouter', 'mistral', 'nvidia', 'cloudflare', 'vercel', 'openai', 'anthropic', 'deepseek', 'xai', 'local', 'custom'] as const;
 const PROVIDER_NAME: Record<(typeof PROVIDERS)[number], { bn: string; en: string }> = {
   auto: { bn: 'স্বয়ংক্রিয় (auto)', en: 'Automatic (auto)' }, gemini: { bn: 'Gemini', en: 'Gemini' }, groq: { bn: 'Groq', en: 'Groq' }, openrouter: { bn: 'OpenRouter', en: 'OpenRouter' },
   openai: { bn: 'OpenAI', en: 'OpenAI' }, deepseek: { bn: 'DeepSeek', en: 'DeepSeek' }, mistral: { bn: 'Mistral', en: 'Mistral' }, nvidia: { bn: 'NVIDIA', en: 'NVIDIA' }, cloudflare: { bn: 'Cloudflare', en: 'Cloudflare' },
+  vercel: { bn: 'Vercel', en: 'Vercel' }, anthropic: { bn: 'Claude (পেইড)', en: 'Claude (paid)' }, xai: { bn: 'Grok (পেইড)', en: 'Grok (paid)' },
+  local: { bn: 'নিজের কম্পিউটার', en: 'Own computer' }, custom: { bn: 'অন্য (ঠিকানাসহ)', en: 'Other (with address)' },
 };
 const CAPS = ['0', '20', '50', '100', '300'] as const;
 const STATUS: Record<HubConn['status'], { bn: string; en: string; tone: 'success' | 'warning' | 'danger' | 'neutral' }> = {
@@ -30,11 +32,17 @@ export default function AiScreen() {
   const [provider, setProvider] = useState<(typeof PROVIDERS)[number]>('auto');
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<{ text: string; provider?: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [drop, setDrop] = useState<HubConn | null>(null);
   const h = hub.data;
+  // The server needs more than a key for some providers: Cloudflare an account id, own/other servers an https address.
+  const needsUrl = provider === 'local' || provider === 'custom';
+  const canAdd = needsUrl ? /^https:\/\/\S+/.test(baseUrl) && (provider === 'local' || key.trim().length >= 8)
+    : provider === 'cloudflare' ? key.trim().length >= 8 && /^[0-9a-f]{32}$/.test(accountId) : key.trim().length >= 8;
 
   const [slow, setSlow] = useState(false);
   const act = async (id: string, fn: () => Promise<unknown>, ok?: string) => {
@@ -95,8 +103,10 @@ export default function AiScreen() {
             <ChipGroup<(typeof PROVIDERS)[number]> label={bn ? 'কোন সেবা (না জানলে “auto”)' : 'Provider (“auto” if unsure)'} options={PROVIDERS} value={provider} labelOf={(p) => (bn ? PROVIDER_NAME[p].bn : PROVIDER_NAME[p].en)} onChange={(p) => { if (p) setProvider(p); }} />
             <Text style={{ marginTop: 8, marginBottom: 4, fontSize: 12, opacity: 0.7 }}>{bn ? 'কী (গোপন, দেখা যাবে না)' : 'Key (secret — hidden)'}</Text>
             <AppTextInput value={key} onChangeText={setKey} secureTextEntry autoCapitalize="none" autoCorrect={false} placeholder="sk-… / AIza…" style={{ minHeight: 50, borderWidth: 1, borderColor: '#8884', borderRadius: 12, paddingHorizontal: 12 }} />
+            {provider === 'cloudflare' ? <Field label={bn ? 'Cloudflare Account ID (৩২ অক্ষর, ড্যাশবোর্ডের ডান পাশে)' : 'Cloudflare Account ID (32 characters, right side of the dashboard)'} value={accountId} onChangeText={(v) => setAccountId(v.trim())} /> : null}
+            {needsUrl ? <Field label={bn ? 'ঠিকানা (https:// দিয়ে শুরু)' : 'Address (starts with https://)'} value={baseUrl} onChangeText={(v) => setBaseUrl(v.trim())} placeholder="https://…" /> : null}
             <Field label={bn ? 'নাম (ঐচ্ছিক)' : 'Name (optional)'} value={label} onChangeText={setLabel} />
-            <View style={{ marginTop: 10 }}><AppButton label={bn ? 'যোগ করুন ও পরীক্ষা করুন' : 'Add and test'} icon="plus" loading={busy === 'add'} disabled={key.trim().length < 8} onPress={() => void act('add', async () => { await va.aiAdd({ key: key.trim(), provider, label: label.trim() }); setKey(''); setLabel(''); }, bn ? 'যোগ হয়েছে' : 'Added')} /></View>
+            <View style={{ marginTop: 10 }}><AppButton label={bn ? 'যোগ করুন ও পরীক্ষা করুন' : 'Add and test'} icon="plus" loading={busy === 'add'} disabled={!canAdd} onPress={() => void act('add', async () => { await va.aiAdd({ key: key.trim(), provider, label: label.trim(), base_url: needsUrl ? baseUrl : undefined, account_id: provider === 'cloudflare' ? accountId : undefined }); setKey(''); setLabel(''); setBaseUrl(''); setAccountId(''); }, bn ? 'যোগ হয়েছে' : 'Added')} /></View>
           </Card>
 
           <Card title={bn ? 'পেইড AI-এর নিয়ম' : 'Paid AI rule'}>
