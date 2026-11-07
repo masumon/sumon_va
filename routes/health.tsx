@@ -38,7 +38,7 @@ export default function HealthScreen() {
   };
 
   return (
-    <Page title={bn ? 'সমস্যা ও অবস্থা' : 'Problems & health'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={onPull} refreshing={pull}>
+    <Page title={bn ? 'কিছু ঠিক নেই?' : 'Something wrong?'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={onPull} refreshing={pull}>
       <Hero grad={serious ? HERO_BAD : warn ? HERO_WARN : HERO_OK} right={loading ? <ActivityIndicator color="#FFFFFF" accessibilityLabel={bn ? 'দেখা হচ্ছে' : 'Checking'} /> : undefined} icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
         subtitle={bn ? 'অ্যাপ প্রতি ১৫ সেকেন্ডে নিজেই দেখে নেয়, নতুন সমস্যা হলে নোটিফিকেশন দেয়।' : 'The app checks itself every 15 seconds and notifies you of new problems.'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
