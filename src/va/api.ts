@@ -45,6 +45,18 @@ function cachedGet<T>(path: string, ttlMs: number): Promise<T> {
   return p;
 }
 
+/** A failure the server did not explain, in plain words with what to do (no bare numbers for the owner). */
+function plainHttpError(status: number): string {
+  if (status === 403) return 'এই কাজের অনুমতি এই ফোনের নেই।';
+  if (status === 404) return 'জিনিসটা আর নেই (হয়তো আগেই মুছে গেছে বা পাঠানো হয়ে গেছে)। পাতাটা টেনে নতুন করে দেখুন।';
+  if (status === 409) return 'একই কাজ এখন অন্য কোথাও চলছে, একটু পরে আবার চেষ্টা করুন।';
+  if (status === 413) return 'লেখা বা ফাইলটা অনেক বড়, ছোট করে আবার দিন।';
+  if (status === 422 || status === 400) return 'যা লেখা হয়েছে তা বোঝা যায়নি, ঠিক করে আবার দিন।';
+  if (status === 429) return 'অনেকবার চাপা হয়েছে, এক মিনিট পর আবার চেষ্টা করুন।';
+  if (status >= 500) return 'সার্ভারে এখন সমস্যা হচ্ছে বা সার্ভার জেগে উঠছে, এক মিনিট পর আবার চেষ্টা করুন।';
+  return 'কাজটি হয়নি, একটু পরে আবার চেষ্টা করুন।';
+}
+
 async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   if (method === 'GET') return rawCall<T>(method, path, body);
   clearApiCache();
@@ -59,7 +71,7 @@ async function rawCall<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', p
   if (r.status === 401) throw new VaError(401, 'এই ফোনের অনুমতি বাতিল হয়েছে বা মেয়াদ শেষ। আবার জোড়া লাগান');
   if (r.status < 200 || r.status >= 300) {
     const detail = (r.data as { detail?: unknown } | null)?.detail;
-    throw new VaError(r.status, typeof detail === 'string' ? detail : `কাজটি হয়নি (${r.status})`);
+    throw new VaError(r.status, typeof detail === 'string' ? detail : plainHttpError(r.status));
   }
   return (r.data as Envelope<T>).data;
 }
