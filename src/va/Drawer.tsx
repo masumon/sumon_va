@@ -11,7 +11,8 @@ import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
-import { getStatus, unpair, unsentWarning } from '../../modules/va-bridge';
+import { getStatus, isInstalled, unpair, unsentWarning } from '../../modules/va-bridge';
+import { MODULES, notOnPhone } from './modules';
 import { va } from './api';
 import { MENU } from './menu';
 import { useShell } from './shell';
@@ -25,6 +26,8 @@ export function Drawer() {
   const bn = language === 'bn';
   const { drawer, close } = useShell();
   const pathname = usePathname();
+  // Like the AI keys page: an app that is not on this phone is not listed here; it can still be connected from "All apps".
+  const hidden = useMemo(() => { try { return notOnPhone(MODULES, isInstalled); } catch { return new Set<string>(); } }, []);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { showSnackbar } = useAppFeedback();
@@ -87,7 +90,7 @@ export function Drawer() {
           {MENU.map((section) => (
             <View key={section.key} style={{ marginTop: spacing.md }}>
               <Text style={styles.section}>{bn ? section.bn : section.en}</Text>
-              {section.items.map((item) => {
+              {section.items.filter((item) => !(item.href.startsWith('/m/') && hidden.has(item.href.slice(3)))).map((item) => {
                 const active = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 const tile = accents[TILE[tileIndex++ % TILE.length]!];
                 return (
