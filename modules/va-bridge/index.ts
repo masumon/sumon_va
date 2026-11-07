@@ -183,7 +183,7 @@ export const installedApps = (): { pkg: string; label: string }[] => {
 };
 
 /** One entry of the phone's alert history (what rang or buzzed, newest first). `target` is where tapping it should lead. */
-export type AlertHistoryItem = { id: string; title: string; text: string; sub: string; target: string; at: number };
+export type AlertHistoryItem = { id: string; title: string; text: string; sub: string; target: string; open?: string; at: number };
 type AlertNative = { alertHistory?: () => AlertHistoryItem[]; clearAlertHistory?: () => boolean };
 
 /** The alert history kept by the phone service. An empty list when the native side does not have it. */

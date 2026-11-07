@@ -106,7 +106,7 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
   };
 
   return (
-    <Card title={bn ? 'চ্যাট ইমপোর্ট ও এক্সপোর্ট' : 'Import and export chat'}>
+    <Card title={bn ? 'সহকারীকে এই মানুষের কথার ধরন শেখান (চ্যাট ফাইল দিয়ে)' : 'Import and export chat'}>
       <Text style={{ opacity: 0.8, lineHeight: 21, marginBottom: 8 }}>{bn ? 'আগের চ্যাট দিন (WhatsApp, তারপর চ্যাট, ⋮, Export chat)। সহকারী পড়ে বুঝে নেবে এই ব্যক্তি কে, আপনাকে কী বলে ডাকেন, কীভাবে কথা বলতে হবে। পরের বার সেভাবেই উত্তর দেবে। শুধু ছোট একটা পরিচিতি রাখা হয়, চ্যাটের লেখা রাখা হয় না।' : 'Give it an earlier chat (WhatsApp → chat → ⋮ → Export chat) and the assistant learns who this person is, what they call you and how to talk to them, then answers in that style. Only a short profile is kept, never the chat text.'}</Text>
       {speakers.length > 0 && text ? (
         <View style={{ marginBottom: 8 }}>

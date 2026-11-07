@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
+import { num } from './bd';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge, AppButton } from '../ui/AppSurface';
 import { AppIcon } from '../ui/AppIcon';
@@ -17,6 +18,8 @@ const WAIT_S = 90;
  * Connect a platform with no code: the steps in plain words, a live tick for every step, and a test that waits for a real message.
  * Success = a message from this platform actually reached the inbox. Failure names the step that is missing.
  */
+const nowMs = () => Date.now(); // outside the component: only ever called from a button press
+
 export function ConnectGuide({ mod, channels, received, pending = false, onTested }: { mod: ModuleDef; channels: ChannelsInfo | null; received: number; pending?: boolean; onTested: () => void }) {
   const { bn, colors } = useKit();
   const { showSnackbar } = useAppFeedback();
@@ -44,7 +47,7 @@ export function ConnectGuide({ mod, channels, received, pending = false, onTeste
         const newest = Math.max(0, ...r.items.map((c) => (c.last_message_at ? Date.parse(c.last_message_at) : 0)));
         if (!stop && (r.total > baseline.total || newest > baseline.time)) { setTesting(false); setResult('ok'); onTested(); showSnackbar(bn ? 'সংযোগ ঠিক আছে ✓ বার্তা এসেছে' : 'Connected ✓ — a message arrived', 'success'); return; }
       } catch { /* keep waiting: a short network blip is not a failed test */ }
-      if (!stop) setLeft((n) => { if (n <= 1) { setTesting(false); setResult('fail'); return 0; } return n - 1; });
+      if (!stop) setLeft((n) => { if (n <= 1) { setTesting(false); setResult('fail'); showSnackbar(bn ? 'সময় শেষ: কোনো বার্তা আসেনি। নিচে কারণ দেখুন।' : 'Time is up: no message arrived. See why below.', 'warning'); return 0; } return n - 1; });
     };
     const id = setInterval(() => { void tick(); }, 3000);
     return () => { stop = true; clearInterval(id); };
@@ -52,7 +55,10 @@ export function ConnectGuide({ mod, channels, received, pending = false, onTeste
 
   const start = async () => {
     setResult(null);
-    let base = { total: received, time: Date.now() };
+    // A step that is still missing makes the test pointless: say at once what to fix instead of waiting and then "failing".
+    const blocking = checks.filter((c) => !c.ok && c.key !== 'received' && c.key !== 'battery');
+    if (blocking.length) { setResult('fail'); return; }
+    let base = { total: received, time: nowMs() };
     try {
       const r = await va.contacts('all', '', 1, mod.sources);
       base = { total: r.total, time: Math.max(0, ...r.items.map((c) => (c.last_message_at ? Date.parse(c.last_message_at) : 0))) };
@@ -99,8 +105,14 @@ export function ConnectGuide({ mod, channels, received, pending = false, onTeste
       ))}
 
       <View style={{ marginTop: 10, gap: 8 }}>
-        <AppButton label={testing ? (bn ? `অপেক্ষা করছি… (${left * 3}s)` : `Waiting… (${left * 3}s)`) : (bn ? 'সংযোগ পরীক্ষা করুন' : 'Test connection')} icon="radar" loading={testing} onPress={() => void start()} />
-        {testing ? <Text style={{ opacity: 0.8, lineHeight: 21 }}>{bn ? `এখন অন্য কোনো ফোন বা অ্যাকাউন্ট থেকে ${mod.bn}-এ আপনাকে একটা বার্তা পাঠাতে বলুন।` : `Now ask someone to send you a message on ${mod.en} from another phone/account.`}</Text> : null}
+        <AppButton label={testing ? (bn ? `অপেক্ষা করছি… ${num(left * 3, bn)} সেকেন্ড বাকি` : `Waiting… ${left * 3} s left`) : (bn ? 'সংযোগ পরীক্ষা করুন' : 'Test connection')} icon="radar" disabled={testing} onPress={() => void start()} />
+        {testing ? (
+          <View style={{ padding: 12, borderRadius: 12, backgroundColor: colors.surfaceMuted, gap: 6 }}>
+            <Text style={{ fontWeight: '600' }}>{bn ? 'এখন যা করবেন:' : 'Do this now:'}</Text>
+            <Text style={{ lineHeight: 22 }}>{bn ? `অন্য কোনো ফোন বা অ্যাকাউন্ট থেকে ${mod.bn}-এ আপনাকে একটা বার্তা পাঠান (বা কাউকে পাঠাতে বলুন)। বার্তা এলেই এখানে “ঠিক আছে ✓” দেখাবে।` : `Send yourself a message on ${mod.en} from another phone or account. As soon as it arrives this shows “OK ✓”.`}</Text>
+            <AppButton variant="ghost" label={bn ? 'পরীক্ষা থামান' : 'Stop the test'} onPress={() => { setTesting(false); setLeft(0); }} />
+          </View>
+        ) : null}
         {result === 'ok' ? <Text style={{ color: colors.success, fontWeight: '700' }}>{bn ? '✓ ঠিক আছে। বার্তা ইনবক্সে পৌঁছেছে।' : '✓ Success — the message reached the inbox.'}</Text> : null}
         {result === 'fail' ? (
           <View style={{ padding: 10, borderRadius: 10, backgroundColor: colors.surfaceMuted }}>

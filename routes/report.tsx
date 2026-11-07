@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { Card, ChipGroup, useKit } from '../src/ui/AppKit';
 import { formatBangladeshNumber, formatDayKey } from '../src/i18n/date-time';
@@ -26,26 +27,28 @@ export default function ReportScreen() {
     const h = Math.floor(m / 60), r = m % 60;
     return b ? `${n(h)} ঘণ্টা${r ? ` ${n(r)} মিনিটে` : 'য়'}` : `${h} h${r ? ` ${r} min` : ''}`;
   };
+  // every number opens the list it counts
+  const inbox = (view: string) => router.push({ pathname: '/inbox', params: { view } } as never);
   const max = Math.max(1, ...(d?.per_day ?? []).map((x) => x.in + x.out));
 
   return (
-    <Page title={bn ? 'রিপোর্ট' : 'Report'} subtitle={bn ? 'সহকারী কেমন কাজ করছে' : 'How the assistant is doing'} back={bn ? 'নিয়ম' : 'Rules'} onRefresh={rep.reload} refreshing={rep.loading && !!d}>
+    <Page title={bn ? 'হিসাব' : 'Report'} subtitle={bn ? 'সহকারী কেমন কাজ করছে' : 'How the assistant is doing'} back={bn ? 'নিয়ম' : 'Rules'} onRefresh={rep.reload} refreshing={rep.loading && !!d}>
       <ChipGroup<(typeof DAYS)[number]> options={DAYS} value={days} labelOf={(v) => (bn ? `${n(Number(v))} দিন` : `${v} days`)} onChange={(v) => { if (v) setDays(v); }} />
       <Status loading={rep.loading && !d} error={d ? null : rep.error} onRetry={rep.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {d ? (
         <>
           <Hero icon="chart-box-outline" title={bn ? `${n(d.counts.in ?? 0)}টি বার্তা এসেছে` : `${d.counts.in ?? 0} messages came in`} subtitle={d.avg_reply_seconds != null ? (bn ? `গড়ে ${avgText(d.avg_reply_seconds, true)} উত্তর` : `Replied in ${avgText(d.avg_reply_seconds, false)} on average`) : undefined}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <HeroStat value={n(d.counts.sent ?? 0)} label={bn ? 'পাঠানো' : 'Sent'} />
-              <HeroStat value={n(d.counts.draft ?? 0)} label={bn ? 'খসড়া' : 'Drafts'} />
-              <HeroStat value={d.approval_rate != null ? `${n(d.approval_rate)}%` : '—'} label={bn ? 'অনুমোদনের হার' : 'Approved'} />
+              <HeroStat value={n(d.counts.sent ?? 0)} label={bn ? 'পাঠানো' : 'Sent'} onPress={() => inbox('all')} />
+              <HeroStat value={n(d.counts.draft ?? 0)} label={bn ? 'পাঠানোর অপেক্ষায়' : 'Ready to send'} onPress={() => inbox('drafts')} />
+              <HeroStat value={d.approval_rate != null ? `${n(d.approval_rate)}%` : '—'} label={bn ? 'অনুমোদনের হার' : 'Approved'} onPress={() => inbox('drafts')} />
             </View>
           </Hero>
           <TileGrid>
-            <StatTile icon="thumb-up-outline" label={bn ? 'ভালো উত্তর' : 'Good replies'} value={n(d.counts.good ?? 0)} />
-            <StatTile icon="thumb-down-outline" label={bn ? 'খারাপ উত্তর' : 'Bad replies'} value={n(d.counts.bad ?? 0)} />
-            <StatTile icon="delete-outline" label={bn ? 'বাতিল খসড়া' : 'Discarded drafts'} value={n(d.counts.discarded ?? 0)} />
-            <StatTile icon="alert-circle-outline" label={bn ? 'পাঠানো যায়নি' : 'Failed'} value={n(d.counts.failed ?? 0)} />
+            <StatTile icon="thumb-up-outline" label={bn ? 'ভালো উত্তর' : 'Good replies'} value={n(d.counts.good ?? 0)} onPress={() => router.push('/scripts' as never)} />
+            <StatTile icon="thumb-down-outline" label={bn ? 'খারাপ উত্তর' : 'Bad replies'} value={n(d.counts.bad ?? 0)} onPress={() => router.push('/scripts' as never)} />
+            <StatTile icon="delete-outline" label={bn ? 'বাতিল খসড়া' : 'Discarded drafts'} value={n(d.counts.discarded ?? 0)} onPress={() => inbox('drafts')} />
+            <StatTile icon="alert-circle-outline" label={bn ? 'পাঠানো যায়নি' : 'Failed'} value={n(d.counts.failed ?? 0)} onPress={() => inbox('failed')} />
           </TileGrid>
           <Card title={bn ? 'দিন অনুযায়ী' : 'Day by day'}>
             {d.per_day.length === 0 ? <Text style={{ opacity: 0.7 }}>{bn ? 'এখনও কোনো তথ্য নেই।' : 'No data yet.'}</Text> : d.per_day.map((x) => (

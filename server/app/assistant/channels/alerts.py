@@ -162,7 +162,7 @@ async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, 
                 await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
             except Exception:  # noqa: BLE001 — a failed alert must never break the reply flow
                 logger.warning("owner telegram alert failed", exc_info=True)
-        db.add(InboxCommand(device_id=None, kind="alert", target=f"p{d.priority}", body=text[:400]))
+        db.add(InboxCommand(device_id=None, kind="alert", target=f"p{d.priority}", body=text[:400], msg_id=contact.id))  # alerts: msg_id = the CONTACT, so a tap opens that chat
         today = now.strftime("%Y-%m-%d")
         await flow._set_val(db, "inbox_alerts", f"{today}:{await _count_today(db, today) + 1}")
         await db.commit()

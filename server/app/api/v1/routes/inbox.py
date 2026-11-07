@@ -265,7 +265,7 @@ async def device_poll(wait: int = Query(default=0, ge=0, le=25), dev: InboxDevic
             InboxCommand.status == "pending", (InboxCommand.device_id == dev.id) | (InboxCommand.device_id.is_(None)),
             InboxCommand.created_at >= _now() - ALERT_TTL,
             # a command whose message already failed/was cancelled must never reach the phone (alerts have no msg_id and stay)
-            InboxCommand.msg_id.is_(None) | InboxCommand.msg_id.in_(select(WaMessage.id).where(WaMessage.status.in_(("sending", "queued"))))).order_by(InboxCommand.created_at).limit(30))).scalars().all()
+            (InboxCommand.kind == "alert") | InboxCommand.msg_id.is_(None) | InboxCommand.msg_id.in_(select(WaMessage.id).where(WaMessage.status.in_(("sending", "queued"))))).order_by(InboxCommand.created_at).limit(30))).scalars().all()
 
     cfg = await wcfg.load_config(db)
     rows = await pending()
@@ -279,7 +279,9 @@ async def device_poll(wait: int = Query(default=0, ge=0, le=25), dev: InboxDevic
             c.status = "fetched"
     if any(c.status == "fetched" for c in rows):
         await db.commit()
-    return {"commands": [{"id": str(c.id), "kind": c.kind, "target": c.target, "body": c.body} for c in rows],
+    # an alert names the chat it is about (its msg_id holds the contact id): the phone opens that chat when the alert is tapped
+    return {"commands": [{"id": str(c.id), "kind": c.kind, "target": c.target, "body": c.body,
+                          **({"open": f"contact?id={c.msg_id}"} if c.kind == "alert" and c.msg_id else {})} for c in rows],
             "state": {"enabled": bool(cfg.get("enabled")), "auto": cfg.get("mode") == "auto", "limits": cfg.get("limits")},
             "changed": changed}
 
@@ -297,11 +299,11 @@ async def device_ack(body: AckIn, dev: InboxDevice = Depends(current_device), db
         c = await db.get(InboxCommand, cid)
         if c and c.status in ("pending", "fetched") and c.device_id in (None, dev.id):
             c.status, c.done_at = "done", now
-            if c.msg_id and (m := await db.get(WaMessage, c.msg_id)) and m.status in ("sending", "queued"):
+            if c.kind != "alert" and c.msg_id and (m := await db.get(WaMessage, c.msg_id)) and m.status in ("sending", "queued"):
                 m.status, m.sent_at, m.delivery, m.error = "sent", now, "sent", None  # the phone really handed it to the network
     for cid in body.delivered:
         c = await db.get(InboxCommand, cid)
-        if c and c.msg_id and c.device_id in (None, dev.id) and (m := await db.get(WaMessage, c.msg_id)):
+        if c and c.kind != "alert" and c.msg_id and c.device_id in (None, dev.id) and (m := await db.get(WaMessage, c.msg_id)):
             m.status, m.delivery = "sent", "delivered"  # the other phone received it
     for f in body.failed:
         try:
@@ -310,7 +312,7 @@ async def device_ack(body: AckIn, dev: InboxDevice = Depends(current_device), db
             continue
         if c and c.status in ("pending", "fetched") and c.device_id in (None, dev.id):
             c.status, c.done_at, c.error = "failed", now, str(f.get("error") or "")[:290]
-            if c.msg_id and (m := await db.get(WaMessage, c.msg_id)):
+            if c.kind != "alert" and c.msg_id and (m := await db.get(WaMessage, c.msg_id)):
                 m.status, m.error = "failed", f"ফোন পাঠাতে পারেনি: {c.error}"[:290]
     await db.commit()
     return {"ok": True}

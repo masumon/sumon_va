@@ -11,7 +11,10 @@ import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
-import { getStatus, unpair, unsentWarning } from '../../modules/va-bridge';
+import { getStatus, isInstalled, unpair, unsentWarning } from '../../modules/va-bridge';
+import { MODULES } from './modules';
+import { computeChecks, verdict } from './connect';
+import { useLoad } from './hooks';
 import { va } from './api';
 import { MENU } from './menu';
 import { useShell } from './shell';
@@ -25,6 +28,16 @@ export function Drawer() {
   const bn = language === 'bn';
   const { drawer, close } = useShell();
   const pathname = usePathname();
+  // Like the AI keys page: only the apps you really connected are listed; every other app is connected from "All apps".
+  const chans = useLoad(() => va.channels(), 'channels', 60000);
+  const hidden = useMemo(() => {
+    const out = new Set<string>();
+    for (const m of MODULES) {
+      try { if (verdict(computeChecks(m, { bridge: getStatus(), channels: chans.data ?? null, received: 0, installed: isInstalled })) === 'off') out.add(m.key); }
+      catch { out.add(m.key); }
+    }
+    return out;
+  }, [chans.data]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { showSnackbar } = useAppFeedback();
@@ -87,7 +100,7 @@ export function Drawer() {
           {MENU.map((section) => (
             <View key={section.key} style={{ marginTop: spacing.md }}>
               <Text style={styles.section}>{bn ? section.bn : section.en}</Text>
-              {section.items.map((item) => {
+              {section.items.filter((item) => !(item.href.startsWith('/m/') && hidden.has(item.href.slice(3)))).map((item) => {
                 const active = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 const tile = accents[TILE[tileIndex++ % TILE.length]!];
                 return (
