@@ -106,7 +106,7 @@ export default function ContactScreen() {
               <Text style={{ marginBottom: 6 }}>{d.body}</Text>
               {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
               <View style={{ gap: 8 }}>
-                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানো হয়েছে' : 'Sent')} />
+                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানোর জন্য দেওয়া হয়েছে (পৌঁছালে তালিকায় দেখাবে)' : 'Handed over for sending (shows in the list once delivered)')} />
                 <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} onPress={() => void act(() => va.discard(d.id))} />
               </View>
             </Card>
