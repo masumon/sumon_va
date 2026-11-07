@@ -73,7 +73,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
   const connected = !checking && verdictNow === 'ok';
 
   return (
-    <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'মডিউল' : 'Modules'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
+    <Page title={bn ? mod.bn : mod.en} subtitle={bn ? mod.hintBn : mod.hintEn} back={bn ? 'অ্যাপগুলো' : 'Apps'} onRefresh={() => { setPage(1); void list.reload(); void waiting.reload(); void urgent.reload(); }} refreshing={list.loading && items.length > 0}>
       <Hero right={<BrandLogo brand={mod.brand} size={48} />} title={bn ? mod.bn : mod.en} subtitle={checking ? (bn ? 'দেখছি…' : 'Checking…') : connected ? (bn ? '✓ সংযুক্ত, বার্তা আসছে' : '✓ Connected — messages arriving') : verdictNow === 'partial' ? (bn ? 'প্রায় হয়ে গেছে, নিচে পরীক্ষা করুন' : 'Almost there — run the test below') : (bn ? 'এখনও সংযুক্ত নয়, নিচে দেখুন' : 'Not connected yet — see below')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(waiting.data?.total ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />

@@ -71,7 +71,7 @@ export default function DashboardScreen() {
   const reloadAll = () => { void overview.reload(); void family.reload(); void urgent.reload(); void work.reload(); void biz.reload(); void tasks.reload(); void cfg.reload(); };
 
   return (
-    <Page title={bn ? 'ড্যাশবোর্ড' : 'Dashboard'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} right={<HomeClock />} onRefresh={reloadAll} refreshing={!!o && (overview.loading || family.loading || urgent.loading || work.loading || biz.loading || tasks.loading || cfg.loading)}>
+    <Page title={bn ? 'হোম' : 'Home'} subtitle={formatBangladeshWeekdayDate(new Date(), language)} right={<HomeClock />} onRefresh={reloadAll} refreshing={!!o && (overview.loading || family.loading || urgent.loading || work.loading || biz.loading || tasks.loading || cfg.loading)}>
       <Status loading={overview.loading && !o} error={o ? null : overview.error} onRetry={overview.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
 
       <Hero eyebrow={bn ? 'সুমনের ভার্চুয়াল জগতে স্বাগতম' : 'Welcome to Sumon’s virtual world'} title={welcome} subtitle={summary}>
@@ -183,7 +183,7 @@ export default function DashboardScreen() {
         </>
       ) : null}
 
-      <AppSectionHeader title={bn ? 'মডিউল' : 'Modules'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/channels')} />
+      <AppSectionHeader title={bn ? 'আমার অ্যাপগুলো' : 'My apps'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/channels')} />
       <TileGrid>
         {MODULES.slice(0, 6).map((m) => <StatTile key={m.key} icon={m.icon} label={bn ? m.bn : m.en} value="›" onPress={() => go('/m/[key]', { key: m.key })} />)}
       </TileGrid>
