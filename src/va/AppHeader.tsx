@@ -6,7 +6,9 @@ import { AppIcon } from '../ui/AppIcon';
 import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
-import { getStatus } from '../../modules/va-bridge';
+import { getStatus, startService } from '../../modules/va-bridge';
+import { useAppFeedback } from '../ui/AppFeedback';
+import { formatBangladeshDateTime } from '../i18n/date-time';
 import { clearApiCache, va } from './api';
 import { sameValue, useAppActive, useLoad } from './hooks';
 import { useShell } from './shell';
@@ -23,12 +25,29 @@ export function AppHeader() {
   const [spin, setSpin] = useState(false);
   const spinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current); }, []);
-  const doRefresh = () => {
+  const { showSnackbar } = useAppFeedback();
+  const [lastSync, setLastSync] = useState<number | null>(null);
+  // A real sync: it keeps turning until the server has really answered, then says so with the date and time (or why not).
+  const doRefresh = async () => {
+    if (spin) return;
     clearApiCache();
-    refresh();
     setSpin(true);
     if (spinTimer.current) clearTimeout(spinTimer.current);
-    spinTimer.current = setTimeout(() => setSpin(false), 1500);
+    spinTimer.current = setTimeout(() => setSpin(false), 30000); // never spins forever
+    try { startService(); } catch { /* the background sync starts itself anyway */ }
+    let ok = true;
+    let why = '';
+    try { await va.overview(); } catch (e) { ok = false; why = e instanceof Error ? e.message : ''; }
+    refresh();
+    if (spinTimer.current) clearTimeout(spinTimer.current);
+    setSpin(false);
+    if (ok) {
+      const now = Date.now();
+      setLastSync(now);
+      showSnackbar(bn ? `সিঙ্ক হয়েছে ✓ · ${formatBangladeshDateTime(new Date(now), language)}` : `Synced ✓ · ${formatBangladeshDateTime(new Date(now), language)}`, 'success');
+    } else {
+      showSnackbar(bn ? `সিঙ্ক হয়নি: ${why || 'সার্ভারে পৌঁছানো যায়নি'}` : `Sync failed: ${why || 'server not reached'}`, 'danger');
+    }
   };
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const overview = useLoad(() => va.overview(), 'header-overview', 30000, { always: true });
@@ -85,8 +104,8 @@ export function AppHeader() {
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} onPress={() => router.push('/f0' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name="brain" size={22} color={colors.textPrimary} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? (syncOk ? 'সিঙ্ক চালু আছে, চাপলে এখনই নতুন করে আনবে' : 'সিঙ্ক চলছে না, চাপলে কারণ দেখাবে') : (syncOk ? 'Sync is on; tap to refresh now' : 'Sync is not running; tap for the reason')}
-        onPress={() => { if (syncOk) doRefresh(); else router.push('/health' as never); }} style={styles.syncBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel={(bn ? 'এখনই সিঙ্ক করুন' : 'Sync now') + (lastSync ? (bn ? `, শেষ সিঙ্ক ${formatBangladeshDateTime(new Date(lastSync), language)}` : `, last sync ${formatBangladeshDateTime(new Date(lastSync), language)}`) : '')}
+        onPress={() => { if (syncOk || bridge.serviceAlive) void doRefresh(); else router.push('/health' as never); }} style={styles.syncBtn}>
         <Animated.View pointerEvents="none" style={[styles.syncRing, { backgroundColor: light }, ringStyle]} />
         <Animated.View style={[styles.syncCore, { borderColor: light, backgroundColor: colors.surface }, dotStyle]}>
           <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={26} color={light} /></Animated.View>
