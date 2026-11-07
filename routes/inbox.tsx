@@ -25,13 +25,22 @@ const VIEWS: { key: InboxView; bn: string; en: string }[] = [
   { key: 'blocked', bn: 'ব্লক', en: 'Blocked' },
   { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
   { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
-  { key: 'drafts', bn: 'খসড়া', en: 'Drafts' },
+  { key: 'drafts', bn: 'পাঠানোর অপেক্ষায়', en: 'Ready to send' },
   { key: 'failed', bn: 'পাঠানো যায়নি', en: 'Failed' },
   { key: 'owner', bn: 'আমি নিয়েছি', en: 'Mine' },
-  { key: 'done', bn: 'শেষ', en: 'Done' },
+  { key: 'done', bn: 'শেষ হয়েছে', en: 'Done' },
 ];
 
-const STATE_KEYS: InboxView[] = ['waiting', 'drafts', 'failed', 'done', 'all'];
+const STATE_KEYS: InboxView[] = ['waiting', 'urgent', 'drafts', 'failed', 'all'];
+/** One plain line under the chips: what this list is and what to do here. */
+const VIEW_HINT: Partial<Record<InboxView, { bn: string; en: string }>> = {
+  waiting: { bn: 'যাদের এখনো উত্তর দেওয়া হয়নি। নাম চাপুন, নিচে লিখে পাঠান।', en: 'People not answered yet. Tap a name and write below.' },
+  urgent: { bn: 'জরুরি বার্তা, আগে এগুলো দেখুন।', en: 'Urgent messages: look at these first.' },
+  drafts: { bn: 'সহকারী উত্তর লিখে রেখেছে। নাম চাপুন, “এটাই পাঠান” চাপুন বা বদলে নিন।', en: 'The assistant wrote a reply. Tap a name, then send or change it.' },
+  failed: { bn: 'এই উত্তরগুলো যায়নি। নাম চাপুন, কারণ দেখে আবার পাঠান।', en: 'These did not go out. Tap a name to see why and send again.' },
+  all: { bn: 'সবাই, নতুন বার্তা আগে।', en: 'Everyone, newest first.' },
+  done: { bn: 'যেগুলোর কাজ শেষ বলে চিহ্ন দিয়েছেন।', en: 'Marked as finished.' },
+};
 
 export default function InboxScreen() {
   const { bn, colors } = useKit();
@@ -64,9 +73,10 @@ export default function InboxScreen() {
   return (
     <Page title={bn ? 'ইনবক্স' : 'Inbox'} subtitle={bn ? 'সব মাধ্যমের সবাই, জরুরি আগে' : 'Everyone, every channel, by importance'}
       onRefresh={() => { setPage(1); void list.reload(); }} refreshing={list.loading && items.length > 0}>
+      <Field label={bn ? 'কাউকে খুঁজুন' : 'Find someone'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা কী নিয়ে কথা' : 'Name, number or topic'} />
       <ChipGroup<InboxView> value={view} options={STATE_KEYS} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <AppButton variant="secondary" icon="filter-variant" label={bn ? 'আরও ফিল্টার' : 'More filters'} onPress={() => setShowMore(true)} />
+        <AppButton variant="secondary" icon="filter-variant" label={bn ? 'আরও ভাগ (পরিবার, VIP, স্প্যাম…)' : 'More (family, VIP, spam…)'} onPress={() => setShowMore(true)} />
         {extraActive ? (
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? `${labelOf(view)} ফিল্টার সরান` : `Remove the ${labelOf(view)} filter`} onPress={() => { setView('waiting'); setPage(1); }}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primary }}>
@@ -75,7 +85,8 @@ export default function InboxScreen() {
           </Pressable>
         ) : null}
       </View>
-      <FilterSheet<InboxView> visible={showMore} onClose={() => setShowMore(false)} title={bn ? 'আরও ফিল্টার' : 'More filters'} options={EXTRA} value={extraActive ? view : null} labelOf={labelOf} onSelect={(k) => { setView(k); setPage(1); }} />
+      {VIEW_HINT[view] ? <Text style={{ color: colors.textSecondary }}>{bn ? VIEW_HINT[view]!.bn : VIEW_HINT[view]!.en}</Text> : null}
+      <FilterSheet<InboxView> visible={showMore} onClose={() => setShowMore(false)} title={bn ? 'আরও ভাগ' : 'More'} options={EXTRA} value={extraActive ? view : null} labelOf={labelOf} onSelect={(k) => { setView(k); setPage(1); }} />
       {view === 'spam' ? (
         <View style={{ gap: 8 }}>
           <Text style={{ color: colors.textSecondary }}>{bn ? 'অপারেটর ও দোকানের অফার এখানে ৩ দিন থাকে, তারপর নিজে মুছে যায়। ভুল করে কেউ এলে তার পাতায় “ইনি কেমন মানুষ?” বদলে দিন।' : 'Operator and shop offers stay here 3 days, then delete themselves. If someone real landed here, change “What kind of person” on their page.'}</Text>
@@ -85,7 +96,6 @@ export default function InboxScreen() {
             onConfirm={() => { setAskClear(false); void va.clearSpam().then((r) => { showSnackbar(bn ? `${r.messages}টি বার্তা মুছে ফেলা হলো` : `${r.messages} messages deleted`, 'success'); void list.reload(); }).catch((e: unknown) => showSnackbar(e instanceof Error ? e.message : '', 'danger')); }} />
         </View>
       ) : null}
-      <Field label={bn ? 'খুঁজুন' : 'Search'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা বিষয়' : 'Name, number or topic'} />
       <View style={{ gap: 12, paddingBottom: layout.compactNavHeight + insets.bottom + 24 }}>
       <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
         empty={!list.loading && !list.error && items.length === 0} emptyTitle={bn ? 'এখানে কেউ নেই' : 'Nobody here'} emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'} />
