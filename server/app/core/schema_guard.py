@@ -47,59 +47,6 @@ ORDER_REFUND_COLUMNS: dict[str, str] = {
 }
 
 
-async def ensure_order_refund_columns(engine) -> list[str]:
-    """Add any missing refund columns on orders (manual_sql/0048). Never blocks start-up."""
-    if getattr(engine.dialect, "name", "") != "postgresql":
-        return []
-    try:
-        async with engine.begin() as conn:
-            rows = await conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'orders' AND table_schema = current_schema()"))
-            existing = {r[0] for r in rows}
-            if not existing:
-                return []
-            statements = [f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {n} {d}"
-                          for n, d in ORDER_REFUND_COLUMNS.items() if n not in existing]
-            for stmt in statements:
-                await conn.execute(text(stmt))
-        if statements:
-            logger.warning("orders was missing %d refund column(s); added them. Run manual_sql/0048.", len(statements))
-        return statements
-    except Exception:  # never stop the API from starting
-        logger.exception("Schema guard could not check/patch orders refund columns")
-        return []
-
-
-PROMO_SLIDE_COLUMNS: dict[str, str] = {
-    "mobile_image_url": "TEXT",
-}
-
-
-async def ensure_promo_slide_columns(engine) -> list[str]:
-    """Add any missing promo_slides columns (manual_sql/0052). Never blocks start-up."""
-    if getattr(engine.dialect, "name", "") != "postgresql":
-        return []
-    try:
-        async with engine.begin() as conn:
-            rows = await conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'promo_slides' AND table_schema = current_schema()"))
-            existing = {r[0] for r in rows}
-            if not existing:
-                return []
-            statements = [f"ALTER TABLE promo_slides ADD COLUMN IF NOT EXISTS {n} {d}"
-                          for n, d in PROMO_SLIDE_COLUMNS.items() if n not in existing]
-            for stmt in statements:
-                await conn.execute(text(stmt))
-        if statements:
-            logger.warning("promo_slides was missing %d column(s); added them. Run manual_sql/0052.", len(statements))
-        return statements
-    except Exception:  # never stop the API from starting
-        logger.exception("Schema guard could not check/patch promo_slides columns")
-        return []
-
-
 async def ensure_admin_security_columns(engine) -> list[str]:
     """Add any missing admin-security columns. Returns the statements that were run."""
     if getattr(engine.dialect, "name", "") != "postgresql":
@@ -128,33 +75,6 @@ async def ensure_admin_security_columns(engine) -> list[str]:
     except Exception:  # never stop the API from starting
         logger.exception("Schema guard could not check/patch admin_users columns")
         return []
-
-
-PUSH_TABLES_SQL = [
-    """CREATE TABLE IF NOT EXISTS push_subscriptions (
-        id UUID PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE, p256dh VARCHAR(255) NOT NULL, auth VARCHAR(255) NOT NULL,
-        lang VARCHAR(5) NOT NULL DEFAULT 'bn', user_agent VARCHAR(255), is_active BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(), last_sent_at TIMESTAMPTZ)""",
-    "CREATE INDEX IF NOT EXISTS ix_push_subscriptions_is_active ON push_subscriptions (is_active)",
-    """CREATE TABLE IF NOT EXISTS push_campaigns (
-        id UUID PRIMARY KEY, title_bn VARCHAR(120) NOT NULL, title_en VARCHAR(120), body_bn VARCHAR(300) NOT NULL,
-        body_en VARCHAR(300), image_url TEXT, link_url VARCHAR(500) NOT NULL DEFAULT '/', audience VARCHAR(10) NOT NULL DEFAULT 'all',
-        scheduled_at TIMESTAMPTZ, status VARCHAR(12) NOT NULL DEFAULT 'draft', sent_count INTEGER NOT NULL DEFAULT 0,
-        failed_count INTEGER NOT NULL DEFAULT 0, sent_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now())""",
-    "CREATE INDEX IF NOT EXISTS ix_push_campaigns_status ON push_campaigns (status)",
-]  # identical to manual_sql/0053
-
-
-async def ensure_push_tables(engine) -> None:
-    """Create the offer-notification tables when the SQL was not run yet (additive; never blocks start-up)."""
-    if getattr(engine.dialect, "name", "") != "postgresql":
-        return
-    try:
-        async with engine.begin() as conn:
-            for stmt in PUSH_TABLES_SQL:
-                await conn.execute(text(stmt))
-    except Exception:  # never stop the API from starting
-        logger.exception("Schema guard could not create push tables")
 
 
 WA_TABLES_SQL = [
@@ -210,32 +130,3 @@ def object_name(stmt: str) -> str:
     return m.group(1) if m else ""
 
 
-async def ensure_customer_avatar_column(engine) -> None:
-    """customers.avatar_url (manual_sql/0051) — without it a customer's photo can neither be saved nor shown."""
-    if getattr(engine.dialect, "name", "") != "postgresql":
-        return
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT"))
-    except Exception:  # never stop the API from starting
-        logger.exception("Schema guard could not add customers.avatar_url")
-
-
-MULTI_APP_SQL = [
-    "ALTER TABLE app_releases ADD COLUMN IF NOT EXISTS app_key VARCHAR(30) NOT NULL DEFAULT 'apon'",
-    "CREATE INDEX IF NOT EXISTS ix_app_releases_app_key ON app_releases (app_key)",
-    "ALTER TABLE app_releases DROP CONSTRAINT IF EXISTS app_releases_version_code_key",
-    "CREATE UNIQUE INDEX IF NOT EXISTS ux_app_releases_app_version ON app_releases (app_key, version_code) WHERE is_deleted = false",
-]  # identical to manual_sql/0054
-
-
-async def ensure_multi_app_columns(engine) -> None:
-    """app_releases.app_key and per-app version numbers (manual_sql/0054). Additive; never blocks start-up."""
-    if getattr(engine.dialect, "name", "") != "postgresql":
-        return
-    try:
-        async with engine.begin() as conn:
-            for stmt in MULTI_APP_SQL:
-                await conn.execute(text(stmt))
-    except Exception:  # never stop the API from starting
-        logger.exception("Schema guard could not apply the multi-app change")

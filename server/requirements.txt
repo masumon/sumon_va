@@ -9,25 +9,15 @@ cryptography==50.0.2
 bcrypt==4.2.1
 python-multipart==0.0.32
 httpx==0.27.0
-alembic==1.13.2
-cloudinary==1.40.0
 python-dotenv==1.2.4
 email-validator==2.2.0
-structlog==24.4.0
-reportlab==4.0.9
-fpdf2==2.8.7
-uharfbuzz==0.55.0
-jinja2==3.1.6
 sentry-sdk[fastapi]==2.19.2
 pyotp==2.9.0
 qrcode[pil]==7.4.2
 resend==2.34.0
-deep-translator==1.11.4
-openpyxl==3.1.5
 
 # Test tooling (used by backend/tests/*.py; not previously pinned here)
 pytest==9.1.1
 pytest-asyncio==1.4.0
 aiosqlite==0.20.0
 webauthn==2.2.0
-pywebpush==2.5.0
