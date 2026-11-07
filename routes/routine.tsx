@@ -56,6 +56,7 @@ export default function RoutineScreen() {
   const [blk, setBlk] = useState<{ days: number[]; from: string; to: string; status: string } | null>(null);
   const [pl, setPl] = useState<{ label: string; say: string; lat: number | null; lng: number | null; radius: string }>({ label: '', say: '', lat: null, lng: null, radius: '300' });
   const [locBusy, setLocBusy] = useState(false);
+  const [addr, setAddr] = useState(''); // the place's real name from the phone (area, city), shown instead of bare numbers
   const [drop, setDrop] = useState<{ name: string; run: () => void } | null>(null);
   const ownerName = c?.owner_name;
   const say = (x: { label: string; say: string }) => (x.say.trim() ? fillOwner(x.say, ownerName, { assistant: c?.assistant_name, replyBy: c?.reply_by, bn }) : (bn ? `সহকারী বলবে: ${fillOwner('{owner}', ownerName, { bn })} এখন “${x.label}” অবস্থায় আছেন।` : `The assistant will say ${fillOwner('{owner}', ownerName, { bn })} is “${x.label}” right now.`));
@@ -90,7 +91,13 @@ export default function RoutineScreen() {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== 'granted') { showSnackbar(bn ? 'লোকেশনের অনুমতি দেওয়া হয়নি' : 'Location permission was not given', 'info'); return; }
       const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setPl((x) => ({ ...x, lat: Math.round(p.coords.latitude * 1e4) / 1e4, lng: Math.round(p.coords.longitude * 1e4) / 1e4 }));
+      let name = '';
+      try {
+        const g = (await Location.reverseGeocodeAsync({ latitude: p.coords.latitude, longitude: p.coords.longitude }))[0];
+        if (g) name = [g.name && g.name !== g.street ? g.name : '', g.street, g.district || g.subregion, g.city].filter((v, i, a) => v && a.indexOf(v) === i).join(', ');
+      } catch { /* no name service right now: the numbers still work */ }
+      setAddr(name);
+      setPl((x) => ({ ...x, label: x.label.trim() ? x.label : (name.split(', ')[0] ?? ''), lat: Math.round(p.coords.latitude * 1e4) / 1e4, lng: Math.round(p.coords.longitude * 1e4) / 1e4 }));
     } catch (e) { showSnackbar(bn ? 'এখনকার জায়গা পাওয়া যায়নি, আবার চেষ্টা করুন' : 'Could not get the location, try again', errTone(e)); }
     finally { setLocBusy(false); }
   };
@@ -169,7 +176,7 @@ export default function RoutineScreen() {
             <Field label={bn ? 'সহকারী যা বলবে' : 'What it says'} value={pl.say} onChangeText={(v) => setPl({ ...pl, say: v })} placeholder={bn ? '{owner} এখন দোকানে আছেন।' : '{owner} is at the shop.'} multiline />
             <ChipGroup<(typeof RADII)[number]> label={bn ? 'কতটা কাছে থাকলে' : 'How close'} options={RADII} value={pl.radius as (typeof RADII)[number]} labelOf={(r) => (r === '1000' ? '1 km' : `${r} m`)} onChange={(r) => { if (r) setPl({ ...pl, radius: r }); }} />
             <AppButton variant="secondary" icon="crosshairs-gps" loading={locBusy} label={bn ? 'এখনকার জায়গা সংরক্ষণ করুন' : 'Save my current place'} onPress={() => void captureHere()} />
-            {pl.lat != null && pl.lng != null ? <Text style={{ fontSize: 12, color: colors.success }}>{bn ? `জায়গা নেওয়া হয়েছে (${pl.lat}, ${pl.lng})` : `Location captured (${pl.lat}, ${pl.lng})`}</Text> : null}
+            {pl.lat != null && pl.lng != null ? <Text style={{ fontSize: 13, color: colors.success }}>{addr ? (bn ? `আপনি এখন: ${addr}` : `You are at: ${addr}`) : (bn ? 'জায়গা নেওয়া হয়েছে (নাম পাওয়া যায়নি, নিচে নিজে নাম দিন)' : 'Place captured (no name found, type one below)')}</Text> : null}
             <AppButton icon="check" label={bn ? 'জায়গা যোগ করুন' : 'Add place'} disabled={!pl.label.trim() || !pl.say.trim() || pl.lat == null} onPress={() => void savePlace()} />
           </Card>
         </>
