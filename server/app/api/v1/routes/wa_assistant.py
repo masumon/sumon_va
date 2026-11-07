@@ -282,24 +282,10 @@ async def reset_config(section: str = Query(max_length=40), db: AsyncSession = D
     return ApiResponse(data={"config": cfg}, message="আগের ডিফল্টে ফেরানো হয়েছে")
 
 
-@router.get("/admin/wa/setup", response_model=ApiResponse)
-async def setup(db: AsyncSession = Depends(get_db), _a: str = Depends(require_role(OWNER))):
-    verify_token = await wcfg.ensure_verify_token(db)
-    creds = await wcfg.get_secrets(db)
-    cfg = await wcfg.load_config(db)
-    seen = (await flow._get_val(db, "cron_seen_wa")) or None
-    return ApiResponse(data={
-        "webhook_url": f"{_api_base()}/api/v1/wa/webhook", "verify_token": verify_token,
-        "cron_url": f"{_api_base()}/api/v1/wa/cron?token={cron_token()}", "cron_seen_at": seen,
-        "secrets": wcfg.masked(creds), "readiness": cfg["readiness"], "readiness_labels": wcfg.READINESS_LABELS,
-        "steps": {"meta": wa_send.ready(creds), "secret": bool(creds.get("app_secret")), "cron": bool(seen), "enabled": bool(cfg.get("enabled"))},
-    })
+# WhatsApp Cloud API removed (owner decision 2026-11-07): setup route deleted
 
 
-@router.get("/admin/wa/health", response_model=ApiResponse)
-async def health(remote: bool = Query(False), db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
-    """The setup panel's real checks. `remote=true` also makes a few read-only calls to Meta."""
-    return ApiResponse(data=await wa_health.build(db, remote))
+# WhatsApp Cloud API removed (owner decision 2026-11-07): health route deleted
 
 
 class AskIn(BaseModel):
@@ -335,10 +321,7 @@ async def suggest(cid: uuid.UUID, body: SuggestIn, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=exc.status, detail=exc.message_bn)
 
 
-@router.get("/admin/wa/events", response_model=ApiResponse)
-async def events(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
-    """The last things Meta sent to the webhook (kind only, no message text) — to see what really arrives."""
-    return ApiResponse(data=await wa_health.recent_events(db))
+# WhatsApp Cloud API removed (owner decision 2026-11-07): events route deleted
 
 
 async def _bind_webhook(db: AsyncSession, creds: dict[str, str]) -> tuple[bool, str]:
@@ -352,18 +335,7 @@ async def _bind_webhook(db: AsyncSession, creds: dict[str, str]) -> tuple[bool, 
     return False, f"{wa_send.explain(e)} (Meta বলেছে: {e.get('message') or e.get('status')})"
 
 
-@router.post("/admin/wa/webhook/connect", response_model=ApiResponse)
-async def connect_webhook(db: AsyncSession = Depends(get_db), admin_id: str = Depends(require_role(OWNER))):
-    """Same as the automatic step after saving credentials — as a manual button, for when real messages do not arrive."""
-    creds = await wcfg.get_secrets(db)
-    if not (wa_send.ready(creds) and creds.get("waba_id")):
-        raise HTTPException(status_code=400, detail="আগে Phone Number ID, Access Token ও WhatsApp Business Account ID বসান")
-    ok, why = await _bind_webhook(db, creds)
-    _audit(db, admin_id, "wa_connect_webhook", values={"ok": ok})
-    await db.commit()
-    if not ok:
-        raise HTTPException(status_code=502, detail=why)
-    return ApiResponse(data={"ok": True}, message="Meta-কে বলা হয়েছে: এই অ্যাকাউন্টের সব ঘটনা সরাসরি আমাদের ঠিকানায় পাঠাও। এক মিনিট পর কার্ডে “এখনই পরীক্ষা করুন” চাপুন।")
+# WhatsApp Cloud API removed (owner decision 2026-11-07): connect_webhook route deleted
 
 
 # WhatsApp Cloud API removed (owner decision 2026-11-06): not mounted any more

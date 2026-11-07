@@ -199,10 +199,12 @@ def test_ai_helper_routes_are_owner_only_and_registered():
     from app.api.v1.routes import wa_assistant as r
 
     paths = {getattr(x, "path", ""): x for x in r.router.routes}
-    for p in ("/admin/wa/ask", "/admin/wa/contacts/{cid}/suggest", "/admin/wa/health"):
+    for p in ("/admin/wa/ask", "/admin/wa/contacts/{cid}/suggest"):
         assert p in paths, p
         deps = [d.call for d in paths[p].dependant.dependencies]
         assert any(getattr(d, "_abo_required_permission", None) == r.OWNER for d in deps), p
+    for gone in ("/admin/wa/health", "/admin/wa/setup", "/admin/wa/events", "/admin/wa/webhook/connect"):  # WhatsApp Cloud API removed
+        assert gone not in paths, gone
 
 
 def test_english_writer_gets_an_all_english_reply():
@@ -216,47 +218,7 @@ def test_english_writer_gets_an_all_english_reply():
     assert "কাজটি কী ধরনের" in bn.reply and "Sumon" not in bn.reply
 
 
-def test_connect_webhook_sends_our_address_and_token_to_this_account_only(monkeypatch):
-    from fastapi import HTTPException
-
-    from app.api.v1.routes import wa_assistant as r
-
-    calls = []
-
-    async def secrets(db):
-        return {"token": "T", "phone_number_id": "1", "waba_id": "222"}
-
-    async def vt(db):
-        return "vtoken"
-
-    async def post(creds, path, data):
-        calls.append((path, data))
-        return True, {"success": True}
-
-    class DB:
-        def add(self, x):
-            pass
-
-        async def commit(self):
-            pass
-
-    monkeypatch.setattr(wc, "get_secrets", secrets)
-    monkeypatch.setattr(wc, "ensure_verify_token", vt)
-    monkeypatch.setattr(wa_send, "graph_post", post)
-    monkeypatch.setattr(r, "_audit", lambda *a, **k: None)
-    out = asyncio.run(r.connect_webhook(DB(), "00000000-0000-0000-0000-000000000000"))
-    assert out.data["ok"] and calls == [("222/subscribed_apps", {"override_callback_uri": "https://va-api.aboenterprise.com/api/v1/wa/webhook", "verify_token": "vtoken"})]
-
-    async def no_waba(db):
-        return {"token": "T", "phone_number_id": "1"}
-
-    monkeypatch.setattr(wc, "get_secrets", no_waba)
-    try:
-        asyncio.run(r.connect_webhook(DB(), "00000000-0000-0000-0000-000000000000"))
-        raise AssertionError("should refuse without a WhatsApp Business Account ID")
-    except HTTPException as exc:
-        assert exc.status_code == 400
-
+# (test of the deleted WhatsApp Cloud API "connect webhook" route removed 2026-11-07)
 
 def test_send_errors_are_explained_in_plain_bangla():
     r = wa_send.send_reason({"status": 403, "code": 131005, "message": "Access denied"})

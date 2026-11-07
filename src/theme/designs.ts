@@ -156,7 +156,7 @@ export function sectionKeyFor(pathname: string): string | null {
   const first = p.split('/')[1] ?? '';
   const map: Record<string, string> = {
     inbox: 'inbox', contact: 'inbox', tasks: 'tasks', channels: 'channels', more: 'more', settings: 'settings', setup: 'setup', about: 'more', tour: 'home',
-    rules: 'assistant', routine: 'assistant', scripts: 'assistant', simulate: 'assistant', report: 'report', health: 'health', 'wa-health': 'health', ai: 'ai',
+    rules: 'assistant', routine: 'assistant', scripts: 'assistant', simulate: 'assistant', report: 'report', health: 'health', ai: 'ai',
   };
   return map[first] ?? null;
 }

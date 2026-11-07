@@ -33,7 +33,6 @@ export const MENU: MenuSection[] = [
   {
     key: 'connect', bn: 'সংযোগ', en: 'Connections',
     items: [
-      { href: '/wa-health', icon: 'whatsapp', bn: 'WhatsApp সংযোগ', en: 'WhatsApp connection', hintBn: 'ব্যবসার WhatsApp ঠিক চলছে কিনা', hintEn: 'Is business WhatsApp healthy' },
       { href: '/ai', icon: 'brain', bn: 'AI সংযোগ', en: 'AI connections', hintBn: 'কী, মডেল, আগে ফ্রি তারপর পেইড', hintEn: 'Keys, models, free before paid' },
       { href: '/health', icon: 'heart-pulse', bn: 'সমস্যা ও স্বাস্থ্য', en: 'Problems & health', hintBn: 'কী ঠিক নেই, কেন, কীভাবে ঠিক করবেন', hintEn: 'What is wrong, why, how to fix' },
       { href: '/setup', icon: 'shield-check-outline', bn: 'অনুমতি', en: 'Permissions', hintBn: 'সব অনুমতি ও তার অবস্থা', hintEn: 'Every permission and its state' },
