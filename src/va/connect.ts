@@ -49,9 +49,9 @@ export function computeChecks(m: ModuleDef, { bridge, channels, received, instal
 
   if (m.auto === 'telegram') {
     const tg = channels?.telegram;
-    out.push({ key: 'token', ok: !!tg?.configured, bn: 'বটের টোকেন বসানো', en: 'Bot token set', hintBn: tg?.configured ? `@${tg.bot ?? ''}` : 'বটের গোপন চাবিটা সার্ভারের সেটিংয়ে বসাতে হবে (Render, নাম: TELEGRAM_BOT_TOKEN)', hintEn: tg?.configured ? `@${tg.bot ?? ''}` : 'Set TELEGRAM_BOT_TOKEN in Render' });
-    out.push({ key: 'webhook', ok: !!tg?.url, bn: 'ওয়েবহুক যুক্ত', en: 'Webhook connected', hintBn: tg?.url ? 'Telegram আমাদের সার্ভারে বার্তা পাঠাচ্ছে' : 'অ্যাডমিনের “মাধ্যম ও ফোন” অংশে গিয়ে “সংযোগ করুন” চাপুন', hintEn: tg?.url ? 'Telegram sends messages to our server' : 'Admin → Channels & phone → “Connect”' });
-    out.push({ key: 'owner', ok: !!tg?.owner_set, bn: 'আপনার Telegram আইডি বসানো', en: 'Your Telegram id set', hintBn: tg?.owner_set ? 'নির্দেশ শুধু আপনার আইডি থেকে মানা হবে' : 'বটকে /id লিখুন; যে সংখ্যাটা আসবে সেটা সার্ভারের সেটিংয়ে বসান (Render, নাম: TELEGRAM_OWNER_ID)', hintEn: tg?.owner_set ? 'Commands work only from your id' : 'Write /id to the bot and set TELEGRAM_OWNER_ID' });
+    out.push({ key: 'token', ok: !!tg?.configured, bn: 'বটের গোপন চাবি বসানো', en: 'Bot token set', hintBn: tg?.configured ? `@${tg.bot ?? ''}` : 'বটের গোপন চাবিটা সার্ভারে বসাতে হবে (সেটআপের নির্দেশ ডকে আছে)', hintEn: tg?.configured ? `@${tg.bot ?? ''}` : 'Set TELEGRAM_BOT_TOKEN in Render' });
+    out.push({ key: 'webhook', ok: !!tg?.url, bn: 'Telegram থেকে বার্তা আসার পথ চালু', en: 'Webhook connected', hintBn: tg?.url ? 'Telegram আমাদের সার্ভারে বার্তা পাঠাচ্ছে' : 'অ্যাডমিনের “মাধ্যম ও ফোন” অংশে গিয়ে “সংযোগ করুন” চাপুন', hintEn: tg?.url ? 'Telegram sends messages to our server' : 'Admin → Channels & phone → “Connect”' });
+    out.push({ key: 'owner', ok: !!tg?.owner_set, bn: 'আপনার Telegram আইডি বসানো', en: 'Your Telegram id set', hintBn: tg?.owner_set ? 'নির্দেশ শুধু আপনার আইডি থেকে মানা হবে' : 'বটকে /id লিখুন; যে সংখ্যাটা আসবে সেটা সার্ভারে বসাতে হবে (সেটআপের নির্দেশ ডকে আছে)', hintEn: tg?.owner_set ? 'Commands work only from your id' : 'Write /id to the bot and set TELEGRAM_OWNER_ID' });
     out.push({ key: 'on', ok: !!channels?.settings.telegram.enabled, bn: 'Telegram চালু (সুইচ)', en: 'Telegram switched on', hintBn: channels?.settings.telegram.enabled ? 'চালু আছে' : 'নিচের সুইচটা অন করুন', hintEn: channels?.settings.telegram.enabled ? 'On' : 'Turn the switch below on' });
     out.push(got);
     return out;

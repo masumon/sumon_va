@@ -31,7 +31,7 @@ export type CustomApp = { key: string; name: string; packages: string[] };
 
 export const MODULES: ModuleDef[] = [
   {
-    key: 'whatsapp', brand: 'whatsapp', icon: 'whatsapp', tone: 'green', bn: 'WhatsApp', en: 'WhatsApp', hintBn: 'ব্যবসার WhatsApp (API) ও ফোনের WhatsApp', hintEn: 'Business WhatsApp (API) and the phone’s WhatsApp',
+    key: 'whatsapp', brand: 'whatsapp', icon: 'whatsapp', tone: 'green', bn: 'WhatsApp', en: 'WhatsApp', hintBn: 'ব্যবসার WhatsApp ও ফোনের WhatsApp', hintEn: 'Business WhatsApp (API) and the phone’s WhatsApp',
     sources: ['whatsapp', 'notif:com.whatsapp', 'notif:com.whatsapp.w4b'], auto: 'none',
     apps: [{ pkg: 'com.whatsapp', bn: 'WhatsApp', en: 'WhatsApp' }, { pkg: 'com.whatsapp.w4b', bn: 'WhatsApp Business', en: 'WhatsApp Business' }],
   },
