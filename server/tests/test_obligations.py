@@ -189,3 +189,12 @@ async def test_app_digest_names_family_without_words_and_skips_when_nothing_wait
         assert await alerts.send_app_digest(s) is True
         body = (await s.execute(select(InboxCommand).where(InboxCommand.kind == "alert"))).scalars().one().body
         assert "২ জন" in body and "আম্মা" in body and "শরীর" not in body and "করিম: দাম জানতে চান" in body and "ওয়েব" not in body
+
+
+# -- same-day deadlines (domain 14) -----------------------------------------------------
+
+def test_a_work_ask_due_today_is_raised_to_priority_two_but_chat_is_not():
+    assert brain.rule_priority("ডিজাইনটা আজকের মধ্যে লাগবে", cfg(), who(), "work", False) == (2, "deadline")
+    assert brain.rule_priority("send the file asap", cfg(), who(), "work", False) == (2, "deadline")
+    assert brain.rule_priority("আজকের মধ্যে দেখা হবে না মনে হয়", cfg(), who(), "other", False)[0] == 5  # not a work/money ask
+    assert brain.rule_priority("জরুরি, আজকের মধ্যে লাগবে", cfg(), who(), "work", False) == (1, "urgent")  # urgent still wins

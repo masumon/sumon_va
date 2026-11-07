@@ -190,6 +190,8 @@ def rule_priority(text: str, cfg: dict[str, Any], contact: Any, kind: str, repea
         return 1, "urgent"
     if has_any(text, rules.get("p2") or []) or kind == "money" or getattr(contact, "is_family", False):
         return 2, "money_or_family"
+    if kind in ("work", "money", "update") and has_any(text, cfg.get("deadline_words") or []):
+        return 2, "deadline"
     if repeated or has_any(text, rules.get("p4") or []):
         return 4, "upset"
     if kind == "work" or getattr(contact, "is_vip", False):

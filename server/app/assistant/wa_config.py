@@ -131,6 +131,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
                        "ভিসা", "দূতাবাস", "এনআইডি", "জাতীয় পরিচয়পত্র", "ট্রেড লাইসেন্স", "জরিমানা", "শেষ তারিখ", "সরকারি চিঠি",
                        "legal notice", "summons", "hearing", "income tax", "tax return", "passport", "visa", "embassy",
                        "penalty", "last date"],
+    # Same-day deadlines (Brain domain 14): a work/money ask that must be done today is raised to priority 2 (alert), never to 1.
+    "deadline_words": ["আজকের মধ্যে", "আজই লাগবে", "আজই দিতে হবে", "এখনই লাগবে", "এখুনি লাগবে", "ঘণ্টার মধ্যে", "আজ রাতের মধ্যে",
+                       "by today", "by tonight", "today itself", "asap", "within an hour", "within 2 hours", "end of day"],
     # Invitations (Brain domain 3): a dated invitation becomes a PROPOSED task so the social obligation is not forgotten.
     "invite_words": ["দাওয়াত", "নিমন্ত্রণ", "বিয়ের অনুষ্ঠান", "জন্মদিন", "আকিকা", "মিলাদ", "বৌভাত", "invitation", "invite you",
                      "wedding", "birthday party"],
