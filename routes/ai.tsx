@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { AppText as Text, AppTextInput } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
@@ -10,6 +11,7 @@ import { useLoad } from '../src/va/hooks';
 import { Hero, HeroStat } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
 import { num } from '../src/va/bd';
+import { guideOf } from '../src/va/aiGuides';
 
 const PROVIDERS = ['auto', 'gemini', 'groq', 'openrouter', 'mistral', 'nvidia', 'cloudflare', 'vercel', 'openai', 'anthropic', 'deepseek', 'xai', 'local', 'custom'] as const;
 const PROVIDER_NAME: Record<(typeof PROVIDERS)[number], { bn: string; en: string }> = {
@@ -39,6 +41,7 @@ export default function AiScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [drop, setDrop] = useState<HubConn | null>(null);
   const h = hub.data;
+  const guide = provider === 'auto' ? undefined : guideOf(provider);
   // The server needs more than a key for some providers: Cloudflare an account id, own/other servers an https address.
   const needsUrl = provider === 'local' || provider === 'custom';
   const canAdd = needsUrl ? /^https:\/\/\S+/.test(baseUrl) && (provider === 'local' || key.trim().length >= 8)
@@ -101,8 +104,18 @@ export default function AiScreen() {
 
           <Card title={bn ? 'নতুন AI কী যোগ করুন' : 'Add an AI key'}>
             <ChipGroup<(typeof PROVIDERS)[number]> label={bn ? 'কোন সেবা (না জানলে “auto”)' : 'Provider (“auto” if unsure)'} options={PROVIDERS} value={provider} labelOf={(p) => (bn ? PROVIDER_NAME[p].bn : PROVIDER_NAME[p].en)} onChange={(p) => { if (p) setProvider(p); }} />
+            {guide ? (
+              <View style={{ marginTop: 10, gap: 6 }}>
+                <Text style={{ fontWeight: '600' }}>{guide.name} · {guide.tagline}</Text>
+                <Text style={{ fontSize: 13, opacity: 0.85 }}>{bn ? 'যা লাগবে: ' : 'You need: '}{guide.needs}</Text>
+                {guide.steps.map((s, i) => <Text key={i} style={{ fontSize: 14 }}>{num(i + 1, bn)}. {s}</Text>)}
+                {guide.keyHint ? <Text style={{ fontSize: 13, opacity: 0.85 }}>{bn ? 'কী চেনার উপায়: ' : 'The key: '}{guide.keyHint}</Text> : null}
+                <AppButton variant="secondary" icon="open-in-new" label={guide.linkLabel} onPress={() => void Linking.openURL(guide.link).catch(() => showSnackbar(bn ? 'লিংক খোলা গেল না' : 'Could not open the link', 'danger'))} />
+              </View>
+            ) : provider === 'auto' ? <Text style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>{bn ? 'কোন সেবার কী নেবেন জানতে ওপরে নাম বাছুন: নির্দেশনা ও লিংক দেখাবে। ফ্রি-র জন্য Gemini বা Groq সবচেয়ে সহজ।' : 'Pick a provider above to see the steps and the link. Gemini or Groq are the easiest free ones.'}</Text> : null}
             <Text style={{ marginTop: 8, marginBottom: 4, fontSize: 12, opacity: 0.7 }}>{bn ? 'কী (গোপন, দেখা যাবে না)' : 'Key (secret — hidden)'}</Text>
             <AppTextInput value={key} onChangeText={setKey} secureTextEntry autoCapitalize="none" autoCorrect={false} placeholder="sk-… / AIza…" style={{ minHeight: 50, borderWidth: 1, borderColor: '#8884', borderRadius: 12, paddingHorizontal: 12 }} />
+            <AppButton variant="secondary" icon="content-paste" label={bn ? 'পেস্ট করুন' : 'Paste'} onPress={() => void Clipboard.getStringAsync().then((v) => setKey(v.trim())).catch(() => {})} />
             {provider === 'cloudflare' ? <Field label={bn ? 'Cloudflare Account ID (৩২ অক্ষর, ড্যাশবোর্ডের ডান পাশে)' : 'Cloudflare Account ID (32 characters, right side of the dashboard)'} value={accountId} onChangeText={(v) => setAccountId(v.trim())} /> : null}
             {needsUrl ? <Field label={bn ? 'ঠিকানা (https:// দিয়ে শুরু)' : 'Address (starts with https://)'} value={baseUrl} onChangeText={(v) => setBaseUrl(v.trim())} placeholder="https://…" /> : null}
             <Field label={bn ? 'নাম (ঐচ্ছিক)' : 'Name (optional)'} value={label} onChangeText={setLabel} />
