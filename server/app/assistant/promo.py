@@ -14,10 +14,10 @@ from typing import Any
 
 OPERATORS = ("circle", "circle bd", "gp", "grameenphone", "mygp", "gp offer", "robi", "airtel", "banglalink", "bl", "teletalk", "skitto", "robi-axiata", "my robi", "my airtel", "mybl")
 APP_SENDERS = ("imo", "imo team", "messenger", "facebook", "telegram", "whatsapp", "viber", "tiktok", "instagram", "youtube", "google play", "truecaller")  # the app writing about itself
-SHOPS = ("daraz", "foodpanda", "pathao", "shohoz", "chaldal", "evaly", "ajkerdeal", "rokomari", "bikroy", "othoba", "pickaboo", "shajgoj", "aarong")
+SHOPS = ("daraz", "foodpanda", "pathao", "shohoz", "chaldal", "evaly", "ajkerdeal", "rokomari", "bikroy", "othoba", "pickaboo", "shajgoj", "aarong", "sheba", "10ms", "shikho", "chorki", "hoichoi")
 PROMO_WORDS = re.compile(
-    r"অফার|ছাড়|ডিসকাউন্ট|বোনাস|ক্যাশব্যাক|ফ্রি|রিচার্জ করুন|রিচার্জে|ইন্টারনেট প্যাক|মিনিট প্যাক|প্যাক কিনুন|ডায়াল করুন|\*\d{3,}#|জিতে নিন|লটারি|পুরস্কার|"
-    r"\boffer\b|discount|cashback|\bbonus\b|\bfree\b|recharge|\d+\s?%\s?off|\bsale\b|\bdeal\b|\bpack\b|\bgb\b|\bmb\b|validity|\bwin\b|prize|lottery|click here|buy now|limited time",
+    r"অফার|মেগা অফার|ফ্ল্যাশ সেল|ছাড়|ডিসকাউন্ট|বোনাস|ক্যাশব্যাক|ফ্রি|কুপন|প্রোমো|রিচার্জ করুন|রিচার্জে|ইন্টারনেট প্যাক|মিনিট প্যাক|প্যাক কিনুন|ডায়াল করুন|\*\d{3,}#|জিতে নিন|লটারি|পুরস্কার|ডাউনলোড করুন|সাবস্ক্রাইব|"
+    r"\boffer\b|discount|cashback|\bbonus\b|\bfree\b|recharge|\d+\s?%\s?off|\bsale\b|\bdeal\b|\bpack\b|\bgb\b|\bmb\b|validity|\bwin\b|prize|lottery|click here|buy now|limited time|promo\s*code|coupon|unsubscribe",
     re.I)
 MONEY_OR_CODE = re.compile(
     r"bkash|nagad|rocket|upay|\bbank\b|ব্যাংক|বিকাশ|নগদ|রকেট|credited|debited|received|withdrawn|transferred|trxid|txnid|transaction|balance|"
