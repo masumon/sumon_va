@@ -46,7 +46,7 @@ export default function TasksScreen() {
     <Page title={bn ? 'কাজের তালিকা' : 'Tasks'} subtitle={bn ? 'কাকে কী কথা দিয়েছেন' : 'What you promised to whom'} onRefresh={() => { void list.reload(); void open.reload(); }} refreshing={list.loading && !!list.data}>
       <Hero icon="checkbox-marked-circle-outline" title={bn ? 'আপনার কাজ' : 'Your tasks'} subtitle={late ? (bn ? `${num(late, true)}টির সময় পার হয়ে গেছে` : `${late} overdue`) : (bn ? 'সময়মতো চলছে ✓' : 'On track ✓')}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <HeroStat value={formatBangladeshNumber(open.data?.length ?? 0, language)} label={bn ? 'বাকি' : 'Open'} />
+          <HeroStat value={formatBangladeshNumber(open.data?.length ?? ov.data?.tasks_open ?? 0, language)} label={bn ? 'বাকি' : 'Open'} />
           <HeroStat value={formatBangladeshNumber(late, language)} label={bn ? 'দেরি' : 'Overdue'} />
         </View>
       </Hero>

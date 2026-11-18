@@ -30,7 +30,7 @@ export default function SimulateScreen() {
   };
 
   return (
-    <Page title={bn ? 'পরীক্ষা' : 'Test'} subtitle={bn ? 'সহকারী কী করত তা দেখুন। কাউকে কিছু পাঠানো হয় না' : 'What the assistant would do — nothing is sent'} back={bn ? 'নিয়ম' : 'Rules'}>
+    <Page title={bn ? 'সহকারীকে পরখ করুন' : 'Try the assistant'} subtitle={bn ? 'সহকারী কী করত তা দেখুন। কাউকে কিছু পাঠানো হয় না' : 'What the assistant would do — nothing is sent'} back={bn ? 'নিয়ম' : 'Rules'}>
       <Hero icon="flask-outline" title={bn ? 'পাঠিয়ে না দেখেই পরীক্ষা করুন' : 'Try it safely'} subtitle={bn ? 'কেউ লিখলে সহকারী কী উত্তর দিত, দেখে নিন' : 'See how the assistant would answer a message'} />
       <Card>
         <Field label={bn ? 'যিনি লিখছেন (ঐচ্ছিক নাম)' : 'Who is writing (optional name)'} value={name} onChangeText={setName} />

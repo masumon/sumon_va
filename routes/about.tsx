@@ -6,6 +6,7 @@ import { Card, useKit } from '../src/ui/AppKit';
 import { Page } from '../src/va/Page';
 import { BrandMark, PoweredBy } from '../src/va/BrandMark';
 import { APP_VERSION, CREDITS } from '../src/va/config';
+import { bd } from '../src/va/bd';
 
 function Link({ label, url }: { label: string; url: string }) {
   const { colors } = useKit();
@@ -27,7 +28,7 @@ export default function AboutScreen() {
             ? 'WhatsApp, Telegram, SMS, মিসড কল ও অন্য চ্যাট-অ্যাপের সব বার্তা এক জায়গায়। সহকারী সাধারণ প্রশ্নের উত্তর দেয়। পরিবার ও জরুরি বার্তা আপনাকে সাথে সাথে জানায়। আপনার ব্যক্তিগত বার্তা শুধু আপনার ফোনে আর আপনার নিজের সার্ভারে থাকে।'
             : 'Every message from WhatsApp, Telegram, SMS, missed calls and other chat apps in one place. The assistant answers routine questions; family and urgent messages reach you at once. Your private messages stay on your phone and your own server.'}
         </Text>
-        <Text style={{ marginTop: 8, opacity: 0.7 }}>{bn ? 'সংস্করণ' : 'Version'} {APP_VERSION}</Text>
+        <Text style={{ marginTop: 8, opacity: 0.7 }}>{bn ? 'সংস্করণ' : 'Version'} {bn ? bd(APP_VERSION) : APP_VERSION}</Text>
       </Card>
       <Card title={bn ? 'যাঁরা বানিয়েছেন' : 'Made by'}>
         <View style={{ gap: 10 }}>

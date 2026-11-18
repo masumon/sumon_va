@@ -8,7 +8,7 @@ import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
 import { getStatus, startService } from '../../modules/va-bridge';
 import { useAppFeedback } from '../ui/AppFeedback';
-import { formatBangladeshDateTime } from '../i18n/date-time';
+import { formatBangladeshDateTime, formatBangladeshNumber } from '../i18n/date-time';
 import { clearApiCache, va } from './api';
 import { sameValue, useAppActive, useLoad } from './hooks';
 import { useShell } from './shell';
@@ -113,7 +113,7 @@ export function AppHeader() {
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বিজ্ঞপ্তি' : 'Notifications'} onPress={() => router.push('/alerts' as never)} style={styles.iconBtn} hitSlop={0}>
         <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={24} color={urgent ? colors.danger : colors.textPrimary} />
-        {urgent ? <View style={styles.badge}><Text style={styles.badgeText}>{urgent > 9 ? '9+' : urgent}</Text></View> : null}
+        {urgent ? <View style={styles.badge}><Text style={styles.badgeText}>{urgent > 9 ? (bn ? '৯+' : '9+') : formatBangladeshNumber(urgent, language)}</Text></View> : null}
       </Pressable>
     </View>
   );
