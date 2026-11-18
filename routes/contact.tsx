@@ -97,9 +97,32 @@ export default function ContactScreen() {
               <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} />
               {c.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
               {c.is_blocked ? <AppBadge label={bn ? 'ব্লক' : 'Blocked'} tone="danger" /> : null}
+              {c.category === 'spam' ? <AppBadge label={bn ? 'স্প্যাম' : 'Spam'} tone="warning" /> : null}
+              <AppBadge label={c.mode === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : (bn ? 'ম্যানুয়াল উত্তর' : 'Manual reply')} tone={c.mode === 'auto' ? 'primary' : 'neutral'} />
             </View>
             {c.need ? <Text style={{ marginTop: 8 }}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
             {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  variant={c.mode === 'auto' ? 'primary' : 'secondary'}
+                  icon={c.mode === 'auto' ? 'robot-outline' : 'hand-pointing-up'}
+                  label={c.mode === 'auto' ? (bn ? 'অটো: চালু' : 'Auto: On') : (bn ? 'ম্যানুয়াল: চালু' : 'Manual: On')}
+                  disabled={busy || c.is_family || c.category === 'personal'}
+                  onPress={() => void act(() => va.patchContact(c.id, { mode: c.mode === 'auto' ? 'draft' : 'auto' }), c.mode === 'auto' ? (bn ? 'ম্যানুয়াল মোড (খসড়া) চালু' : 'Switched to manual drafts') : (bn ? 'এই মানুষের জন্য অটো উত্তর চালু' : 'Auto-reply enabled for this contact'))}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  variant="secondary"
+                  icon={c.category === 'spam' ? 'inbox-arrow-down-outline' : 'alert-octagon-outline'}
+                  label={c.category === 'spam' ? (bn ? 'স্প্যাম সরান' : 'Not spam') : (bn ? 'স্প্যাম করুন' : 'Mark spam')}
+                  disabled={busy || c.is_family}
+                  onPress={() => void act(() => va.patchContact(c.id, { category: c.category === 'spam' ? null : 'spam' }), c.category === 'spam' ? (bn ? 'ইনবক্সে ফিরিয়ে আনা হয়েছে' : 'Moved back to inbox') : (bn ? 'স্প্যাম হিসেবে চিহ্নিত হয়েছে' : 'Marked as spam'))}
+                />
+              </View>
+            </View>
+            {c.is_family || c.category === 'personal' ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবার ও ব্যক্তিগত চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে।' : 'Auto-reply stays off for family and personal chats.'}</Text> : null}
           </Card>
 
           {drafts.map((d) => (

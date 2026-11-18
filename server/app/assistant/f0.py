@@ -47,7 +47,9 @@ _DRAFTS = re.compile(r"খসড়া|drafts?", re.I)
 _HISTORY = re.compile(r"কী\s*কী\s*পাঠানো|কী\s*পাঠানো|সাম্প্রতিক\s*কাজ|পাঠানোর\s*ইতিহাস|recent\s+(?:actions|sent)|action\s+history", re.I)
 _SYSTEM = re.compile(r"সহকারী(?:র)?\s*(?:অবস্থা|স্ট্যাটাস)|সব\s*ঠিক\s*আছে|\bhealth\b|\bstatus\b", re.I)
 _RULES = re.compile(r"নিয়ম|সেটিং|\brules?\b|\bsettings?\b", re.I)
+_HELP = re.compile(r"^\s*(?:হ্যালো|হাই|সালাম|আসসালামু\s*আলাইকুম|কেমন\s*আছো?|সাহায্য|কী\s*কী?\s*করতে\s*পারো?|hello|hi|hey|help)\s*[!?.।]*\s*$", re.I)
 UNKNOWN_HELP = "বুঝতে পারিনি। যেমন লিখতে পারেন: “রহিমকে বলো কাল জানাব”, “রহিমের কাজের কী হলো”, “মিসড কল”, “কার উত্তর বাকি”, “আমার কাজ”, “রহিম সম্পর্কে কী জানো”, “রহিম কী বলেছে”, “খুঁজো দাম”, “জরুরি”, “খসড়া”, “কী কী পাঠানো হয়েছে”, “সহকারীর অবস্থা”, “নিয়ম”"
+FRIENDLY_HELP = "আসসালামু আলাইকুম! আমি আপনার ব্যক্তিগত সহকারী। নিচের যেকোনোভাবে আমাকে বলতে পারেন:\n• কাউকে বার্তা দিতে: “রহিমকে বলো কাল আসব”\n• খোঁজ নিতে: “মিসড কল”, “কার উত্তর বাকি”, “জরুরি”\n• কাজের হিসাব: “আমার কাজ”, “রহিমের কাজের কী হলো”\n• পুরোনো কথা খুঁজতে: “খুঁজো দাম” বা “রহিম কী বলেছে”"
 
 
 def parse(text: str) -> dict[str, Any]:
@@ -80,7 +82,7 @@ def parse(text: str) -> dict[str, Any]:
         return {"intent": "pending", "name": "", "msg": "", "contact_id": cid}
     if _TASKS.search(t):
         return {"intent": "tasks", "name": "", "msg": "", "contact_id": cid}
-    for rx, intent in ((_HISTORY, "history"), (_DRAFTS, "drafts"), (_ALERTS, "alerts"), (_SYSTEM, "system"), (_RULES, "rules")):
+    for rx, intent in ((_HISTORY, "history"), (_DRAFTS, "drafts"), (_ALERTS, "alerts"), (_SYSTEM, "system"), (_RULES, "rules"), (_HELP, "help")):
         if rx.search(t):
             return {"intent": intent, "name": "", "msg": "", "contact_id": cid}
     mm = _PERSON.match(t)
@@ -237,6 +239,8 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
     intent = p["intent"]
     if intent == "unknown":
         return _reply("unknown", UNKNOWN_HELP)
+    if intent == "help":
+        return _reply("help", FRIENDLY_HELP)
     if intent == "missed_calls":
         rows = (await db.execute(select(WaMessage, WaContact).join(WaContact, WaContact.id == WaMessage.contact_id)
                                  .where(WaMessage.direction == "in", WaMessage.created_at >= now - timedelta(hours=24)).order_by(WaMessage.created_at.desc()).limit(200))).all()
@@ -245,7 +249,8 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
             if is_call({"meta": m.meta, "body": m.body}):
                 per.setdefault(c.id, [c, 0, m.created_at])
                 per[c.id][1] += 1
-        items = [{"title": _label(c), "subtitle": f"{n}টি মিসড কল, শেষটি {last.astimezone(UTC):%H:%M} UTC", "contact_id": str(c.id)} for c, n, last in per.values()]
+        dhaka = timezone(timedelta(hours=6))
+        items = [{"title": _label(c), "subtitle": f"{n}টি মিসড কল, শেষটি {last.astimezone(dhaka):%I:%M %p}", "contact_id": str(c.id)} for c, n, last in per.values()]
         return _reply(intent, f"গত ২৪ ঘণ্টায় {len(items)} জনের মিসড কল" if items else "গত ২৪ ঘণ্টায় কোনো মিসড কল নেই", items)
     if intent == "pending":
         cs = (await db.execute(select(WaContact).where(WaContact.last_inbound_at >= now - timedelta(hours=48), WaContact.is_blocked == False,  # noqa: E712

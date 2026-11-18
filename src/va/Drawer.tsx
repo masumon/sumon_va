@@ -146,7 +146,7 @@ const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.cre
   itemLabel: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   itemHint: { color: colors.textMuted, fontSize: 12 },
   row: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  pill: { paddingHorizontal: 14, minHeight: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+  pill: { paddingHorizontal: 14, minHeight: 48, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: border.thin, borderColor: colors.border, backgroundColor: colors.surfaceMuted },
   pillOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   pillText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
 });

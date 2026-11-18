@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
-import { AppIcon } from '../src/ui/AppIcon';
+import { AppIcon, type IconName } from '../src/ui/AppIcon';
 import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { radius, spacing, typography } from '../src/theme';
 import { va, errTone, type F0Result } from '../src/va/api';
 import { Page } from '../src/va/Page';
-import { useLoad } from '../src/va/hooks';
+import { useAppActive, useLoad } from '../src/va/hooks';
 import { CHANNEL, MESSAGE_STATUS } from '../src/va/labels';
+import { readMediaUri, readSharedMedia, type SharedMediaResult } from '../modules/va-bridge';
 
 /**
  * What really happened to the message, read from its own stored status (the same labels the inbox uses). The server's free-text
@@ -26,17 +28,25 @@ function outcome(r: unknown, bn: boolean): { text: string; ok: boolean } | null 
 }
 
 /** Tell the assistant in words: ask about people, tasks, missed calls, or have it draft a reply. Voice = the keyboard's own mic. */
-const QUICK = [
-  { bn: 'মিসড কল', en: 'Missed calls', cmd: 'মিসড কল' }, { bn: 'কার উত্তর বাকি', en: 'Who is waiting', cmd: 'কার উত্তর বাকি' }, { bn: 'আমার কাজ', en: 'My tasks', cmd: 'আমার কাজ' },
-  { bn: 'জরুরি', en: 'Urgent', cmd: 'জরুরি' }, { bn: 'খসড়া', en: 'Drafts', cmd: 'খসড়া' }, { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে' },
-  { bn: 'সহকারীর অবস্থা', en: 'Assistant status', cmd: 'সহকারীর অবস্থা' }, { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম' },
-] as const;
+const QUICK: readonly { bn: string; en: string; cmd: string; icon: IconName }[] = [
+  { bn: 'মিসড কল', en: 'Missed calls', cmd: 'মিসড কল', icon: 'phone-missed' },
+  { bn: 'কার উত্তর বাকি', en: 'Who is waiting', cmd: 'কার উত্তর বাকি', icon: 'message-reply-text-outline' },
+  { bn: 'আমার কাজ', en: 'My tasks', cmd: 'আমার কাজ', icon: 'checkbox-marked-circle-outline' },
+  { bn: 'জরুরি', en: 'Urgent', cmd: 'জরুরি', icon: 'alert-octagon-outline' },
+  { bn: 'খসড়া', en: 'Drafts', cmd: 'খসড়া', icon: 'file-document-edit-outline' },
+  { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে', icon: 'send-check-outline' },
+  { bn: 'সহকারীর অবস্থা', en: 'Assistant status', cmd: 'সহকারীর অবস্থা', icon: 'robot-outline' },
+  { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম', icon: 'shield-check-outline' },
+];
 
 export default function F0Screen() {
   const { bn, colors } = useKit();
   const router = useRouter();
+  const params = useLocalSearchParams<{ cmd?: string }>();
   const { showSnackbar } = useAppFeedback();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params.cmd ?? '');
+  const [cmdSeen, setCmdSeen] = useState(params.cmd);
+  if (params.cmd !== cmdSeen) { setCmdSeen(params.cmd); if (params.cmd) setText(params.cmd); }
   const [asked, setAsked] = useState('');
   const [res, setRes] = useState<F0Result | null>(null);
   const [body, setBody] = useState('');
@@ -49,6 +59,38 @@ export default function F0Screen() {
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   const [past, setPast] = useState<{ q: string; a: string }[]>([]); // earlier questions and answers, newest last (this visit only)
+  const appActive = useAppActive();
+
+  const handleMedia = useCallback(async (m: SharedMediaResult, label: string) => {
+    if (!m.ok || !m.dataB64 || !m.mime) {
+      showSnackbar(m.error || (bn ? 'ফাইলটি পড়া যায়নি' : 'Could not read file'), 'danger');
+      return;
+    }
+    setBusy(true); setResult(null);
+    setAsked(label);
+    try {
+      const r = await va.analyzeMedia(m.mime, m.dataB64, m.name ?? '');
+      setRes({ intent: 'system', answer: r.summary, items: [], choices: [], draft: null });
+    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+    finally { setBusy(false); }
+  }, [bn, showSnackbar]);
+
+  useEffect(() => {
+    if (!appActive) return;
+    void readSharedMedia().then((m) => {
+      if (m) void handleMedia(m, bn ? `শেয়ার করা ফাইল${m.name ? `: ${m.name}` : ''}` : `Shared file${m.name ? `: ${m.name}` : ''}`);
+    });
+  }, [appActive, bn, handleMedia]);
+
+  const pickMedia = async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: ['audio/*', 'image/*'], copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets?.length) return;
+      const asset = picked.assets[0]!;
+      const m = await readMediaUri(asset.uri, asset.mimeType ?? '');
+      await handleMedia({ ...m, name: asset.name || m.name }, bn ? `ফাইল: ${asset.name || 'ভয়েস/ছবি'}` : `File: ${asset.name || 'audio/image'}`);
+    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+  };
 
   const send = async (cmd: string) => {
     setBusy(true); setResult(null);
@@ -93,33 +135,54 @@ export default function F0Screen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {QUICK.map((q) => (
           <Pressable key={q.cmd} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} disabled={busy} onPress={() => { setText(q.cmd); setAsked(q.cmd); void send(q.cmd); }}
-            style={{ minHeight: 48, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+            style={({ pressed }) => ({
+              minHeight: 48, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+              borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.75 : 1,
+            })}>
+            <AppIcon name={q.icon} size={18} color={colors.primary} />
             <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? q.bn : q.en}</Text>
           </Pressable>
         ))}
       </View>
       <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+          <AppBadge tone={auto ? 'warning' : 'success'} label={auto ? (bn ? 'অটো মোড: বললেই যাবে' : 'Auto: goes at once') : (bn ? 'নিরাপদ মোড: আগে দেখাবে' : 'Safe mode: previews first')} />
+        </View>
         <ToggleRow icon="send-clock-outline" label={bn ? (auto ? 'পাঠানো: অটো' : 'পাঠানো: ম্যানুয়াল') : (auto ? 'Sending: auto' : 'Sending: manual')}
           hint={bn ? (auto ? 'কাউকে কিছু বলতে বললে সঙ্গে সঙ্গে চলে যায়। কোনো সন্দেহ থাকলে (কে, আগেই উত্তর দেওয়া, ২৪ ঘণ্টা পার) আগে দেখাবে।' : 'বার্তা আগে দেখাবে, আপনি “পাঠান” চাপলে যাবে।')
             : (auto ? 'A message you dictate goes at once. If anything is unclear it shows it to you first.' : 'Shows the message first; it goes when you tap Send.')}
           value={auto} onChange={(v) => void setAuto(v)} />
         <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
           hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
-        <View style={{ marginTop: spacing.sm }}>
-          <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
-            onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
+        <View style={{ marginTop: spacing.sm, flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
+              onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton variant="secondary" label={bn ? 'ভয়েস / ছবি' : 'Voice / Photo'} icon="microphone-outline" disabled={busy}
+              onPress={() => void pickMedia()} />
+          </View>
         </View>
       </Card>
 
       {past.map((p, i) => (
-        <View key={i} style={{ gap: spacing.xs, opacity: 0.8 }}>
-          <Text style={{ ...typography.caption, color: colors.textMuted, textAlign: 'right' }}>{p.q}</Text>
-          <Text style={{ ...typography.callout, color: colors.textPrimary }}>{p.a}</Text>
+        <View key={i} style={{ gap: spacing.xs }}>
+          <View style={{ alignSelf: 'flex-end', maxWidth: '86%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, backgroundColor: colors.primaryTint }}>
+            <Text style={{ ...typography.callout, color: colors.textPrimary }}>{p.q}</Text>
+          </View>
+          <View style={{ alignSelf: 'flex-start', maxWidth: '92%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+            <Text style={{ ...typography.body, color: colors.textPrimary }}>{p.a}</Text>
+          </View>
         </View>
       ))}
-      {res && asked ? <Text style={{ ...typography.callout, color: colors.textMuted, textAlign: 'right' }}>{bn ? 'আপনি: ' : 'You: '}{asked}</Text> : null}
+      {res && asked ? (
+        <View style={{ alignSelf: 'flex-end', maxWidth: '86%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, backgroundColor: colors.primaryTint }}>
+          <Text style={{ ...typography.callout, color: colors.primary }}>{asked}</Text>
+        </View>
+      ) : null}
       {res ? (
-        <Card title={bn ? 'সহকারী' : 'Assistant'}>
+        <Card icon="robot-happy-outline" title={bn ? 'সহকারীর উত্তর' : 'Assistant reply'}>
           {res.answer ? <Text>{res.answer}</Text> : null}
           {res.items.map((it, i) => (
             <Pressable key={i} accessibilityRole={it.contact_id ? 'button' : 'text'} accessibilityLabel={it.subtitle ? `${it.title}, ${it.subtitle}` : it.title}

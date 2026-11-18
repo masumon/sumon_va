@@ -79,7 +79,7 @@ export default function InboxScreen() {
         <AppButton variant="secondary" icon="filter-variant" label={bn ? 'আরও ভাগ (পরিবার, VIP, স্প্যাম…)' : 'More (family, VIP, spam…)'} onPress={() => setShowMore(true)} />
         {extraActive ? (
           <Pressable accessibilityRole="button" accessibilityLabel={bn ? `${labelOf(view)} ফিল্টার সরান` : `Remove the ${labelOf(view)} filter`} onPress={() => { setView('waiting'); setPage(1); }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primary }}>
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primary }}>
             <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>{labelOf(view)}</Text>
             <AppIcon name="close" size={16} color={colors.onPrimary} />
           </Pressable>

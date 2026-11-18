@@ -108,7 +108,7 @@ export function AppHeader() {
         onPress={() => { if (syncOk || bridge.serviceAlive) void doRefresh(); else router.push('/health' as never); }} style={styles.syncBtn}>
         <Animated.View pointerEvents="none" style={[styles.syncRing, { backgroundColor: light }, ringStyle]} />
         <Animated.View style={[styles.syncCore, { borderColor: light, backgroundColor: colors.surface }, dotStyle]}>
-          <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={26} color={light} /></Animated.View>
+          <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={22} color={light} /></Animated.View>
         </Animated.View>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বিজ্ঞপ্তি' : 'Notifications'} onPress={() => router.push('/alerts' as never)} style={styles.iconBtn} hitSlop={0}>
@@ -120,11 +120,11 @@ export function AppHeader() {
 }
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: spacing.sm, height: 56, marginHorizontal: 10, marginTop: 6, marginBottom: 6, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
-  syncBtn: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
-  syncRing: { position: 'absolute', width: 46, height: 46, borderRadius: 23 },
-  syncCore: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  iconBtn: { width: 48, height: 48, marginHorizontal: 1, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.smd, minHeight: 60, marginHorizontal: 10, marginTop: 6, marginBottom: 6, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
+  syncBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  syncRing: { position: 'absolute', width: 44, height: 44, borderRadius: 22 },
+  syncCore: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 48, height: 48, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   langBtn: { minWidth: 34, height: 28, paddingHorizontal: 6, borderRadius: 8, borderWidth: border.thin, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
   langText: { color: colors.textPrimary, fontWeight: '700', fontSize: 12 },
   title: { flex: 1, color: colors.textPrimary, fontSize: 17, fontWeight: '700' },

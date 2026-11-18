@@ -900,3 +900,45 @@ async def report(days: int = Query(7, ge=1, le=30), db: AsyncSession = Depends(g
                              "by_reason": by_reason, "avg_reply_seconds": round(sum(delays) / len(delays)) if delays else None,
                              "approval_rate": round(100 * counts["sent"] / reviewed) if reviewed else None,
                              "truncated": truncated})
+
+
+class AnalyzeMediaIn(BaseModel):
+    mime: str = Field(min_length=3, max_length=80)
+    data_b64: str = Field(min_length=4, max_length=7_000_000)
+    name: str = Field(default="", max_length=120)
+    caption: str = Field(default="", max_length=500)
+
+
+@router.post("/admin/wa/analyze-media", response_model=ApiResponse)
+async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """Transcribe a shared voice note or describe a shared image in simple Bangla using the connected vision AI."""
+    import base64
+    from app.assistant import ai_hub
+
+    mime = body.mime.split(";")[0].strip().lower()
+    if not (mime.startswith("audio/") or mime.startswith("image/")):
+        raise HTTPException(status_code=422, detail="শুধুমাত্র অডিও (ভয়েস) বা ছবি দেওয়া যাবে")
+    try:
+        raw = base64.b64decode(body.data_b64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=422, detail="ফাইলটি পড়া যায়নি, আবার চেষ্টা করুন")
+    if not raw or len(raw) > 5_000_000:
+        raise HTTPException(status_code=413, detail="ফাইলটি ৫ MB-এর বেশি হওয়ায় পড়া যায়নি")
+
+    is_audio = mime.startswith("audio/")
+    if is_audio:
+        system = (
+            "You are Sumon's personal assistant. Listen to this voice message. "
+            "First write the exact words spoken (in Bangla/Sylheti/English as spoken), then add a short 1-line simple Bangla summary of what the person wants. "
+            "Never invent anything not heard in the audio."
+        )
+        prompt = f"Voice note{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
+    else:
+        system = (
+            "You are Sumon's personal assistant. Look at this image and explain clearly in simple Bangla what is in it. "
+            "If there is any text, receipt, money amount, date, or phone number, list it clearly. Never invent details not visible in the image."
+        )
+        prompt = f"Image{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
+
+    summary = await ai_hub.run(db, "vision", system, prompt, images=[(mime, raw)], max_tokens=700)
+    return ApiResponse(data={"ok": True, "kind": "audio" if is_audio else "image", "summary": (summary or "").strip()})

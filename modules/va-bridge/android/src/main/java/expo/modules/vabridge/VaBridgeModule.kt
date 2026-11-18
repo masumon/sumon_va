@@ -313,5 +313,46 @@ class VaBridgeModule : Module() {
       true
     }
     Function("openAppSettings") { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))); true }
+    AsyncFunction("readSharedMedia") { promise: Promise ->
+      val act = appContext.currentActivity
+      val intent = act?.intent
+      if (intent == null || intent.action != Intent.ACTION_SEND) { promise.resolve(null); return@AsyncFunction }
+      @Suppress("DEPRECATION")
+      val uri = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+      val mimeHint = intent.type ?: ""
+      intent.action = null
+      intent.removeExtra(Intent.EXTRA_STREAM)
+      if (uri == null) { promise.resolve(null); return@AsyncFunction }
+      val c = ctx
+      io.execute { promise.resolve(readUriMedia(c, uri, mimeHint)) }
+    }
+    AsyncFunction("readMediaUri") { uriStr: String, mimeHint: String, promise: Promise ->
+      val c = ctx
+      io.execute { promise.resolve(readUriMedia(c, Uri.parse(uriStr), mimeHint)) }
+    }
+  }
+
+  private fun readUriMedia(c: Context, uri: Uri, mimeHint: String): Map<String, Any>? {
+    return try {
+      val mime = (c.contentResolver.getType(uri) ?: mimeHint).ifBlank { "application/octet-stream" }
+      val stream = c.contentResolver.openInputStream(uri) ?: return mapOf("ok" to false, "error" to "ফাইল খোলা যায়নি")
+      val buf = java.io.ByteArrayOutputStream()
+      val tmp = ByteArray(16384)
+      var total = 0
+      stream.use { s ->
+        while (true) {
+          val n = s.read(tmp)
+          if (n <= 0) break
+          total += n
+          if (total > 5_000_000) return mapOf("ok" to false, "error" to "ফাইলটি ৫ MB-এর বেশি")
+          buf.write(tmp, 0, n)
+        }
+      }
+      val b64 = android.util.Base64.encodeToString(buf.toByteArray(), android.util.Base64.NO_WRAP)
+      val name = uri.lastPathSegment?.substringAfterLast('/') ?: ""
+      mapOf("ok" to true, "mime" to mime, "name" to name.take(80), "dataB64" to b64)
+    } catch (e: Exception) {
+      mapOf("ok" to false, "error" to (e.message ?: "ফাইল পড়া যায়নি"))
+    }
   }
 }
