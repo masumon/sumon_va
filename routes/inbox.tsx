@@ -64,8 +64,9 @@ export default function InboxScreen() {
     const r = await va.contacts(view, term, page);
     setItems((prev) => (page === 1 ? r.items : [...prev, ...r.items]));
     return r;
-  }, `${view}|${term}|${page}`, 20000);
+  }, `contacts:${view}|${term}|${page}`, 20000);
   const total = list.data?.total ?? 0;
+  const shown = items.length > 0 ? items : (list.data?.items ?? []);
   const EXTRA = VIEWS.map((v) => v.key).filter((k) => !STATE_KEYS.includes(k));
   const labelOf = (k: InboxView) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; };
   const extraActive = !STATE_KEYS.includes(view);
@@ -97,12 +98,12 @@ export default function InboxScreen() {
         </View>
       ) : null}
       <View style={{ gap: 12, paddingBottom: layout.compactNavHeight + insets.bottom + 24 }}>
-      <Status loading={list.loading && items.length === 0} error={items.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
-        empty={!list.loading && !list.error && items.length === 0} emptyTitle={bn ? 'এখানে কেউ নেই' : 'Nobody here'} emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'} />
+      <Status loading={list.loading && shown.length === 0} error={shown.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
+        empty={!list.loading && !list.error && shown.length === 0} emptyTitle={bn ? 'এখানে কেউ নেই' : 'Nobody here'} emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'} />
       <View style={{ gap: 12 }}>
-        {items.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
+        {shown.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
       </View>
-      {items.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখান' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
+      {shown.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখান' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
       </View>
     </Page>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { AppIcon } from '../ui/AppIcon';
@@ -19,7 +19,7 @@ import { sourceLabel } from './modules';
 import { num } from './bd';
 
 /** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
-export function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
+export const ContactRow = memo(function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
   const { colors, language, design } = useAppPreferences();
   const bn = language === 'bn';
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
@@ -47,7 +47,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
   );
   return (
     <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} dragOffsetFromRight={-36} dragOffsetFromLeft={36} renderRightActions={finishPane}>
-    <Pressable accessibilityRole="button" accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${contact.unread}টি নতুন বার্তা` : `${contact.unread} new`) : '', contact.summary || contact.preview || ''].filter(Boolean).join(', ')} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
+    <Pressable android_ripple={{ color: 'rgba(128,128,128,0.12)' }} accessibilityRole="button" accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${contact.unread}টি নতুন বার্তা` : `${contact.unread} new`) : '', contact.summary || contact.preview || ''].filter(Boolean).join(', ')} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
       <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
       <View style={styles.main}>
@@ -71,7 +71,7 @@ export function ContactRow({ contact, onPress }: { contact: Contact; onPress: ()
     </Pressable>
     </ReanimatedSwipeable>
   );
-}
+});
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: design.radiusCard, borderWidth: border.thin, borderColor: design.cardBorder, backgroundColor: colors.surface, ...(design.shadow ?? {}) },
