@@ -124,7 +124,12 @@ export default function SetupScreen() {
                 ) : null}
                 {!ok ? (
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                    <AppButton accessibilityLabel={bn ? `${def.bn}: ${def.runtime ? 'অনুমতি দিন' : 'সেটিংসে চালু করুন'}` : `${def.en}: ${def.runtime ? 'Allow' : 'Turn on in Settings'}`} label={def.runtime ? (bn ? 'অনুমতি দিন' : 'Allow') : (bn ? 'সেটিংসে চালু করুন' : 'Turn on in Settings')} loading={busy === def.key} onPress={() => void grant(def)} />
+                    <AppButton
+                      accessibilityLabel={bn ? `${def.bn}: ${def.runtime ? 'অনুমতি দিন' : def.key === 'service' ? 'এখনই চালু করুন' : 'সেটিংসে চালু করুন'}` : `${def.en}: ${def.runtime ? 'Allow' : def.key === 'service' ? 'Start now' : 'Turn on in Settings'}`}
+                      label={def.runtime ? (bn ? 'অনুমতি দিন' : 'Allow') : def.key === 'service' ? (bn ? 'এখনই চালু করুন' : 'Start now') : (bn ? 'সেটিংসে চালু করুন' : 'Turn on in Settings')}
+                      loading={busy === def.key}
+                      onPress={() => void grant(def)}
+                    />
                     {reason ? <AppButton variant="secondary" label={bn ? 'অ্যাপের তথ্য খুলুন' : 'Open app info'} onPress={() => { openAppSettings(); }} /> : null}
                   </View>
                 ) : null}
@@ -137,7 +142,7 @@ export default function SetupScreen() {
       <Card icon="connection" title={bn ? 'সংযোগের অবস্থা' : 'Connection health'}>
         <Text>{bn ? 'ব্যাকগ্রাউন্ড সিঙ্ক: ' : 'Background sync: '}{s.serviceAlive ? (bn ? 'চালু ✓' : 'running ✓') : (bn ? 'বন্ধ' : 'stopped')}</Text>
         <Text>{bn ? 'শেষবার সংযোগ হয়েছে: ' : 'Last successful sync: '}{s.lastOk ? formatBangladeshDateTime(new Date(s.lastOk), language) : (bn ? 'এখনও হয়নি' : 'not yet')}</Text>
-        <Text>{bn ? 'পাঠাতে বাকি (অফলাইন): ' : 'Waiting to upload (offline): '}{s.queued}</Text>
+        <Text>{bn ? 'পাঠাতে বাকি (অফলাইন): ' : 'Waiting to upload (offline): '}{formatBangladeshNumber(s.queued, language)}</Text>
         {s.lastError ? <Text style={{ color: colors.danger }}>{s.lastError}</Text> : null}
         <View style={{ gap: 8, marginTop: 10 }}>
           <AppButton variant="secondary" icon="sync" label={bn ? 'সিঙ্ক আবার চালু করুন' : 'Restart sync'} onPress={() => { startService(); void status.reload(); }} />
