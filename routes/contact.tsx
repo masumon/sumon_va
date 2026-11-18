@@ -93,7 +93,15 @@ export default function ContactScreen() {
             <View style={{ flex: 1 }}><AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
               onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
             <View style={{ flex: 1 }}><AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let it write'} loading={busy}
-              onPress={() => void act(async () => { const r = await va.suggest(c.id); setText(r.text ?? r.reply ?? ''); })} /></View>
+              onPress={() => void act(async () => {
+                if (c.is_family) { showSnackbar(bn ? 'পরিবারের চ্যাটে AI খসড়া বন্ধ থাকে — নিজে লিখুন' : 'AI drafts stay off for family chats', 'info'); return; }
+                if (c.category === 'personal' || c.category === 'spam') await va.patchContact(c.id, { category: 'business' });
+                const r = await va.suggest(c.id, text.trim());
+                const draft = (r.text ?? r.reply ?? '').trim();
+                if (draft) setText(draft);
+                if (r.warning) showSnackbar(r.warning, 'info');
+                else if (draft) showSnackbar(bn ? '✓ খসড়া লেখা হয়েছে — দেখে পাঠান' : '✓ Draft written — review and send', 'success');
+              })} /></View>
           </View>
         </View>
       ) : null}>
@@ -115,14 +123,40 @@ export default function ContactScreen() {
             {c.need ? <Text style={{ marginTop: 8 }}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
             {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
             {replyExplain ? <Text style={{ marginTop: 8, fontSize: 12, lineHeight: 18, opacity: 0.85 }}>{replyExplain}</Text> : null}
+            <View style={{ marginTop: 10 }}>
+              <ChipGroup<Contact['mode']>
+                label={bn ? 'এই চ্যাটে সহকারী কীভাবে কাজ করবে (১ ট্যাপে বেছে নিন)' : 'How the assistant handles this chat'}
+                options={['auto', 'draft', 'telegram', 'notify', 'inherit']}
+                value={c.mode}
+                labelOf={(m) => m === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : m === 'draft' ? (bn ? 'শুধু খসড়া' : 'Draft only') : m === 'telegram' ? (bn ? 'বটে অনুমোদন' : 'Bot approval') : m === 'notify' ? (bn ? 'শুধু জানাবে' : 'Notify only') : (bn ? 'সাধারণ নিয়ম' : 'App default')}
+                onChange={(m) => {
+                  if (!m || busy) return;
+                  if (m === 'auto' && c.is_family) {
+                    showSnackbar(bn ? 'পরিবারের চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে' : 'Family chats never auto-reply', 'info');
+                    return;
+                  }
+                  const promote = (m === 'auto' || m === 'draft' || m === 'telegram') && !c.is_family && (c.category === 'personal' || c.category === 'spam');
+                  void act(
+                    () => va.patchContact(c.id, { mode: m, ...(promote ? { category: 'business' } : {}) }),
+                    m === 'auto' ? (bn ? '✓ এই চ্যাটে AI ও অটো উত্তর চালু হয়েছে' : '✓ AI & auto-reply enabled')
+                      : m === 'draft' ? (bn ? '✓ সহকারী খসড়া লিখে রাখবে, আপনি পাঠাবেন' : '✓ Draft mode enabled')
+                      : m === 'telegram' ? (bn ? '✓ খসড়া আপনার Telegram বটে যাবে' : '✓ Telegram bot approval enabled')
+                      : (bn ? 'নিয়ম সংরক্ষণ হয়েছে' : 'Rule saved')
+                  );
+                }}
+              />
+            </View>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <View style={{ flex: 1 }}>
                 <AppButton
-                  variant={c.mode === 'auto' ? 'primary' : 'secondary'}
-                  icon={c.mode === 'auto' ? 'robot-outline' : 'hand-pointing-up'}
-                  label={c.mode === 'auto' ? (bn ? 'অটো: চালু' : 'Auto: On') : (bn ? 'ম্যানুয়াল: চালু' : 'Manual: On')}
-                  disabled={busy || c.is_family || c.category === 'personal'}
-                  onPress={() => void act(() => va.patchContact(c.id, { mode: c.mode === 'auto' ? 'draft' : 'auto' }), c.mode === 'auto' ? (bn ? 'ম্যানুয়াল মোড (খসড়া) চালু' : 'Switched to manual drafts') : (bn ? 'এই মানুষের জন্য অটো উত্তর চালু' : 'Auto-reply enabled for this contact'))}
+                  variant={c.category === 'business' || c.category === 'social' ? 'primary' : 'secondary'}
+                  icon="brain"
+                  label={c.is_family ? (bn ? 'পরিবার (AI বন্ধ)' : 'Family (AI off)') : c.category === 'personal' ? (bn ? 'AI খসড়া চালু করুন' : 'Enable AI drafts') : (bn ? 'AI খসড়া: চালু ✓' : 'AI drafts: On ✓')}
+                  disabled={busy || c.is_family}
+                  onPress={() => void act(
+                    () => va.patchContact(c.id, { category: c.category === 'personal' ? 'business' : 'personal', ...(c.category !== 'personal' && c.mode === 'auto' ? { mode: 'draft' } : {}) }),
+                    c.category === 'personal' ? (bn ? '✓ এই চ্যাটে AI পড়া ও খসড়া চালু হয়েছে' : '✓ AI reading & drafts enabled') : (bn ? 'ব্যক্তিগত মোড: AI ও অটো উত্তর বন্ধ' : 'Personal mode: AI & auto-reply off')
+                  )}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -135,7 +169,7 @@ export default function ContactScreen() {
                 />
               </View>
             </View>
-            {c.is_family || c.category === 'personal' ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবার ও ব্যক্তিগত চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে।' : 'Auto-reply stays off for family and personal chats.'}</Text> : null}
+            {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে নিরাপত্তার কারণে AI ও অটো উত্তর সবসময় বন্ধ থাকে।' : 'AI and auto-reply stay off for family chats.'}</Text> : null}
           </Card>
 
           {drafts.map((d) => (
