@@ -8,6 +8,7 @@ import { va, errTone } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero } from '../src/va/Hero';
 import { Page, Status } from '../src/va/Page';
+import { num } from '../src/va/bd';
 
 const SCRIPTS: [string, string, string][] = [
   ['salam_reply', 'সালামের উত্তর', 'কেউ শুধু সালাম দিলে'],
@@ -56,7 +57,7 @@ export default function ScriptsScreen() {
   return (
     <Page title={bn ? 'সহকারীর বাঁধা উত্তর' : 'Ready answers'} subtitle={bn ? 'সহকারী যে কথাগুলো বলে' : 'The sentences the assistant says'} back={bn ? 'নিয়ম' : 'Rules'} onRefresh={cfg.reload} refreshing={cfg.loading && !!scripts}
       footer={scripts ? (<View style={{ gap: 8 }}>
-            <AppButton label={bn ? `সংরক্ষণ করুন${dirty ? ` (${dirty}টি বদল)` : ''}` : `Save${dirty ? ` (${dirty} changes)` : ''}`} icon="content-save-outline" disabled={!dirty} onPress={() => void save()} />
+            <AppButton label={bn ? `সংরক্ষণ করুন${dirty ? ` (${num(dirty, true)}টি বদল)` : ''}` : `Save${dirty ? ` (${dirty} changes)` : ''}`} icon="content-save-outline" disabled={!dirty} onPress={() => void save()} />
             {dirty ? <AppButton variant="ghost" label={bn ? 'বদল বাতিল' : 'Discard changes'} onPress={() => setEdits({})} /> : null}
           </View>) : undefined}>
       <Status loading={cfg.loading && !scripts} error={scripts ? null : cfg.error} onRetry={cfg.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />

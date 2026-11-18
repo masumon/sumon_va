@@ -8,6 +8,7 @@ import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
 import { errTone, va, type HistoryReport } from './api';
 import { readChatFile } from '../../modules/va-bridge';
+import { num } from './bd';
 
 const DAYS = ['1', '3', '5', '7', '15', '30', '0'] as const;
 type Days = (typeof DAYS)[number];
@@ -36,7 +37,7 @@ export function HistoryImport({ contactId, isPrivate }: { contactId: string; isP
       if (r.need_consent) { setAsk(true); return; }
       if (r.need_owner) { setSpeakers(r.speakers ?? []); return; }
       setText(null); setSpeakers([]); setReport(r);
-      showSnackbar(bn ? `${r.imported ?? 0}টি নতুন বার্তা ইতিহাসে রাখা হলো` : `${r.imported ?? 0} new messages kept as history`, 'success');
+      showSnackbar(bn ? `${num(r.imported ?? 0, true)}টি নতুন বার্তা ইতিহাসে রাখা হলো` : `${r.imported ?? 0} new messages kept as history`, 'success');
     } catch (e) {
       showSnackbar(errTone(e) === 'info' ? (bn ? 'সার্ভার এখনও কাজ করতে পারে। একটু পরে দেখুন, সঙ্গে সঙ্গে আবার চাপবেন না' : 'The server may still be working. Check later; do not press again right away') : (e instanceof Error ? e.message : ''), errTone(e));
     } finally { running.current = false; setBusy(false); }
@@ -72,7 +73,7 @@ export function HistoryImport({ contactId, isPrivate }: { contactId: string; isP
   return (
     <Card title={bn ? 'পুরোনো চ্যাট এখানে রাখুন (শুধু দেখার জন্য, কাউকে কিছু যায় না)' : 'Keep an earlier chat as history'}>
       <Text style={{ opacity: 0.8, lineHeight: 21, marginBottom: 8 }}>{bn ? 'নিজের এক্সপোর্ট করা চ্যাট ফাইল দিন। সহকারী এটা শুধু প্রসঙ্গ হিসেবে মনে রাখবে। এই পুরোনো বার্তার কোনো উত্তর দেবে না, কোনো অ্যালার্টও দেবে না। দুবার দিলেও বার্তা দ্বিগুণ হয় না।' : 'Give your own exported chat file. It is kept only as context: no replies and no alerts from old messages, and running it twice adds nothing.'}</Text>
-      <ChipGroup<Days> label={bn ? 'কত দিনের বার্তা (০ = ফাইলের সবটুকু)' : 'How many days (0 = everything in the file)'} options={DAYS} value={days} labelOf={(d) => d} onChange={(d) => { if (d) setDays(d); }} />
+      <ChipGroup<Days> label={bn ? 'কত দিনের বার্তা' : 'How many days'} options={DAYS} value={days} labelOf={(d) => (d === '0' ? (bn ? 'সব' : 'All') : num(d, bn))} onChange={(d) => { if (d) setDays(d); }} />
       {speakers.length > 0 && text ? (
         <View style={{ marginVertical: 8 }}>
           <Text style={{ fontWeight: '600', marginBottom: 6 }}>{bn ? 'এই চ্যাটে কোনটি আপনার নাম?' : 'Which name in this chat is you?'}</Text>
@@ -83,8 +84,8 @@ export function HistoryImport({ contactId, isPrivate }: { contactId: string; isP
       {report ? (
         <View style={{ marginTop: 10, gap: 2 }}>
           <Text style={{ fontWeight: '600' }}>{bn ? 'ফল' : 'Result'}</Text>
-          <Text>{bn ? `ফাইলে পাওয়া: ${report.found}, নতুন রাখা: ${report.imported}, আগেই ছিল: ${report.duplicates}` : `Found ${report.found}, kept ${report.imported}, already there ${report.duplicates}`}</Text>
-          {report.skipped_old || report.skipped_period ? <Text style={{ opacity: 0.75 }}>{bn ? `বাদ: ${(report.skipped_old ?? 0) + (report.skipped_period ?? 0)}টি (সময়ের বাইরে)` : `Skipped ${(report.skipped_old ?? 0) + (report.skipped_period ?? 0)} (outside the period)`}</Text> : null}
+          <Text>{bn ? `ফাইলে পাওয়া: ${num(report.found, true)}, নতুন রাখা: ${num(report.imported, true)}, আগেই ছিল: ${num(report.duplicates, true)}` : `Found ${report.found}, kept ${report.imported}, already there ${report.duplicates}`}</Text>
+          {report.skipped_old || report.skipped_period ? <Text style={{ opacity: 0.75 }}>{bn ? `বাদ: ${num((report.skipped_old ?? 0) + (report.skipped_period ?? 0), true)}টি (সময়ের বাইরে)` : `Skipped ${(report.skipped_old ?? 0) + (report.skipped_period ?? 0)} (outside the period)`}</Text> : null}
           {report.truncated ? <Text style={{ opacity: 0.75 }}>{bn ? 'একবারে সীমার বেশি ছিল, আবার চালালে বাকিটা আসবে।' : 'Over the per-run limit; run again for the rest.'}</Text> : null}
           {report.note ? <Text style={{ opacity: 0.65, fontSize: 12 }}>{report.note}</Text> : null}
         </View>
