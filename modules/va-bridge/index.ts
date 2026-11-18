@@ -44,6 +44,12 @@ type Native = {
   loginRequest(base: string, email: string): Promise<{ ok: boolean; error?: string }>;
   installedApps(): { pkg: string; label: string }[];
   openChat(pkg: string, name: string, text: string): { how: 'chat' | 'share' | 'app' | 'none'; hasNumber: boolean };
+  hasReplyBox(key: string): boolean;
+  phoneNumberFor(name: string): string;
+  sendDirectSms(phoneOrName: string, text: string): { ok: boolean; number?: string; error?: string };
+  isAccessibilityEnabled(): boolean;
+  openAccessibilitySettings(): boolean;
+  autoSendInApp(pkg: string, name: string, text: string): { armed: boolean; how: 'chat' | 'share' | 'app' | 'none'; hasNumber?: boolean; reason?: string };
   loginTelegramRequest(base: string, name: string): Promise<{ ok: boolean; requestId?: string; code?: string; expiresIn?: number; error?: string }>;
   loginTelegramPoll(base: string, requestId: string): Promise<{ ok: boolean; status: 'pending' | 'approved' | 'denied' | 'expired' | 'used' | 'error'; name?: string }>;
   loginVerify(base: string, email: string, code: string, totp: string | null, name: string): Promise<{ ok: boolean; needTotp?: boolean; name?: string; error?: string }>;
@@ -162,6 +168,26 @@ export const flush = () => (native ? native.flush() : Promise.resolve(false));
 /** Open that person's chat in the chat app with the answer ready (and copied). The owner presses the app's own Send. */
 export const openChat = (pkg: string, name: string, text: string): { how: 'chat' | 'share' | 'app' | 'none'; hasNumber: boolean } => {
   try { return native ? native.openChat(pkg, name, text) : { how: 'none', hasNumber: false }; } catch { return { how: 'none', hasNumber: false }; }
+};
+export const hasReplyBox = (key: string): boolean => {
+  try { return !!native?.hasReplyBox?.(key); } catch { return false; }
+};
+export const phoneNumberFor = (name: string): string => {
+  try { return native?.phoneNumberFor?.(name) ?? ''; } catch { return ''; }
+};
+export const sendDirectSms = (phoneOrName: string, text: string): { ok: boolean; number?: string; error?: string } => {
+  try { return native?.sendDirectSms ? native.sendDirectSms(phoneOrName, text) : { ok: false, error: 'unsupported' }; }
+  catch { return { ok: false, error: 'error' }; }
+};
+export const isAccessibilityEnabled = (): boolean => {
+  try { return !!native?.isAccessibilityEnabled?.(); } catch { return false; }
+};
+export const openAccessibilitySettings = (): boolean => {
+  try { return !!native?.openAccessibilitySettings?.(); } catch { return false; }
+};
+export const autoSendInApp = (pkg: string, name: string, text: string): { armed: boolean; how: 'chat' | 'share' | 'app' | 'none'; hasNumber?: boolean; reason?: string } => {
+  try { return native?.autoSendInApp ? native.autoSendInApp(pkg, name, text) : { armed: false, how: 'none', reason: 'unsupported' }; }
+  catch { return { armed: false, how: 'none', reason: 'error' }; }
 };
 
 /** Old SMS from the phone (needs READ_SMS): newest first. An empty list when not allowed; `error` says why. */

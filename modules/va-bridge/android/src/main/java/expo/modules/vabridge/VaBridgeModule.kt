@@ -220,6 +220,48 @@ class VaBridgeModule : Module() {
       mapOf("how" to how, "hasNumber" to hasNumber)
     }
 
+    /** True if the notification reply box for this chat is currently alive on the phone. */
+    Function("hasReplyBox") { key: String -> ReplyBoxes.hasOrRescan(key) }
+
+    /** Best normalized phone number for a contact name or raw number (for SMS fallback). */
+    Function("phoneNumberFor") { name: String -> ChatOpener.numberFor(ctx, name) ?: "" }
+
+    /** Solution 2: Direct SMS fallback from the phone (uses SEND_SMS permission). */
+    Function("sendDirectSms") { phoneOrName: String, text: String ->
+      val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.SEND_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+      if (!granted) return@Function mapOf("ok" to false, "error" to "SMS পাঠানোর অনুমতি চালু নেই")
+      val num = ChatOpener.numberFor(ctx, phoneOrName)
+      if (num.isNullOrEmpty()) return@Function mapOf("ok" to false, "error" to "এই মানুষের ফোন নম্বর পাওয়া যায়নি")
+      val body = text.trim().take(1500)
+      if (body.isEmpty()) return@Function mapOf("ok" to false, "error" to "বার্তা ফাঁকা")
+      try {
+        val mgr = if (android.os.Build.VERSION.SDK_INT >= 31) ctx.getSystemService(android.telephony.SmsManager::class.java) else @Suppress("DEPRECATION") android.telephony.SmsManager.getDefault()
+        val parts = mgr.divideMessage(body)
+        if (parts.size > 1) mgr.sendMultipartTextMessage("+$num", null, parts, null, null)
+        else mgr.sendTextMessage("+$num", null, body, null, null)
+        mapOf("ok" to true, "number" to "+$num")
+      } catch (e: Exception) {
+        mapOf("ok" to false, "error" to "SMS পাঠানো যায়নি: ${e.javaClass.simpleName}")
+      }
+    }
+
+    /** Solution 3: Opt-in Accessibility auto-send helpers. */
+    Function("isAccessibilityEnabled") { VaAutoSendService.isEnabled(ctx) }
+    Function("openAccessibilitySettings") {
+      try {
+        ctx.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+      } catch (_: Exception) { false }
+    }
+    Function("autoSendInApp") { pkg: String, name: String, text: String ->
+      if (!Store.packages(ctx).contains(pkg) && pkg !in Store.DEFAULT_PACKAGES) return@Function mapOf("armed" to false, "how" to "none", "reason" to "unsupported")
+      if (!VaAutoSendService.isEnabled(ctx)) return@Function mapOf("armed" to false, "how" to "none", "reason" to "accessibility_off")
+      val (how, hasNumber) = ChatOpener.open(ctx, pkg, name, text.take(4000))
+      val armed = how == "chat"
+      if (armed) AutoSendQueue.arm(pkg) else AutoSendQueue.disarm()
+      mapOf("armed" to armed, "how" to how, "hasNumber" to hasNumber, "reason" to if (armed) "" else "no_direct_chat")
+    }
+
     Function("unpair") { Store.clear(ctx); PollService.stop(ctx); true }
 
     /** Private screen: Android's own FLAG_SECURE on the app window (no screenshots, blank recent-apps thumbnail). Our own call, so it
