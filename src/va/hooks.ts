@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useShell } from './shell';
 import { useFocusEffect } from 'expo-router';
 import { onInboxChanged } from '../../modules/va-bridge';
+
+const CACHE_PREFIX = 'cache:';
+/** Only non-private list/summary views are cached locally for offline reading; individual chat threads (`contact:*`) are never cached. */
+const isCacheable = (key: string): boolean =>
+  key === 'overview' || key === 'assistant-config' || key === 'channels' || key.startsWith('tasks:') || key.startsWith('contacts:');
+
+export async function clearOfflineCache(db: SQLiteDatabase): Promise<void> {
+  await db.runAsync('DELETE FROM app_preferences WHERE key LIKE ?', [`${CACHE_PREFIX}%`]).catch(() => {});
+}
 
 /** True while the app is in the foreground. Every timer and endless animation checks this so nothing runs in the background. */
 export function useAppActive(): boolean {
@@ -31,6 +41,7 @@ export function sameValue(a: unknown, b: unknown): boolean {
  * `queryKey` says "this is a different question" (e.g. another filter or person): a new key reloads.
  */
 export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: number, opts?: { always?: boolean }) {
+  const db = useSQLiteContext();
   const always = !!opts?.always; // true for things that live outside a screen (the header, the problem banner)
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,20 +49,38 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
   const [fails, setFails] = useState(0); // consecutive failed loads: a screen that HAD data can still be honest when the server goes away
   const loadRef = useRef(load);
   useEffect(() => { loadRef.current = load; });
+
+  // Offline read-cache: immediately hydrate last-synced summary/list data so Home, Tasks & Inbox remain readable without internet.
+  useEffect(() => {
+    if (!isCacheable(queryKey)) return undefined;
+    let active = true;
+    void db.getFirstAsync<{ value: string }>('SELECT value FROM app_preferences WHERE key = ?', [`${CACHE_PREFIX}${queryKey}`]).then((row) => {
+      if (!active || !row?.value) return;
+      try {
+        const parsed = JSON.parse(row.value) as T;
+        setData((cur) => (cur === null ? parsed : cur));
+      } catch { /* ignore corrupt cache */ }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [db, queryKey]);
+
   const run = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
-      setData(await loadRef.current());
+      const fresh = await loadRef.current();
+      setData(fresh);
       setError(null);
       setFails(0);
+      if (isCacheable(queryKey)) {
+        void db.runAsync('INSERT OR REPLACE INTO app_preferences (key, value) VALUES (?, ?)', [`${CACHE_PREFIX}${queryKey}`, JSON.stringify(fresh)]).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'কিছু একটা সমস্যা হয়েছে');
       setFails((n) => n + 1);
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
+  }, [db, queryKey]);
   const tick = useShell((st) => st.tick);
   useEffect(() => {
     if (tick === 0) return undefined;

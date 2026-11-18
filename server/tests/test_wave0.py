@@ -132,13 +132,13 @@ async def test_the_ai_helper_never_gets_a_private_chats_words(Session, monkeypat
         seen.clear()
         await wa_ai.ask(s, "কাকে আগে উত্তর দেব?", biz.id)
         assert "লোগোর দামটা" in " ".join(seen)
-        # 3. a reply draft for the family chat is refused before any AI call
+        # 3. on owner tap, suggest_reply now writes a draft for family chats too (owner decision 2026-11-19) with a privacy note
         seen.clear()
         r = await wa_ai.suggest_reply(s, fam.id, "বলো কাল আসছি")
-        assert r["text"] == "" and r["private"] is True and "নিজে লিখুন" in r["warning"] and seen == []
-        # 4. and for the business chat it works
+        assert r["text"] == "ঠিক আছে" and r["private"] is True and "পারিবারিক/ব্যক্তিগত" in r["note"]
+        # 4. and for the business chat it works without private flag
         r2 = await wa_ai.suggest_reply(s, biz.id, "বলো কাল জানাব")
-        assert r2["text"] == "ঠিক আছে" and "private" not in r2 and seen
+        assert r2["text"] == "ঠিক আছে" and not r2["private"] and seen
 
 
 # -- lost messages are recovered once (WP1) -----------------------------------------------

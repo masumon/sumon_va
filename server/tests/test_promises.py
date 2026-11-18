@@ -17,7 +17,7 @@ def d(text):
 
 @pytest.mark.parametrize("text", [
     "ভাই কাল পাঠাব", "আজই করে দিচ্ছি, চিন্তা করবেন না", "পরশু জানাব ইনশাআল্লাহ", "দেখে বলছি একটু পরে",
-    "I will send it tomorrow", "will call you tonight", "I'll get back to you by Friday",
+    "কাল রহিমকে ফোন দিতে হবে", "I will send it tomorrow", "will call you tonight", "I'll get back to you by Friday",
 ])
 def test_positive_promises(text):
     r = d(text)

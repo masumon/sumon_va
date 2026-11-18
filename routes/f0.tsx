@@ -152,8 +152,8 @@ export default function F0Screen() {
           hint={bn ? (auto ? 'কাউকে কিছু বলতে বললে সঙ্গে সঙ্গে চলে যায়। কোনো সন্দেহ থাকলে (কে, আগেই উত্তর দেওয়া, ২৪ ঘণ্টা পার) আগে দেখাবে।' : 'বার্তা আগে দেখাবে, আপনি “পাঠান” চাপলে যাবে।')
             : (auto ? 'A message you dictate goes at once. If anything is unclear it shows it to you first.' : 'Shows the message first; it goes when you tap Send.')}
           value={auto} onChange={(v) => void setAuto(v)} />
-        <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
-          hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
+        <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি · রহিম সম্পর্কে মনে রাখো... · কাজ যোগ করো...' : 'e.g. tell Rahim I am coming · remember about Rahim... · add task...'}
+          hint={bn ? 'বাংলা, বাংলিশ বা ইংরেজিতে লিখুন; মুখে বলতে কিবোর্ডের মাইক চাপুন।' : 'Write in Bangla, Banglish or English; use keyboard mic to speak.'} />
         <View style={{ marginTop: spacing.sm, flexDirection: 'row', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
             <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}

@@ -76,6 +76,7 @@ function AppNavigator() {
         <Stack
           screenOptions={{
             headerShown: false,
+            freezeOnBlur: true,
             animation: reduceMotion ? 'none' : 'default',
             contentStyle: { backgroundColor: colors.background, paddingBottom: showNav && !expandedNav ? 0 : insets.bottom, paddingLeft: showNav && expandedNav ? layout.expandedNavWidth : 0 },
           }}

@@ -14,7 +14,8 @@ import type { DesignTokens } from '../theme/designs';
 import { getStatus, isInstalled, unpair, unsentWarning } from '../../modules/va-bridge';
 import { MODULES } from './modules';
 import { computeChecks, verdict } from './connect';
-import { useLoad } from './hooks';
+import { useSQLiteContext } from 'expo-sqlite';
+import { clearOfflineCache, useLoad } from './hooks';
 import { va } from './api';
 import { MENU } from './menu';
 import { useShell } from './shell';
@@ -24,6 +25,7 @@ const LOGO = require('../../assets/icon.png');
 
 /** The side menu: who is signed in, every part of the app, language and theme, and sign out. */
 export function Drawer() {
+  const db = useSQLiteContext();
   const { colors, language, reduceMotion, design, accents } = useAppPreferences();
   const bn = language === 'bn';
   const { drawer, close } = useShell();
@@ -73,6 +75,7 @@ export function Drawer() {
     setConfirm(false);
     close();
     try { await va.logout(); } catch { /* the phone signs out locally even if the server cannot be reached */ }
+    await clearOfflineCache(db);
     unpair();
     showSnackbar(bn ? 'সাইন আউট হয়েছে' : 'Signed out', 'info');
     router.replace('/login' as never);
