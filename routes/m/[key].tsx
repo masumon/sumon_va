@@ -7,5 +7,5 @@ import { moduleByKey } from '../../src/va/modules';
 export default function ModuleRoute() {
   const { key } = useLocalSearchParams<{ key: string }>();
   const mod = moduleByKey(String(key));
-  return mod ? <ModuleScreen mod={mod} /> : <AppState icon="help-circle-outline" title="—" />;
+  return mod ? <ModuleScreen key={mod.key} mod={mod} /> : <AppState icon="help-circle-outline" title="—" />;
 }

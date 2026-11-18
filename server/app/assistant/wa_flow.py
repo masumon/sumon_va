@@ -107,8 +107,11 @@ def explain_mode(cfg: dict[str, Any], contact: WaContact) -> tuple[str, str]:
     defaults, never the global switch and never the personal/family category rule."""
     if cfg.get("mode") != "auto":
         return "draft", "সাধারণ সেটিং: এখন শুধু খসড়া (পরীক্ষামূলক মোড)"
-    plat = platforms.settings_for(cfg, platforms.platform_key(contact, cfg.get("custom_platforms")))  # the platform's own choices: who, and during which hours
+    pkey = platforms.platform_key(contact, cfg.get("custom_platforms"))
+    plat = platforms.settings_for(cfg, pkey)  # the platform's own choices: who, and during which hours
     channel = contact.channel or "whatsapp"
+    if pkey == "email":
+        return "draft", "চ্যানেল: এই মাধ্যমে সহকারী নিজে উত্তর দেয় না"
     explicit = getattr(contact, "mode", None) == "auto" and channel in ("whatsapp", "telegram", "sms", "notif")
     if getattr(contact, "mode", None) == "telegram":
         return "draft", "ব্যক্তি: আপনি Telegram-এ অনুমোদন করবেন"

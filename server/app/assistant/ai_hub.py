@@ -425,7 +425,7 @@ async def check(conn: dict[str, Any], probe_limit: int = 4) -> dict[str, Any]:
         conn["status"] = "limit" if limited and all(m["ms"] == 0 for m in good) else "ok"
         best = good[0]
         conn["note"] = ("ফ্রি সীমা এই মুহূর্তে শেষ, তবে কী ঠিক আছে" if conn["status"] == "limit"
-                        else f"{len(good)}টি মডেল কাজ করছে · সেরা: {best['id']}" + (" · বাংলায় ভালো" if best["score"] >= 3 else ""))
+                        else f"{brain.bn_digits(len(good))}টি মডেল কাজ করছে · সেরা: {best['id']}" + (" · বাংলায় ভালো" if best["score"] >= 3 else ""))
         _rest.pop(conn["id"], None)
     else:
         conn["status"] = "bad"
