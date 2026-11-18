@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
 import { va, type Contact, type Message, errTone } from '../src/va/api';
-import { useLoad } from '../src/va/hooks';
+import { useAppActive, useLoad } from '../src/va/hooks';
 import { Page, Status } from '../src/va/Page';
 import { BrandLogo, brandFor, brandName } from '../src/va/BrandLogo';
 import { TagEditor } from '../src/va/TagEditor';
@@ -17,9 +18,29 @@ import { ContactMemory } from '../src/va/ContactMemory';
 import { ChatMenuButton } from '../src/va/ChatMenu';
 import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
+import { autoSendInApp, hasReplyBox, isAccessibilityEnabled, openAccessibilitySettings, openChat, phoneNumberFor, sendDirectSms } from '../modules/va-bridge';
 
 const MODES: Contact['mode'][] = ['inherit', 'auto', 'telegram', 'draft', 'notify'];
 type DraftTone = 'auto' | 'short' | 'warm' | 'formal';
+type FallbackMethod = 'app' | 'sms' | 'auto';
+const FALLBACK_OPTIONS: { key: FallbackMethod; bn: string; en: string }[] = [
+  { key: 'app', bn: 'অ্যাপে খুলে পাঠান', en: 'Open in app' },
+  { key: 'sms', bn: 'SMS বিকল্প', en: 'SMS fallback' },
+  { key: 'auto', bn: 'অটো-Send (অ্যাক্সেসিবিলিটি)', en: 'Auto-Send (Accessibility)' },
+];
+
+function pkgForContact(c: Contact): string {
+  if (c.phone.startsWith('notif:')) return c.phone.split(':')[1] ?? '';
+  if (c.channel === 'whatsapp') return 'com.whatsapp';
+  if (c.channel === 'telegram') return 'org.telegram.messenger';
+  return '';
+}
+
+function targetNameFor(c: Contact): string {
+  if (c.name?.trim()) return c.name.trim();
+  const tail = c.phone.split(':').slice(-1)[0] ?? '';
+  return tail.trim();
+}
 const DRAFT_TONES: { key: DraftTone; bn: string; en: string }[] = [
   { key: 'auto', bn: 'স্বাভাবিক', en: 'Natural' },
   { key: 'short', bn: 'ছোট', en: 'Short' },
@@ -38,12 +59,13 @@ function Ticks({ m }: { m: Message }) {
   return null;
 }
 
-function Bubble({ m }: { m: Message }) {
+function Bubble({ m, onRetryApp, onRetrySms, onRetryAuto }: { m: Message; onRetryApp?: (msgText: string) => void; onRetrySms?: (msgText: string) => void; onRetryAuto?: (msgText: string) => void }) {
   const { colors, bn, language } = useKit();
   const mine = m.direction === 'out';
   // A status this app version does not know yet must never crash the chat: show the plain code instead.
   const st = MESSAGE_STATUS[m.status] ?? { bn: String(m.status ?? ''), en: String(m.status ?? '') };
   const text = m.transcript || m.body || (bn ? '(লেখা নেই)' : '(no text)');
+  const showRetry = mine && m.status === 'failed' && Boolean(m.body?.trim()) && (onRetryApp || onRetrySms || onRetryAuto);
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
       <View style={{ padding: 12, borderRadius: 16, backgroundColor: mine ? colors.primaryTint : colors.surfaceMuted }}>
@@ -52,6 +74,25 @@ function Bubble({ m }: { m: Message }) {
       <Text style={{ color: m.status === 'failed' ? colors.danger : colors.textMuted, fontSize: 11, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
         {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}{mine ? ` · ${bn ? (m.delivery === 'read' ? 'পড়েছেন' : m.delivery === 'delivered' ? 'পৌঁছেছে' : st.bn) : (m.delivery === 'read' ? 'Read' : m.delivery === 'delivered' ? 'Delivered' : st.en)}` : ''}{m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
       </Text>
+      {showRetry ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
+          {onRetryApp ? (
+            <Pressable accessibilityRole="button" onPress={() => onRetryApp(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface }}>
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>{bn ? 'অ্যাপে খুলে পাঠান' : 'Open in app'}</Text>
+            </Pressable>
+          ) : null}
+          {onRetrySms ? (
+            <Pressable accessibilityRole="button" onPress={() => onRetrySms(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'SMS পাঠান' : 'Send SMS'}</Text>
+            </Pressable>
+          ) : null}
+          {onRetryAuto ? (
+            <Pressable accessibilityRole="button" onPress={() => onRetryAuto(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'অটো-Send' : 'Auto-Send'}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       {mine ? <View style={{ alignSelf: 'flex-end' }}><Ticks m={m} /></View> : null}
     </View>
   );
@@ -59,8 +100,10 @@ function Bubble({ m }: { m: Message }) {
 
 export default function ContactScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { bn } = useKit();
+  const db = useSQLiteContext();
+  const { bn, colors } = useKit();
   const { showSnackbar } = useAppFeedback();
+  const appActive = useAppActive();
   const detail = useLoad(() => va.contact(String(id)), `contact:${String(id)}`, 10000);
   const cfg = useLoad(() => va.assistantConfig(), 'assistant-config', 60000);
   const [text, setText] = useState('');
@@ -71,7 +114,32 @@ export default function ContactScreen() {
   const [draftAvoid, setDraftAvoid] = useState<string[]>([]);
   const [draftVariant, setDraftVariant] = useState(0);
   const [draftHint, setDraftHint] = useState('');
+  const [fallbacks, setFallbacks] = useState<FallbackMethod[]>(['app']);
+  const a11yOn = appActive ? isAccessibilityEnabled() : isAccessibilityEnabled();
   const aliases = useLoad(() => va.aliases(String(id)), `aliases:${String(id)}`, 60000);
+
+  useEffect(() => {
+    let alive = true;
+    void db.getFirstAsync<{ value: string }>('SELECT value FROM app_preferences WHERE key = ?', [`reply_via:${String(id)}`]).then((row) => {
+      if (!alive || !row?.value) return;
+      try {
+        const arr = JSON.parse(row.value) as unknown;
+        if (Array.isArray(arr)) {
+          const clean = arr.filter((x): x is FallbackMethod => x === 'app' || x === 'sms' || x === 'auto');
+          setFallbacks(clean);
+        }
+      } catch { /* ignore */ }
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [db, id]);
+
+  const toggleFallback = (m: FallbackMethod) => {
+    setFallbacks((prev) => {
+      const next = prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m];
+      void db.runAsync('INSERT OR REPLACE INTO app_preferences (key, value) VALUES (?, ?)', [`reply_via:${String(id)}`, JSON.stringify(next)]).catch(() => {});
+      return next;
+    });
+  };
 
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
@@ -106,6 +174,71 @@ export default function ContactScreen() {
   const ac = cfg.data?.config;
   const drafts = (detail.data?.messages ?? []).filter((m) => m.status === 'draft');
   const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
+  const chatPkg = c ? pkgForContact(c) : '';
+  const chatName = c ? targetNameFor(c) : '';
+  const smsNumber = c ? (phoneNumberFor(chatName) || phoneNumberFor(c.phone.split(':').slice(-1)[0] ?? '')) : '';
+
+  const clearComposer = () => { setText(''); setDraftMeta(null); setDraftAvoid([]); setDraftVariant(0); setDraftHint(''); };
+
+  const sendViaOpenApp = (msgText: string, clearAfter = false) => {
+    if (!c || !chatPkg || !msgText.trim()) return;
+    const res = openChat(chatPkg, chatName, msgText.trim());
+    if (res.how === 'none') {
+      showSnackbar(bn ? 'এই চ্যাট-অ্যাপটি খোলা যায়নি' : 'Could not open this chat app', 'danger');
+      return;
+    }
+    if (clearAfter) clearComposer();
+    void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch(() => {});
+    showSnackbar(
+      res.how === 'chat'
+        ? (bn ? 'সরাসরি চ্যাট খুলে উত্তর বসানো হয়েছে — শুধু Send চাপুন' : 'Chat opened with your reply — tap Send')
+        : (bn ? 'উত্তর কপি করে অ্যাপ খোলা হয়েছে — মানুষটি বেছে Paste/Send করুন' : 'Reply copied & app opened — pick contact and send'),
+      'info'
+    );
+  };
+
+  const sendViaSms = (msgText: string, clearAfter = false) => {
+    if (!c || !msgText.trim()) return;
+    const target = smsNumber || chatName;
+    const res = sendDirectSms(target, msgText.trim());
+    if (!res.ok) {
+      showSnackbar(res.error || (bn ? 'SMS পাঠানো যায়নি' : 'Could not send SMS'), 'danger');
+      return;
+    }
+    if (clearAfter) clearComposer();
+    void act(() => va.sentByHand(c.id, `[SMS] ${msgText.trim()}`), bn ? `✓ SMS পাঠানো হয়েছে (${res.number ?? target})` : `✓ SMS sent (${res.number ?? target})`);
+  };
+
+  const sendViaAutoClick = (msgText: string, clearAfter = false) => {
+    if (!c || !chatPkg || !msgText.trim()) return;
+    if (!isAccessibilityEnabled()) {
+      showSnackbar(bn ? 'অটো-Send চালাতে আগে Android Accessibility চালু করুন' : 'Enable Android Accessibility first for Auto-Send', 'info');
+      openAccessibilitySettings();
+      return;
+    }
+    const res = autoSendInApp(chatPkg, chatName, msgText.trim());
+    if (res.armed) {
+      if (clearAfter) clearComposer();
+      void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch(() => {});
+      showSnackbar(bn ? '✓ চ্যাট খুলে অটো-Send চালু করা হয়েছে' : '✓ Chat opened with Auto-Send armed', 'success');
+    } else if (res.how !== 'none') {
+      if (clearAfter) clearComposer();
+      showSnackbar(bn ? 'নম্বর না থাকায় সরাসরি চ্যাট মেলেনি — নিরাপত্তার জন্য নিজে মানুষটি বেছে Send চাপুন' : 'Number not found — pick the contact yourself and tap Send', 'info');
+    } else {
+      showSnackbar(bn ? 'অটো-Send চালু করা যায়নি' : 'Could not start Auto-Send', 'danger');
+    }
+  };
+
+  const sendSmart = () => {
+    if (!c || !text.trim() || busy) return;
+    const msg = text.trim();
+    if (c.channel === 'notif' && !hasReplyBox(c.phone)) {
+      if (fallbacks.includes('auto') && chatPkg && isAccessibilityEnabled()) { sendViaAutoClick(msg, true); return; }
+      if (fallbacks.includes('app') && chatPkg) { sendViaOpenApp(msg, true); return; }
+      if (fallbacks.includes('sms') && smsNumber) { sendViaSms(msg, true); return; }
+    }
+    void act(async () => { await va.reply(c.id, msg); clearComposer(); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending');
+  };
   const replyExplain = !c ? '' : !ac ? ''
     : !ac.enabled ? (bn ? 'মূল সহকারী বন্ধ থাকায় এখন অটো উত্তর বা খসড়া কিছুই তৈরি হবে না।' : 'Main assistant is off — no auto-replies or drafts will be made.')
     : c.is_blocked ? (bn ? 'ব্লক করা: এই মানুষের কোনো উত্তর বা খসড়া তৈরি হবে না।' : 'Blocked: no replies or drafts will be made.')
@@ -139,10 +272,29 @@ export default function ContactScreen() {
           <Field label="" value={text} onChangeText={(v) => { setText(v); if (!v.trim()) { setDraftMeta(null); setDraftAvoid([]); setDraftVariant(0); } }} multiline placeholder={bn ? 'আপনার উত্তর লিখুন, অথবা একটু হিন্ট লিখে “সহকারী লিখে দিক” চাপুন…' : 'Write your reply, or add a hint and tap Let it write…'} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
-              onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); setDraftMeta(null); setDraftAvoid([]); setDraftVariant(0); setDraftHint(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
+              onPress={sendSmart} /></View>
             <View style={{ flex: 1 }}><AppButton variant="secondary" icon={draftMeta ? 'refresh' : 'auto-fix'} label={draftMeta ? (bn ? 'আরেকটি লিখুন' : 'Write another') : (bn ? 'সহকারী লিখে দিক' : 'Let it write')} loading={busy}
               onPress={() => writeDraft(draftMeta ? { another: true } : undefined)} /></View>
           </View>
+          {text.trim() && fallbacks.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {fallbacks.includes('app') && chatPkg ? (
+                <Pressable accessibilityRole="button" onPress={() => sendViaOpenApp(text, true)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface }}>
+                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>{bn ? 'অ্যাপে খুলে পাঠান' : 'Open in app'}</Text>
+                </Pressable>
+              ) : null}
+              {fallbacks.includes('sms') && smsNumber ? (
+                <Pressable accessibilityRole="button" onPress={() => sendViaSms(text, true)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+                  <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'SMS পাঠান' : 'Send SMS'}</Text>
+                </Pressable>
+              ) : null}
+              {fallbacks.includes('auto') && chatPkg ? (
+                <Pressable accessibilityRole="button" onPress={() => sendViaAutoClick(text, true)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+                  <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'অটো-Send' : 'Auto-Send'}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       ) : null}>
       <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
@@ -210,6 +362,28 @@ export default function ContactScreen() {
               </View>
             </View>
             {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে অটো উত্তর সবসময় বন্ধ থাকে; তবে নিচের “সহকারী লিখে দিক” চেপে যেকোনো সময় খসড়া লিখিয়ে নিতে পারবেন।' : 'Auto-reply stays off for family chats, but you can tap “Let it write” below anytime for a draft.'}</Text> : null}
+            <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border, gap: 6 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', opacity: 0.85 }}>{bn ? 'নোটিফিকেশন না থাকলে উত্তর পাঠানোর উপায় (একাধিক বেছে নিতে পারেন)' : 'Reply options when notification is gone (pick one or more)'}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {FALLBACK_OPTIONS.map((opt) => {
+                  const on = fallbacks.includes(opt.key);
+                  return (
+                    <Pressable key={opt.key} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => toggleFallback(opt.key)}
+                      style={{ minHeight: 38, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? colors.primary : colors.border, backgroundColor: on ? colors.primaryTint : colors.surface, justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 12, fontWeight: on ? '700' : '500', color: on ? colors.primary : colors.textPrimary }}>{on ? '✓ ' : ''}{bn ? opt.bn : opt.en}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {fallbacks.includes('auto') && !a11yOn ? (
+                <View style={{ marginTop: 4 }}>
+                  <AppButton variant="secondary" icon="cog-outline" label={bn ? 'অটো-Send চালু করতে Accessibility সেটিং খুলুন' : 'Open Accessibility settings for Auto-Send'} onPress={() => { openAccessibilitySettings(); }} />
+                </View>
+              ) : null}
+              {fallbacks.includes('sms') && !smsNumber ? (
+                <Text style={{ fontSize: 11, opacity: 0.7 }}>{bn ? 'এই মানুষের ফোন নম্বর কনট্যাক্টসে মিললে SMS বোতাম সক্রিয় হবে।' : 'SMS button activates when a phone number is found in Contacts.'}</Text>
+              ) : null}
+            </View>
           </Card>
 
           {drafts.map((d) => (
@@ -223,7 +397,17 @@ export default function ContactScreen() {
             </Card>
           ))}
 
-          <View style={{ gap: 14 }}>{detail.data!.messages.map((m) => <Bubble key={m.id} m={m} />)}</View>
+          <View style={{ gap: 14 }}>
+            {detail.data!.messages.map((m) => (
+              <Bubble
+                key={m.id}
+                m={m}
+                onRetryApp={fallbacks.includes('app') && chatPkg ? (t) => sendViaOpenApp(t) : undefined}
+                onRetrySms={fallbacks.includes('sms') && smsNumber ? (t) => sendViaSms(t) : undefined}
+                onRetryAuto={fallbacks.includes('auto') && chatPkg ? (t) => sendViaAutoClick(t) : undefined}
+              />
+            ))}
+          </View>
 
 
           <Card>

@@ -74,5 +74,17 @@
       <meta-data android:name="android.app.device_admin" android:resource="@xml/va_device_admin" />
       <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
     </receiver>
+
+    <!-- Optional opt-in auto-send helper (OFF by default until owner turns it on in Android Accessibility Settings). -->
+    <service
+      android:name="expo.modules.vabridge.VaAutoSendService"
+      android:exported="true"
+      android:label="সুমনের সহকারী (অটো-পাঠানো)"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data android:name="android.accessibilityservice" android:resource="@xml/va_accessibility" />
+    </service>
   </application>
 </manifest>

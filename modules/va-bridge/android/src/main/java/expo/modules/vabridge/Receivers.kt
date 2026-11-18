@@ -179,6 +179,12 @@ object ReplyBoxes {
 
   @Synchronized fun put(key: String, intent: PendingIntent, inputs: Array<RemoteInput>) { val k = norm(key); boxes.remove(k); boxes[k] = Box(intent, inputs); if (boxes.size > 200) boxes.remove(boxes.keys.first()) }
 
+  /** True if this chat currently has a live notification reply box (rescans active notifications once if needed). */
+  fun hasOrRescan(key: String): Boolean {
+    if (!has(key)) VaNotificationListener.instance?.rescan()
+    return has(key)
+  }
+
   /** Sends text through the chat app's own reply box. False when that chat has no reply box right now. */
   fun send(ctx: Context, key: String, text: String): Boolean {
     if (!has(key)) VaNotificationListener.instance?.rescan()  // not in memory: look at the chats in the shade once more
