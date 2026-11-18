@@ -47,6 +47,7 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fails, setFails] = useState(0); // consecutive failed loads: a screen that HAD data can still be honest when the server goes away
+  const hasDataRef = useRef(false);
   const loadRef = useRef(load);
   useEffect(() => { loadRef.current = load; });
 
@@ -58,7 +59,9 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
       if (!active || !row?.value) return;
       try {
         const parsed = JSON.parse(row.value) as T;
+        hasDataRef.current = true;
         setData((cur) => (cur === null ? parsed : cur));
+        setLoading(false);
       } catch { /* ignore corrupt cache */ }
     }).catch(() => {});
     return () => { active = false; };
@@ -68,6 +71,7 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
     if (!quiet) setLoading(true);
     try {
       const fresh = await loadRef.current();
+      hasDataRef.current = true;
       setData(fresh);
       setError(null);
       setFails(0);
@@ -88,7 +92,7 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
     return () => clearTimeout(t);
   }, [tick, run]);
   const live = useCallback(() => {
-    const first = setTimeout(() => { void run(); }, 0); // started after the effect, not inside it
+    const first = setTimeout(() => { void run(hasDataRef.current); }, 0); // instant tab switches: quiet refresh when data is already on screen
     if (!everyMs) return () => clearTimeout(first);
     // No timed refresh while the app is in the background; one quiet refresh when it comes back.
     const id = setInterval(() => { if (AppState.currentState === 'active') void run(true); }, everyMs);

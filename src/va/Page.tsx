@@ -19,16 +19,14 @@ import { NAV_BAR_GAP, NAV_BAR_HEIGHT, primaryNavItems } from '../ui/PrimaryNav';
 export function Page({ title, subtitle, right, back, children, onRefresh, refreshing = false, bottomPadding, footer }: {
   title: string; subtitle?: string; right?: ReactNode; back?: string; children: ReactNode; onRefresh?: () => void; refreshing?: boolean; bottomPadding?: number; footer?: ReactNode;
 }) {
-  const { colors, language } = useAppPreferences();
+  const { colors } = useAppPreferences();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  // Pull-to-refresh: always NEW data (the short read cache is cleared first), and the spinner stops when the screen really
-  // finished (its `refreshing` went on and off again). A screen that never reports stops after 1.2 s; a slow server after 10 s.
+  // Smooth pull-to-refresh: clears read cache, spins until the screen finishes reloading (capped at 6s so it never gets stuck).
   const [pulling, setPulling] = useState(false);
   const pullTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const quietTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saw = useRef(false);
-  const stop = () => { setPulling(false); saw.current = false; if (pullTimer.current) clearTimeout(pullTimer.current); if (quietTimer.current) clearTimeout(quietTimer.current); };
-  useEffect(() => () => { if (pullTimer.current) clearTimeout(pullTimer.current); if (quietTimer.current) clearTimeout(quietTimer.current); }, []);
+  const stop = () => { setPulling(false); saw.current = false; if (pullTimer.current) clearTimeout(pullTimer.current); };
+  useEffect(() => () => { if (pullTimer.current) clearTimeout(pullTimer.current); }, []);
   useEffect(() => {
     if (!pulling) return;
     if (refreshing) saw.current = true;
@@ -39,10 +37,7 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
     saw.current = false;
     setPulling(true);
     if (pullTimer.current) clearTimeout(pullTimer.current);
-    if (quietTimer.current) clearTimeout(quietTimer.current);
-    // The spinner never holds the page: at most 1.2 s, then the old data stays usable and a small note says new data is coming.
-    pullTimer.current = setTimeout(stop, 1200);
-    quietTimer.current = setTimeout(() => { if (!saw.current) stop(); }, 1200);
+    pullTimer.current = setTimeout(stop, 6000);
     onRefresh?.();
   };
   const pathname = usePathname();
@@ -54,11 +49,18 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
   return (
     <View style={styles.container}>
       <AppBackdrop />
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-        keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={pulling} onRefresh={pull} tintColor={colors.primary} /> : undefined}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
+        showsVerticalScrollIndicator={false}
+        overScrollMode="always"
+        nestedScrollEnabled
+        scrollEventThrottle={16}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={onRefresh ? <RefreshControl refreshing={pulling} onRefresh={pull} colors={[colors.primary]} progressBackgroundColor={colors.surface} tintColor={colors.primary} /> : undefined}
+      >
         <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
-        {refreshing && !pulling ? <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.xs }}>{language === 'bn' ? 'নতুন তথ্য আনছি…' : 'Getting new data…'}</Text> : null}
         <View style={styles.body}>{children}</View>
       </ScrollView>
       {footer ? <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: Math.max(insets.bottom, spacing.sm), backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>{footer}</View> : null}
