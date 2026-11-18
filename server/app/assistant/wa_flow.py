@@ -461,8 +461,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
             if via_tg:
                 await _telegram_card(db, contact, msg, plain, waiting)
             return
-        # Your own phone's chats (WhatsApp, Messenger, ...) get a draft only when there is something to answer: a question, work, money, urgent.
-        if (contact.channel or "whatsapp") == "notif" and d.priority >= 5 and not brain.is_question(msg.body or transcript or "") and not via_tg:
+        # Your own phone's chats (WhatsApp, Messenger, ...) get a draft only when there is something to answer (or the owner explicitly set this person to draft mode).
+        if (contact.channel or "whatsapp") == "notif" and d.priority >= 5 and not brain.is_question(msg.body or transcript or "") and not via_tg and getattr(contact, "mode", None) != "draft":
             return
     delay = random.randint(int(cfg["delay"]["min"]), max(int(cfg["delay"]["min"]), int(cfg["delay"]["max"])))
     if d.priority == 1:
