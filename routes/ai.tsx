@@ -88,7 +88,7 @@ export default function AiScreen() {
                   <AppBadge tone="neutral" label={bn ? `আজ ${num(c.used_today, true)}টি` : `${c.used_today} today`} />
                 </View>
                 <Text style={{ opacity: 0.7, fontSize: 12 }}>{c.hint}{c.checked_at ? ` · ${bn ? 'পরীক্ষা' : 'tested'} ${formatBangladeshDateTime(c.checked_at, language)}` : ''}</Text>
-                {c.note ? <Text style={{ color: st.tone === 'danger' ? colors.danger : st.tone === 'success' ? colors.success : st.tone === 'warning' ? colors.warning : colors.textMuted, fontSize: 12, marginTop: 4 }}>{c.note}</Text> : null}
+                {c.note ? <Text style={{ color: st.tone === 'danger' ? colors.danger : st.tone === 'success' ? colors.success : st.tone === 'warning' ? colors.warning : colors.textMuted, fontSize: 12, marginTop: 4 }}>{c.note.replace(/^\d+(?=টি মডেল)/, (d) => num(Number(d), bn))}</Text> : null}
                 <ToggleRow label={bn ? 'চালু' : 'Enabled'} value={c.enabled} onChange={(v) => void act(c.id, () => va.aiPatch(c.id, { enabled: v }))} />
                 <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                   <AppButton variant="secondary" label={bn ? 'পরীক্ষা' : 'Test'} icon="flash-outline" loading={busy === c.id} onPress={() => void act(c.id, () => va.aiTest(c.id), bn ? 'পরীক্ষা হয়েছে' : 'Tested')} />
