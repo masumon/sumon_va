@@ -1,5 +1,5 @@
 import { PermissionsAndroid, type Permission } from 'react-native';
-import { openAppSettings, openBatterySettings, openDndAccess, openFullScreenSettings, openNotificationAccess, requestDeviceAdmin, startService, type BridgeStatus } from '../../modules/va-bridge';
+import { openBatterySettings, openDndAccess, openFullScreenSettings, openNotificationAccess, requestDeviceAdmin, startService, type BridgeStatus } from '../../modules/va-bridge';
 
 /**
  * Every permission the app can use, in one list: what it is for, whether it is needed, how to check it, how to ask for it.
