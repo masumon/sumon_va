@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton, AppSectionHeader } from '../src/ui/AppSurface';
+import { AppIcon } from '../src/ui/AppIcon';
 import { Card, ChipGroup, EmptyNote, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshNumber, formatBangladeshWeekdayDate } from '../src/i18n/date-time';
@@ -98,6 +99,13 @@ export default function DashboardScreen() {
       <ChipGroup<Lens> options={['personal', 'business']} value={lens} labelOf={(l) => (l === 'personal' ? (bn ? 'ব্যক্তিগত' : 'Personal') : (bn ? 'ব্যবসায়িক' : 'Business'))} onChange={(l) => { if (l) setLens(l); }} />
       <Text style={{ marginTop: -8, color: colors.textSecondary, fontSize: 12 }}>{bn ? 'ওপরের তিনটি সংখ্যা ও নিচের তালিকা বদলায়: ব্যক্তিগত = পরিবার ও জরুরি, ব্যবসায়িক = অর্ডার ও কাজের খোঁজ।' : 'Changes the three numbers above and the list below: Personal = family and urgent, Business = orders and work enquiries.'}</Text>
 
+      {setupNeeded ? (
+        <Card icon="shield-alert-outline" title={bn ? 'অনুমতি বাকি আছে' : 'Permissions needed'}>
+          <Text style={{ marginBottom: 8 }}>{bn ? 'ফোনের কিছু অনুমতি দেওয়া হয়নি, তাই সব বার্তা বা কল আসছে না।' : 'Some phone permissions are missing, so not every message or call is caught.'}</Text>
+          <AppButton label={bn ? 'এখনই ঠিক করুন' : 'Fix permissions'} icon="shield-check-outline" onPress={() => go('/setup')} />
+        </Card>
+      ) : null}
+
       {o && lens === 'personal' ? (
         <>
           <TileGrid>
@@ -132,9 +140,14 @@ export default function DashboardScreen() {
       <AppSectionHeader title={bn ? 'আজকের কাজ' : 'To do'} actionLabel={bn ? 'সব' : 'All'} onAction={() => go('/tasks')} />
       {tasks.data && tasks.data.length === 0 ? <EmptyNote icon="check-all" text={bn ? 'কোনো কাজ বাকি নেই' : 'No open tasks'} /> : null}
       {(tasks.data ?? []).slice(0, 3).map((t: Task) => (
-        <Pressable key={t.id} onPress={() => go('/tasks')} style={{ padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
-          <Text style={{ fontWeight: '600' }}>{t.title}</Text>
-          {t.contact_name || t.contact_phone ? <Text style={{ opacity: 0.65, fontSize: 12 }}>{t.contact_name || t.contact_phone}</Text> : null}
+        <Pressable key={t.id} accessibilityRole="button" accessibilityLabel={t.title} onPress={() => go('/tasks')}
+          style={({ pressed }) => ({ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 })}>
+          <AppIcon name="checkbox-marked-circle-outline" size={22} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '600' }}>{t.title}</Text>
+            {t.contact_name || t.contact_phone ? <Text style={{ opacity: 0.65, fontSize: 12 }}>{t.contact_name || t.contact_phone}</Text> : null}
+          </View>
+          <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
         </Pressable>
       ))}
 
@@ -147,8 +160,8 @@ export default function DashboardScreen() {
           <AppButton variant="secondary" icon="message-text-outline" label={bn ? 'লিখে জিজ্ঞেস করুন বা কাজ দিন' : 'Ask or give a command'} onPress={() => go('/f0')} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {[{ bn: 'মিসড কল', en: 'Missed calls' }, { bn: 'কার উত্তর বাকি', en: 'Who is waiting' }, { bn: 'আমার কাজ', en: 'My tasks' }].map((q) => (
-              <Pressable key={q.bn} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} onPress={() => go('/f0')}
-                style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+              <Pressable key={q.bn} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} onPress={() => go('/f0', { cmd: q.bn })}
+                style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.75 : 1 })}>
                 <Text>{bn ? q.bn : q.en}</Text>
               </Pressable>
             ))}
@@ -161,13 +174,6 @@ export default function DashboardScreen() {
           <Text>{bn ? `${n(o.alerts_held.count)}টি জরুরি অ্যালার্ট নীরব সময় বা দৈনিক সীমার কারণে আটকে ছিল (হারায়নি)।` : `${o.alerts_held.count} urgent alert(s) were held back by quiet hours or the daily limit (not lost).`}</Text>
           <Text style={{ opacity: 0.7, fontSize: 12, marginTop: 4 }}>{[...new Set(o.alerts_held.items.map((i) => i.who))].join(', ')}</Text>
           <View style={{ marginTop: 8 }}><AppButton variant="secondary" label={bn ? 'জরুরিগুলো দেখুন' : 'See urgent'} onPress={() => go('/inbox', { view: 'urgent' })} /></View>
-        </Card>
-      ) : null}
-
-      {setupNeeded ? (
-        <Card icon="alert-outline" title={bn ? 'সেটআপ বাকি' : 'Setup unfinished'}>
-          <Text style={{ marginBottom: 8 }}>{bn ? 'কিছু অনুমতি দেওয়া হয়নি, তাই সব বার্তা আসছে না।' : 'Some permissions are missing, so not every message is caught.'}</Text>
-          <AppButton label={bn ? 'অনুমতি ঠিক করুন' : 'Fix permissions'} icon="shield-check-outline" onPress={() => go('/setup')} />
         </Card>
       ) : null}
 

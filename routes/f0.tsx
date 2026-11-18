@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
-import { AppIcon } from '../src/ui/AppIcon';
+import { AppIcon, type IconName } from '../src/ui/AppIcon';
 import { Card, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppFeedback } from '../src/ui/AppFeedback';
 import { radius, spacing, typography } from '../src/theme';
@@ -26,17 +26,25 @@ function outcome(r: unknown, bn: boolean): { text: string; ok: boolean } | null 
 }
 
 /** Tell the assistant in words: ask about people, tasks, missed calls, or have it draft a reply. Voice = the keyboard's own mic. */
-const QUICK = [
-  { bn: 'মিসড কল', en: 'Missed calls', cmd: 'মিসড কল' }, { bn: 'কার উত্তর বাকি', en: 'Who is waiting', cmd: 'কার উত্তর বাকি' }, { bn: 'আমার কাজ', en: 'My tasks', cmd: 'আমার কাজ' },
-  { bn: 'জরুরি', en: 'Urgent', cmd: 'জরুরি' }, { bn: 'খসড়া', en: 'Drafts', cmd: 'খসড়া' }, { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে' },
-  { bn: 'সহকারীর অবস্থা', en: 'Assistant status', cmd: 'সহকারীর অবস্থা' }, { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম' },
-] as const;
+const QUICK: readonly { bn: string; en: string; cmd: string; icon: IconName }[] = [
+  { bn: 'মিসড কল', en: 'Missed calls', cmd: 'মিসড কল', icon: 'phone-missed' },
+  { bn: 'কার উত্তর বাকি', en: 'Who is waiting', cmd: 'কার উত্তর বাকি', icon: 'message-reply-text-outline' },
+  { bn: 'আমার কাজ', en: 'My tasks', cmd: 'আমার কাজ', icon: 'checkbox-marked-circle-outline' },
+  { bn: 'জরুরি', en: 'Urgent', cmd: 'জরুরি', icon: 'alert-octagon-outline' },
+  { bn: 'খসড়া', en: 'Drafts', cmd: 'খসড়া', icon: 'file-document-edit-outline' },
+  { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে', icon: 'send-check-outline' },
+  { bn: 'সহকারীর অবস্থা', en: 'Assistant status', cmd: 'সহকারীর অবস্থা', icon: 'robot-outline' },
+  { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম', icon: 'shield-check-outline' },
+];
 
 export default function F0Screen() {
   const { bn, colors } = useKit();
   const router = useRouter();
+  const params = useLocalSearchParams<{ cmd?: string }>();
   const { showSnackbar } = useAppFeedback();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params.cmd ?? '');
+  const [cmdSeen, setCmdSeen] = useState(params.cmd);
+  if (params.cmd !== cmdSeen) { setCmdSeen(params.cmd); if (params.cmd) setText(params.cmd); }
   const [asked, setAsked] = useState('');
   const [res, setRes] = useState<F0Result | null>(null);
   const [body, setBody] = useState('');
@@ -93,12 +101,19 @@ export default function F0Screen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {QUICK.map((q) => (
           <Pressable key={q.cmd} accessibilityRole="button" accessibilityLabel={bn ? q.bn : q.en} disabled={busy} onPress={() => { setText(q.cmd); setAsked(q.cmd); void send(q.cmd); }}
-            style={{ minHeight: 48, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+            style={({ pressed }) => ({
+              minHeight: 48, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+              borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.75 : 1,
+            })}>
+            <AppIcon name={q.icon} size={18} color={colors.primary} />
             <Text style={{ ...typography.callout, color: colors.textPrimary }}>{bn ? q.bn : q.en}</Text>
           </Pressable>
         ))}
       </View>
       <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+          <AppBadge tone={auto ? 'warning' : 'success'} label={auto ? (bn ? 'অটো মোড: বললেই যাবে' : 'Auto: goes at once') : (bn ? 'নিরাপদ মোড: আগে দেখাবে' : 'Safe mode: previews first')} />
+        </View>
         <ToggleRow icon="send-clock-outline" label={bn ? (auto ? 'পাঠানো: অটো' : 'পাঠানো: ম্যানুয়াল') : (auto ? 'Sending: auto' : 'Sending: manual')}
           hint={bn ? (auto ? 'কাউকে কিছু বলতে বললে সঙ্গে সঙ্গে চলে যায়। কোনো সন্দেহ থাকলে (কে, আগেই উত্তর দেওয়া, ২৪ ঘণ্টা পার) আগে দেখাবে।' : 'বার্তা আগে দেখাবে, আপনি “পাঠান” চাপলে যাবে।')
             : (auto ? 'A message you dictate goes at once. If anything is unclear it shows it to you first.' : 'Shows the message first; it goes when you tap Send.')}
@@ -112,14 +127,22 @@ export default function F0Screen() {
       </Card>
 
       {past.map((p, i) => (
-        <View key={i} style={{ gap: spacing.xs, opacity: 0.8 }}>
-          <Text style={{ ...typography.caption, color: colors.textMuted, textAlign: 'right' }}>{p.q}</Text>
-          <Text style={{ ...typography.callout, color: colors.textPrimary }}>{p.a}</Text>
+        <View key={i} style={{ gap: spacing.xs }}>
+          <View style={{ alignSelf: 'flex-end', maxWidth: '86%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, backgroundColor: colors.primaryTint }}>
+            <Text style={{ ...typography.callout, color: colors.textPrimary }}>{p.q}</Text>
+          </View>
+          <View style={{ alignSelf: 'flex-start', maxWidth: '92%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+            <Text style={{ ...typography.body, color: colors.textPrimary }}>{p.a}</Text>
+          </View>
         </View>
       ))}
-      {res && asked ? <Text style={{ ...typography.callout, color: colors.textMuted, textAlign: 'right' }}>{bn ? 'আপনি: ' : 'You: '}{asked}</Text> : null}
+      {res && asked ? (
+        <View style={{ alignSelf: 'flex-end', maxWidth: '86%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.card, backgroundColor: colors.primaryTint }}>
+          <Text style={{ ...typography.callout, color: colors.primary }}>{asked}</Text>
+        </View>
+      ) : null}
       {res ? (
-        <Card title={bn ? 'সহকারী' : 'Assistant'}>
+        <Card icon="robot-happy-outline" title={bn ? 'সহকারীর উত্তর' : 'Assistant reply'}>
           {res.answer ? <Text>{res.answer}</Text> : null}
           {res.items.map((it, i) => (
             <Pressable key={i} accessibilityRole={it.contact_id ? 'button' : 'text'} accessibilityLabel={it.subtitle ? `${it.title}, ${it.subtitle}` : it.title}
