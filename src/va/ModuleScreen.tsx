@@ -96,7 +96,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
 
       {mod.auto === 'telegram' && d ? (
         <Card icon="send-outline" title={bn ? 'Telegram বট' : 'Telegram bot'}>
-          <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও সংযুক্ত নয়। অ্যাডমিনের “মাধ্যম ও ফোন” ট্যাবে ধাপগুলো দেওয়া আছে।' : 'Bot is not connected yet — steps are in the admin “Channels & phone” tab.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
+          <Text style={{ marginBottom: 6, opacity: 0.8 }}>{!d.telegram.configured ? (bn ? 'বট এখনও যুক্ত নয় — সেটিংস বা আপনার টেলিগ্রাম বট থেকে সংযুক্ত করুন।' : 'Bot is not connected yet — connect it from Settings or your Telegram bot.') : (bn ? `বট সংযুক্ত: @${d.telegram.bot ?? ''}` : `Bot connected: @${d.telegram.bot ?? ''}`)}</Text>
           <ToggleRow icon="send" label={bn ? 'Telegram চালু' : 'Telegram on'} value={d.settings.telegram.enabled} onChange={(v) => void save({ channels: { telegram: { enabled: v } } })} />
           <ToggleRow icon="robot-outline" label={bn ? 'বট নিজে উত্তর দেবে' : 'Bot replies by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে। পরিবারের কাউকে কখনও নিজে উত্তর দেবে না।' : 'Off = drafts only. Never family.'} value={d.settings.telegram.auto} onChange={(v) => void save({ channels: { telegram: { auto: v } } })} />
         </Card>
@@ -110,6 +110,7 @@ export function ModuleScreen({ mod }: { mod: ModuleDef }) {
       {/* Phone-app platforms: the "reply by itself" switch is in the platform settings card above (off by default). */}
       {mod.apps ? (
         <Card icon="apps" title={bn ? 'যে অ্যাপের বার্তা পড়া হবে' : 'Apps that are read'}>
+          <Text style={{ opacity: 0.72, fontSize: 12, marginBottom: 4 }}>{bn ? 'বন্ধ করলে ওই অ্যাপের নতুন বার্তা আর এখানে আসবে না (আগের বার্তাগুলো থাকবে)।' : 'Turning an app off stops new messages from arriving here (earlier ones stay).'}</Text>
           {mod.apps.map((a) => <ToggleRow key={a.pkg} label={bn ? a.bn : a.en} value={watched.has(a.pkg)} onChange={(v) => toggleApp(a.pkg, v)} />)}
           {!getStatus().notificationAccess ? <AppButton variant="secondary" label={bn ? 'বার্তা পড়ার অনুমতি দিন' : 'Allow reading messages'} onPress={() => router.push('/setup' as never)} /> : null}
         </Card>

@@ -41,10 +41,13 @@ export default function RulesScreen() {
         <>
           <Hero icon="robot-outline" title={c.assistant_name} subtitle={c.enabled ? (c.mode === 'auto' ? (bn ? 'চালু, নিজে উত্তর দেয়' : 'On — replies by itself') : (bn ? 'চালু, শুধু খসড়া' : 'On — drafts only')) : (bn ? 'বন্ধ' : 'Off')} />
           <Card icon="toggle-switch-outline" title={bn ? 'মূল সুইচ' : 'Main switches'}>
+            {!c.enabled ? (
+              <InfoHint text={bn ? 'সহকারী এখন বন্ধ — তাই অটো-উত্তর, AI ও ভয়েস কোনোটিই কাজ করবে না। তবে আপনার সব বার্তা ইনবক্সে নিরাপদে জমা হতে থাকবে।' : 'Assistant is off — auto-reply, AI and voice stay paused, while all messages still arrive safely in your inbox.'} />
+            ) : null}
             <ToggleRow icon="power" label={bn ? 'সহকারী চালু' : 'Assistant on'} hint={bn ? 'বন্ধ থাকলেও বার্তা ইনবক্সে জমা হবে, শুধু সহকারী কোনো উত্তর বা খসড়া করবে না।' : 'Off: messages still arrive in the inbox; the assistant just does nothing with them.'} value={c.enabled} onChange={(v) => void save({ enabled: v })} />
-            <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর' : 'Reply by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে, আপনি ঠিক আছে বললে যাবে।' : 'Off = drafts, sent when you approve.'} value={c.mode === 'auto'} onChange={(v) => void save({ mode: v ? 'auto' : 'shadow' })} />
-            <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বুঝে নেওয়া' : 'Understand with AI'} value={c.ai.enabled} onChange={(v) => void save({ ai: { enabled: v } })} />
-            <ToggleRow icon="microphone-outline" label={bn ? 'ভয়েস মেসেজ লিখে ফেলা' : 'Transcribe voice notes'} value={c.ai.voice} onChange={(v) => void save({ ai: { voice: v } })} />
+            <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর' : 'Reply by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে, আপনি ঠিক আছে বললে যাবে। চালু করলে সহকারীও চালু হবে।' : 'Off = drafts, sent when you approve. Turning this on also turns the assistant on.'} value={c.mode === 'auto'} onChange={(v) => void save({ ...(v && !c.enabled ? { enabled: true } : {}), mode: v ? 'auto' : 'shadow' })} />
+            <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বুঝে নেওয়া' : 'Understand with AI'} hint={bn ? 'বন্ধ থাকলে শুধু আপনার লেখা নিয়ম অনুযায়ী চলবে; AI কোনো অর্থ বুঝবে না বা খসড়া লিখবে না।' : 'Off = rules only; AI will not read or draft.'} value={c.ai.enabled} onChange={(v) => void save({ ai: { enabled: v } })} />
+            <ToggleRow icon="microphone-outline" label={bn ? 'ভয়েস মেসেজ লিখে ফেলা' : 'Transcribe voice notes'} hint={bn ? 'এটি কাজ করার জন্য ওপরের “AI দিয়ে বুঝে নেওয়া” চালু থাকতে হবে।' : 'Requires “Understand with AI” above to be on.'} value={c.ai.voice} onChange={(v) => void save({ ai: { voice: v } })} />
           </Card>
 
           <Card icon="calendar-clock" title={bn ? 'সময়সূচি, অবস্থা ও জায়গা' : 'Routine, status and places'}>
