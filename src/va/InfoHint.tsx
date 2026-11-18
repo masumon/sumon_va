@@ -13,11 +13,11 @@ export function InfoHint({ text }: { text: string }) {
     <View style={{ gap: 6 }}>
       <Pressable
         onPress={() => setOpen((v) => !v)}
-        hitSlop={8}
+        hitSlop={4}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={label}
-        style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: colors.surfaceMuted }}>
+        style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 22, backgroundColor: colors.surfaceMuted }}>
         <AppIcon name={open ? 'information' : 'information-outline'} size={18} color={colors.info} />
         <Text style={{ fontSize: 12, color: colors.textSecondary }}>{label}</Text>
       </Pressable>
