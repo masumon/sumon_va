@@ -55,6 +55,7 @@ export default function ContactScreen() {
   const { bn } = useKit();
   const { showSnackbar } = useAppFeedback();
   const detail = useLoad(() => va.contact(String(id)), `contact:${String(id)}`, 10000);
+  const cfg = useLoad(() => va.assistantConfig(), 'assistant-config', 60000);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [aliasText, setAliasText] = useState('');
@@ -69,8 +70,19 @@ export default function ContactScreen() {
   };
 
   const c = detail.data?.contact;
+  const ac = cfg.data?.config;
   const drafts = (detail.data?.messages ?? []).filter((m) => m.status === 'draft');
   const pr = c ? (PRIORITY[c.priority] ?? PRIORITY[5]!) : null;
+  const replyExplain = !c ? '' : !ac ? ''
+    : !ac.enabled ? (bn ? 'মূল সহকারী বন্ধ থাকায় এখন অটো উত্তর বা খসড়া কিছুই তৈরি হবে না।' : 'Main assistant is off — no auto-replies or drafts will be made.')
+    : c.is_blocked ? (bn ? 'ব্লক করা: এই মানুষের কোনো উত্তর বা খসড়া তৈরি হবে না।' : 'Blocked: no replies or drafts will be made.')
+    : (c.is_family || c.category === 'personal') ? (bn ? 'পরিবার ও ব্যক্তিগত চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে; শুধু আপনাকে জানাবে।' : 'Auto-reply stays off for family and personal chats; you are notified only.')
+    : c.category === 'spam' ? (bn ? 'স্প্যাম: এখানে কোনো অটো উত্তর বা অ্যালার্ট যাবে না।' : 'Spam: no auto-replies or alerts.')
+    : c.mode === 'auto' ? (bn ? `✓ অটো উত্তর চালু${ac.ai.enabled ? ' (AI বুঝে উত্তর দেবে)' : ' (শুধু আপনার নিয়মে উত্তর দেবে)'}` : `✓ Auto-reply on${ac.ai.enabled ? ' (AI enabled)' : ' (rules only)'}`)
+    : c.mode === 'telegram' ? (bn ? 'Telegram বট মোড: খসড়া আপনার বটে যাবে, আপনি “পাঠান” চাপলে তবেই যাবে।' : 'Telegram bot mode: drafts go to your bot for approval.')
+    : c.mode === 'draft' ? (bn ? 'ম্যানুয়াল মোড: সহকারী খসড়া লিখে রাখবে, আপনি দেখে পাঠালে তবেই যাবে।' : 'Manual mode: assistant prepares drafts for you to send.')
+    : c.mode === 'notify' ? (bn ? 'শুধু জানাবে: কোনো অটো উত্তর বা খসড়া তৈরি হবে না।' : 'Notify only: no auto-replies or drafts.')
+    : (bn ? `অ্যাপের সাধারণ নিয়মে চলবে (${ac.mode === 'auto' ? 'অটো চালু' : 'শুধু খসড়া'}${ac.ai.enabled ? ' · AI চালু' : ' · AI বন্ধ'})।` : `Follows app default (${ac.mode === 'auto' ? 'auto' : 'drafts'}${ac.ai.enabled ? ' · AI on' : ' · AI off'}).`);
 
   return (
     <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}
@@ -102,6 +114,7 @@ export default function ContactScreen() {
             </View>
             {c.need ? <Text style={{ marginTop: 8 }}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
             {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
+            {replyExplain ? <Text style={{ marginTop: 8, fontSize: 12, lineHeight: 18, opacity: 0.85 }}>{replyExplain}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <View style={{ flex: 1 }}>
                 <AppButton

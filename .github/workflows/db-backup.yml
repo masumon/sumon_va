@@ -1,0 +1,28 @@
+name: Daily Database Backup
+
+on:
+  schedule:
+    - cron: '0 21 * * *' # 03:00 AM Asia/Dhaka
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.BACKUP_DATABASE_URL != '' }}
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump Supabase database
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          mkdir -p backups
+          pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl --file="backups/sumon_va_$(date -u +%Y-%m-%d_%H%M).dump"
+
+      - name: Upload private backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sumon-va-db-${{ github.run_id }}
+          path: backups/*.dump
+          retention-days: 14
