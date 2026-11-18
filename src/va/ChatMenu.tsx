@@ -9,6 +9,7 @@ import { useAppPreferences } from '../app/AppPreferences';
 import { border, radius, spacing } from '../theme';
 import { va, type Category, type Contact, errTone } from './api';
 import { CATEGORY, CATEGORY_KEYS, MODE, displayName } from './labels';
+import { num } from './bd';
 import { BrandLogo, brandFor, brandName } from './BrandLogo';
 import { useShell } from './shell';
 
@@ -47,7 +48,7 @@ export function ChatMenuButton({ contact, onChanged, size = 22, shown, onShownCh
     { key: 'category', icon: 'shape-outline', bn: 'ধরন: ব্যবসায়িক/ব্যক্তিগত/সামাজিক', en: 'Kind: business/personal/social', hintBn: c.category ? CATEGORY[c.category].bn : 'সহকারী নিজে ঠিক করবে', hintEn: c.category ? CATEGORY[c.category].en : 'decided by itself', run: () => setSub('category') },
     { key: 'family', icon: 'account-heart-outline', bn: 'পরিবার', en: 'Family', hintBn: 'সহকারী কখনও নিজে উত্তর দেবে না', hintEn: 'never answered by itself', on: c.is_family, run: () => patch({ is_family: !c.is_family }) },
     { key: 'vip', icon: 'star-outline', bn: 'VIP', en: 'VIP', on: c.is_vip, run: () => patch({ is_vip: !c.is_vip }) },
-    { key: 'tags', icon: 'tag-outline', bn: 'ট্যাগ ও নোট (ক্লায়েন্ট, মামলা, NID…)', en: 'Tags and notes (client, case, NID…)', hintBn: `${c.tags?.length ?? 0}টি`, hintEn: `${c.tags?.length ?? 0}`, run: () => go('/contact') },
+    { key: 'tags', icon: 'tag-outline', bn: 'ট্যাগ ও নোট (ক্লায়েন্ট, মামলা, NID…)', en: 'Tags and notes (client, case, NID…)', hintBn: `${num(c.tags?.length ?? 0, true)}টি`, hintEn: `${c.tags?.length ?? 0}`, run: () => go('/contact') },
     { key: 'task', icon: 'checkbox-marked-circle-plus-outline', bn: 'এই ব্যক্তির জন্য কাজ যোগ করুন', en: 'Add a task for this person', run: () => act(() => va.addTask(`${displayName(c)}: ${bn ? 'উত্তর দিন' : 'reply'}`, undefined, c.id), bn ? 'কাজ যোগ হয়েছে' : 'Task added') },
     { key: 'xfer', icon: 'file-swap-outline', bn: 'চ্যাট ইমপোর্ট / এক্সপোর্ট', en: 'Import / export chat', run: () => go('/contact') },
     { key: 'block', icon: 'block-helper', bn: 'ব্লক', en: 'Block', hintBn: 'উত্তর বা সতর্কতা কিছুই আসবে না', hintEn: 'no reply, no alert', on: c.is_blocked, run: () => patch({ is_blocked: !c.is_blocked }) },

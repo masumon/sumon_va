@@ -4,6 +4,7 @@ import { useAppFeedback } from '../ui/AppFeedback';
 import { va, errTone } from './api';
 import { useLoad } from './hooks';
 import { InfoHint } from './InfoHint';
+import { num } from './bd';
 
 type Plat = { enabled: boolean; auto_for: 'all' | 'business' | 'known'; alerts: 'all' | 'urgent' | 'off'; hours_on: boolean; hours_from: string; hours_to: string; phone_auto: boolean };
 const DEFAULT: Plat = { enabled: true, auto_for: 'all', alerts: 'all', hours_on: false, hours_from: '09:00', hours_to: '21:00', phone_auto: false };
@@ -42,8 +43,8 @@ export function PlatformSettings({ platform, canAuto, phone = false }: { platfor
           <ToggleRow icon="clock-outline" label={bn ? 'শুধু নির্দিষ্ট সময়ে' : 'Only during set hours'} value={p.hours_on} onChange={(v) => void save({ hours_on: v })} />
           {p.hours_on ? (
             <View style={{ gap: 8 }}>
-              <ChipGroup label={bn ? 'শুরু' : 'From'} options={FROM} value={FROM.includes(p.hours_from as never) ? (p.hours_from as (typeof FROM)[number]) : null} onChange={(v) => v && void save({ hours_from: v })} labelOf={(k) => k} />
-              <ChipGroup label={bn ? 'শেষ' : 'Until'} options={TO} value={TO.includes(p.hours_to as never) ? (p.hours_to as (typeof TO)[number]) : null} onChange={(v) => v && void save({ hours_to: v })} labelOf={(k) => k} />
+              <ChipGroup label={bn ? 'শুরু' : 'From'} options={FROM} value={FROM.includes(p.hours_from as never) ? (p.hours_from as (typeof FROM)[number]) : null} onChange={(v) => v && void save({ hours_from: v })} labelOf={(k) => num(k, bn)} />
+              <ChipGroup label={bn ? 'শেষ' : 'Until'} options={TO} value={TO.includes(p.hours_to as never) ? (p.hours_to as (typeof TO)[number]) : null} onChange={(v) => v && void save({ hours_to: v })} labelOf={(k) => num(k, bn)} />
             </View>
           ) : null}
           <InfoHint text={bn ? 'এখানে নিজে উত্তর দেওয়া মানে সহকারী নিজে পাঠাবে। পরিবার ও ব্যক্তিগত মানুষকে কোনো প্ল্যাটফর্মেই নিজে উত্তর দেবে না। সময়ের বাইরে শুধু খসড়া হবে, আপনি পাঠাবেন।' : 'Self-answering means the assistant sends it. Family and personal people are never answered on any platform. Outside the hours you only get drafts.'} />

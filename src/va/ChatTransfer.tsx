@@ -9,6 +9,7 @@ import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
 import { errTone, va } from './api';
 import { readChatFile } from '../../modules/va-bridge';
+import { num } from './bd';
 
 const MAX_CHARS = 400_000;
 const MIN_CHARS = 20;
@@ -49,7 +50,7 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
       if (r.need_consent) { setAsk(true); return; }
       if (r.need_owner) { setSpeakers(r.speakers ?? []); return; }
       setText(null); setSpeakers([]);
-      showSnackbar(bn ? (r.messages ? `চেনা হয়েছে, ${r.messages}টি বার্তা পড়া হয়েছে ✓` : 'চেনা হয়েছে ✓') : (r.messages ? `Learned (${r.messages} messages read) ✓` : 'Learned ✓'), 'success');
+      showSnackbar(bn ? (r.messages ? `চেনা হয়েছে, ${num(r.messages, true)}টি বার্তা পড়া হয়েছে ✓` : 'চেনা হয়েছে ✓') : (r.messages ? `Learned (${r.messages} messages read) ✓` : 'Learned ✓'), 'success');
       onLearned();
     } catch (e) { fail(e); } finally { running.current = false; setBusy(null); setSlow(false); }
   };
