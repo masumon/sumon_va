@@ -224,3 +224,21 @@ export const passkeyRegister = async (base: string): Promise<PasskeyResult> => {
     return { ok: false, error: `পাসকি বানানো যায়নি / Could not create the passkey${e instanceof Error && e.message ? `: ${e.message}` : ''}` };
   }
 };
+
+export type SharedMediaResult = { ok: boolean; mime?: string; name?: string; dataB64?: string; error?: string };
+type MediaNative = {
+  readSharedMedia?: () => Promise<SharedMediaResult | null>;
+  readMediaUri?: (uri: string, mimeHint: string) => Promise<SharedMediaResult>;
+};
+export const readSharedMedia = async (): Promise<SharedMediaResult | null> => {
+  try { return (await (native as unknown as MediaNative | null)?.readSharedMedia?.()) ?? null; } catch { return null; }
+};
+export const readMediaUri = async (uri: string, mimeHint = ''): Promise<SharedMediaResult> => {
+  try {
+    const fn = (native as unknown as MediaNative | null)?.readMediaUri;
+    if (!fn) return { ok: false, error: 'এই বিল্ডে মিডিয়া পড়ার অংশ নেই' };
+    return await fn(uri, mimeHint);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'ফাইল পড়া যায়নি' };
+  }
+};

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { AppIcon, type IconName } from '../src/ui/AppIcon';
@@ -9,8 +10,9 @@ import { useAppFeedback } from '../src/ui/AppFeedback';
 import { radius, spacing, typography } from '../src/theme';
 import { va, errTone, type F0Result } from '../src/va/api';
 import { Page } from '../src/va/Page';
-import { useLoad } from '../src/va/hooks';
+import { useAppActive, useLoad } from '../src/va/hooks';
 import { CHANNEL, MESSAGE_STATUS } from '../src/va/labels';
+import { readMediaUri, readSharedMedia, type SharedMediaResult } from '../modules/va-bridge';
 
 /**
  * What really happened to the message, read from its own stored status (the same labels the inbox uses). The server's free-text
@@ -57,6 +59,38 @@ export default function F0Screen() {
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
   const [past, setPast] = useState<{ q: string; a: string }[]>([]); // earlier questions and answers, newest last (this visit only)
+  const appActive = useAppActive();
+
+  const handleMedia = useCallback(async (m: SharedMediaResult, label: string) => {
+    if (!m.ok || !m.dataB64 || !m.mime) {
+      showSnackbar(m.error || (bn ? 'ফাইলটি পড়া যায়নি' : 'Could not read file'), 'danger');
+      return;
+    }
+    setBusy(true); setResult(null);
+    setAsked(label);
+    try {
+      const r = await va.analyzeMedia(m.mime, m.dataB64, m.name ?? '');
+      setRes({ intent: 'system', answer: r.summary, items: [], choices: [], draft: null });
+    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+    finally { setBusy(false); }
+  }, [bn, showSnackbar]);
+
+  useEffect(() => {
+    if (!appActive) return;
+    void readSharedMedia().then((m) => {
+      if (m) void handleMedia(m, bn ? `শেয়ার করা ফাইল${m.name ? `: ${m.name}` : ''}` : `Shared file${m.name ? `: ${m.name}` : ''}`);
+    });
+  }, [appActive, bn, handleMedia]);
+
+  const pickMedia = async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: ['audio/*', 'image/*'], copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets?.length) return;
+      const asset = picked.assets[0]!;
+      const m = await readMediaUri(asset.uri, asset.mimeType ?? '');
+      await handleMedia({ ...m, name: asset.name || m.name }, bn ? `ফাইল: ${asset.name || 'ভয়েস/ছবি'}` : `File: ${asset.name || 'audio/image'}`);
+    } catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
+  };
 
   const send = async (cmd: string) => {
     setBusy(true); setResult(null);
@@ -120,9 +154,15 @@ export default function F0Screen() {
           value={auto} onChange={(v) => void setAuto(v)} />
         <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'যেমন: রহিমকে বলো কাল আসছি' : 'e.g. tell Rahim I am coming tomorrow'}
           hint={bn ? 'মুখে বলতে চাইলে কিবোর্ডের মাইক চাপুন।' : 'To speak, use the microphone on your keyboard.'} />
-        <View style={{ marginTop: spacing.sm }}>
-          <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
-            onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
+        <View style={{ marginTop: spacing.sm, flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <AppButton label={bn ? 'বলুন' : 'Ask'} icon="send" loading={busy && !d} disabled={!text.trim() || busy}
+              onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton variant="secondary" label={bn ? 'ভয়েস / ছবি' : 'Voice / Photo'} icon="microphone-outline" disabled={busy}
+              onPress={() => void pickMedia()} />
+          </View>
         </View>
       </Card>
 

@@ -224,6 +224,8 @@ export const va = {
   importHistory: (id: string, chat_text: string, owner_speaker: string | undefined, days: number, consent_private: boolean) =>
     call<HistoryReport>('POST', `/admin/wa/contacts/${id}/import-history`, { chat_text, owner_speaker, days, consent_private }),
   f0Command: (text: string) => call<F0Result>('POST', '/admin/wa/f0/command', { text }),
+  analyzeMedia: (mime: string, data_b64: string, name = '', caption = '') =>
+    call<{ ok: boolean; kind: 'audio' | 'image'; summary: string }>('POST', '/admin/wa/analyze-media', { mime, data_b64, name, caption }),
   channels: () => cachedGet<ChannelsInfo>('/admin/inbox/channels', 8000),
   killSwitch: (on: boolean) => call<{ kill_switch_on: boolean }>('POST', '/admin/inbox/kill-switch', { on }),
   config: () => call<Record<string, unknown>>('GET', '/admin/wa/config'),
