@@ -39,7 +39,7 @@ export default function HealthScreen() {
 
   return (
     <Page title={bn ? 'কিছু ঠিক নেই?' : 'Something wrong?'} subtitle={bn ? 'এখন কী কী ঠিক নেই, নিজে থেকেই নতুন হয়' : 'What is not right — updates by itself'} onRefresh={onPull} refreshing={pull}>
-      <Hero grad={serious ? HERO_BAD : warn ? HERO_WARN : HERO_OK} right={loading ? <ActivityIndicator color="#FFFFFF" accessibilityLabel={bn ? 'দেখা হচ্ছে' : 'Checking'} /> : undefined} icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
+      <Hero grad={serious ? HERO_BAD : warn ? HERO_WARN : HERO_OK} right={loading ? <ActivityIndicator color="#FFFFFF" accessibilityLabel={bn ? 'দেখা হচ্ছে' : 'Checking'} /> : undefined} icon={serious ? 'alert-circle-outline' : warn ? 'alert-outline' : 'check-decagram-outline'} title={serious ? (bn ? 'গুরুতর সমস্যা আছে' : 'Serious problems') : warn ? (bn ? 'কিছু সতর্কতা' : 'Some warnings') : loading && issues.length === 0 ? (bn ? 'দেখছি…' : 'Checking…') : (bn ? 'সব ঠিক আছে ✓' : 'All good ✓')}
         subtitle={bn ? 'অ্যাপ প্রতি ১৫ সেকেন্ডে নিজেই দেখে নেয়, নতুন সমস্যা হলে নোটিফিকেশন দেয়।' : 'The app checks itself every 15 seconds and notifies you of new problems.'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={formatBangladeshNumber(serious, language)} label={bn ? 'গুরুতর' : 'Serious'} />
@@ -48,7 +48,7 @@ export default function HealthScreen() {
         </View>
       </Hero>
 
-      {issues.length === 0 ? <EmptyNote icon="check-circle-outline" text={bn ? 'কোনো সমস্যা নেই। বার্তা আসছে, সংযোগ ঠিক আছে, সব অনুমতি দেওয়া আছে, AI চলছে।' : 'No problems. Messages arrive, the connection is fine, permissions are complete, the AI works.'} /> : null}
+      {issues.length === 0 ? <EmptyNote icon={loading ? 'timer-sand' : 'check-circle-outline'} text={loading ? (bn ? 'ফোন ও সার্ভারের অবস্থা দেখে নিচ্ছি…' : 'Checking phone and server status…') : (bn ? 'কোনো সমস্যা নেই। বার্তা আসছে, সংযোগ ঠিক আছে, সব অনুমতি দেওয়া আছে, AI চলছে।' : 'No problems. Messages arrive, the connection is fine, permissions are complete, the AI works.')} /> : null}
       {issues.map((i) => {
         const s = SEV[i.severity];
         return (
