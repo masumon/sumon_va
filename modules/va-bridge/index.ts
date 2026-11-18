@@ -242,3 +242,12 @@ export const readMediaUri = async (uri: string, mimeHint = ''): Promise<SharedMe
     return { ok: false, error: e instanceof Error ? e.message : 'ফাইল পড়া যায়নি' };
   }
 };
+export const readChatFile = async (uri: string): Promise<{ ok: boolean; text?: string; error?: string }> => {
+  try {
+    const fn = (native as unknown as { readChatFile?: (u: string) => Promise<{ ok: boolean; text?: string; error?: string }> } | null)?.readChatFile;
+    if (!fn) return { ok: false, error: 'এই বিল্ডে ZIP পড়ার অংশ নেই' };
+    return await fn(uri);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'ফাইল পড়া যায়নি' };
+  }
+};

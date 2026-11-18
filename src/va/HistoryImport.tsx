@@ -7,6 +7,7 @@ import { AppButton } from '../ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
 import { errTone, va, type HistoryReport } from './api';
+import { readChatFile } from '../../modules/va-bridge';
 
 const DAYS = ['1', '3', '5', '7', '15', '30', '0'] as const;
 type Days = (typeof DAYS)[number];
@@ -44,11 +45,22 @@ export function HistoryImport({ contactId, isPrivate }: { contactId: string; isP
   const pick = async () => {
     if (busy) return;
     try {
-      const res = await DocumentPicker.getDocumentAsync({ type: ['text/plain', '*/*'], copyToCacheDirectory: true });
+      const res = await DocumentPicker.getDocumentAsync({ type: ['text/plain', 'application/zip', '*/*'], copyToCacheDirectory: true });
       if (res.canceled || !res.assets?.[0]) return;
       const asset = res.assets[0];
-      if (/\.zip$/i.test(asset.name ?? '')) { showSnackbar(bn ? 'এটি ZIP ফাইল। “মিডিয়া ছাড়া” এক্সপোর্ট করা .txt ফাইলটি বেছে নিন' : 'That is a ZIP. Pick the .txt file exported without media', 'info'); return; }
-      const chat = await FileSystem.readAsStringAsync(asset.uri);
+      let chat = '';
+      if (/\.zip$/i.test(asset.name ?? '') || asset.mimeType === 'application/zip') {
+        const r = await readChatFile(asset.uri);
+        if (!r.ok || !r.text) { showSnackbar(r.error || (bn ? 'ZIP ফাইল থেকে চ্যাট পড়া যায়নি' : 'Could not read chat from ZIP'), 'info'); return; }
+        chat = r.text;
+      } else {
+        try { chat = await FileSystem.readAsStringAsync(asset.uri); }
+        catch {
+          const r = await readChatFile(asset.uri);
+          if (!r.ok || !r.text) { showSnackbar(r.error || (bn ? 'ফাইলটি পড়া যায়নি' : 'Could not read file'), 'info'); return; }
+          chat = r.text;
+        }
+      }
       void FileSystem.deleteAsync(asset.uri, { idempotent: true });
       if (chat.trim().length < 20) { showSnackbar(bn ? 'ফাইলে পড়ার মতো লেখা নেই' : 'The file has too little text', 'info'); return; }
       const use = chat.length > MAX_CHARS ? chat.slice(chat.length - MAX_CHARS) : chat;  // the newest part

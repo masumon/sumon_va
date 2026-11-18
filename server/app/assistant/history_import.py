@@ -49,7 +49,7 @@ def parse_dated(text: str) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """[{at, speaker, text}] oldest first as in the file, and counters. System lines ("messages are end-to-end encrypted") are skipped."""
     rows: list[dict[str, Any]] = []
     stats = {"system": 0, "undated": 0}
-    for raw in (text or "").translate(_BN_DIGITS).replace("‎", "").replace(" ", " ").splitlines():
+    for raw in (text or "").translate(_BN_DIGITS).replace("\ufeff", "").replace("\u200e", "").replace("\u200f", "").replace("\u202f", " ").replace("\u00a0", " ").splitlines():
         line = raw.strip()
         if not line:
             continue
