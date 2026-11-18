@@ -427,6 +427,17 @@ object Alert {
     return l.toLongArray()
   }
 
+  private fun doVibrate(ctx: Context, effect: android.os.VibrationEffect) {
+    val v = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(android.os.VibratorManager::class.java)).defaultVibrator else @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+    if (!v.hasVibrator()) return
+    if (Build.VERSION.SDK_INT >= 33) {
+      v.vibrate(effect, android.os.VibrationAttributes.Builder().setUsage(android.os.VibrationAttributes.USAGE_ALARM).build())
+    } else {
+      @Suppress("DEPRECATION")
+      v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+    }
+  }
+
   private fun vibrateDanger(ctx: Context, level: Int) {
     try {
       val v = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(android.os.VibratorManager::class.java)).defaultVibrator else @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
@@ -434,7 +445,7 @@ object Alert {
       val t = sosTimings()
       val amp = if (level >= 3) 255 else 200
       val effect = if (v.hasAmplitudeControl()) android.os.VibrationEffect.createWaveform(t, IntArray(t.size) { if (it % 2 == 1) amp else 0 }, -1) else android.os.VibrationEffect.createWaveform(t, -1)
-      @Suppress("DEPRECATION") v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+      doVibrate(ctx, effect)
     } catch (_: Exception) {}
   }
 
@@ -452,7 +463,7 @@ object Alert {
       if (!v.hasVibrator()) return
       val i = (level - 1).coerceIn(0, 2)
       val effect = if (v.hasAmplitudeControl()) android.os.VibrationEffect.createWaveform(PATTERNS[i], AMPLITUDES[i], -1) else android.os.VibrationEffect.createWaveform(PATTERNS[i], -1)
-      @Suppress("DEPRECATION") v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())  // alarm usage: strong, and honoured in silent mode
+      doVibrate(ctx, effect)
     } catch (_: Exception) {}
   }
 
