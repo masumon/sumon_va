@@ -330,6 +330,59 @@ class VaBridgeModule : Module() {
       val c = ctx
       io.execute { promise.resolve(readUriMedia(c, Uri.parse(uriStr), mimeHint)) }
     }
+    AsyncFunction("readChatFile") { uriStr: String, promise: Promise ->
+      val c = ctx
+      io.execute { promise.resolve(readChatText(c, Uri.parse(uriStr))) }
+    }
+  }
+
+  private fun readChatText(c: Context, uri: Uri): Map<String, Any> {
+    return try {
+      val stream = c.contentResolver.openInputStream(uri) ?: return mapOf("ok" to false, "error" to "ফাইল খোলা যায়নি")
+      val raw = stream.use { s ->
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16384)
+        var total = 0
+        while (true) {
+          val n = s.read(buf)
+          if (n <= 0) break
+          total += n
+          if (total > 12_000_000) return mapOf("ok" to false, "error" to "ফাইলটি ১২ MB-এর বেশি; ছোট অংশ বাছুন")
+          out.write(buf, 0, n)
+        }
+        out.toByteArray()
+      }
+      if (raw.size >= 4 && raw[0] == 0x50.toByte() && raw[1] == 0x4B.toByte()) {
+        var bestText: String? = null
+        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(raw)).use { zis ->
+          var entry = zis.nextEntry
+          while (entry != null) {
+            if (!entry.isDirectory && !entry.name.startsWith("__MACOSX") && entry.name.endsWith(".txt", ignoreCase = true)) {
+              val txtOut = java.io.ByteArrayOutputStream()
+              val buf = ByteArray(16384)
+              var total = 0
+              while (true) {
+                val n = zis.read(buf)
+                if (n <= 0) break
+                total += n
+                if (total > 4_000_000) break
+                txtOut.write(buf, 0, n)
+              }
+              val candidate = txtOut.toString("UTF-8")
+              if (bestText == null || candidate.length > bestText!!.length) bestText = candidate
+            }
+            zis.closeEntry()
+            entry = zis.nextEntry
+          }
+        }
+        val found = bestText ?: return mapOf("ok" to false, "error" to "এই ZIP ফাইলের ভেতরে কোনো .txt চ্যাট ফাইল পাওয়া যায়নি")
+        return mapOf("ok" to true, "text" to found)
+      }
+      val limit = minOf(raw.size, 4_000_000)
+      mapOf("ok" to true, "text" to String(raw, 0, limit, Charsets.UTF_8))
+    } catch (e: Exception) {
+      mapOf("ok" to false, "error" to (e.message ?: "ফাইল পড়া যায়নি"))
+    }
   }
 
   private fun readUriMedia(c: Context, uri: Uri, mimeHint: String): Map<String, Any>? {

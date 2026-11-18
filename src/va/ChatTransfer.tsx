@@ -8,6 +8,7 @@ import { AppButton } from '../ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../ui/AppFeedback';
 import { Card, ChipGroup, useKit } from '../ui/AppKit';
 import { errTone, va } from './api';
+import { readChatFile } from '../../modules/va-bridge';
 
 const MAX_CHARS = 400_000;
 const MIN_CHARS = 20;
@@ -60,9 +61,20 @@ export function ChatTransfer({ contactId, isPrivate, onLearned }: { contactId: s
       const res = await DocumentPicker.getDocumentAsync({ type: ['text/plain', 'application/zip', '*/*'], copyToCacheDirectory: true });
       if (res.canceled || !res.assets?.[0]) return;
       const asset = res.assets[0];
-      if (/\.zip$/i.test(asset.name ?? '') || asset.mimeType === 'application/zip') { showSnackbar(bn ? 'এটি ZIP ফাইল। WhatsApp থেকে “মিডিয়া ছাড়া” এক্সপোর্ট করে .txt ফাইলটি বেছে নিন' : 'That is a ZIP. Export from WhatsApp “without media” and pick the .txt file', 'info'); return; }
-      if ((asset.size ?? 0) > 3_000_000) { showSnackbar(bn ? 'ফাইলটি অনেক বড় (৩ MB-র বেশি)। ছোট অংশ বেছে নিন' : 'The file is too large (over 3 MB). Pick a smaller part', 'info'); return; }
-      const chat = await FileSystem.readAsStringAsync(asset.uri);
+      let chat = '';
+      if (/\.zip$/i.test(asset.name ?? '') || asset.mimeType === 'application/zip') {
+        const r = await readChatFile(asset.uri);
+        if (!r.ok || !r.text) { showSnackbar(r.error || (bn ? 'ZIP ফাইল থেকে চ্যাট পড়া যায়নি' : 'Could not read chat from ZIP'), 'info'); return; }
+        chat = r.text;
+      } else {
+        if ((asset.size ?? 0) > 4_000_000) { showSnackbar(bn ? 'ফাইলটি অনেক বড় (৪ MB-র বেশি)। ছোট অংশ বেছে নিন' : 'The file is too large (over 4 MB). Pick a smaller part', 'info'); return; }
+        try { chat = await FileSystem.readAsStringAsync(asset.uri); }
+        catch {
+          const r = await readChatFile(asset.uri);
+          if (!r.ok || !r.text) { showSnackbar(r.error || (bn ? 'ফাইলটি পড়া যায়নি' : 'Could not read file'), 'info'); return; }
+          chat = r.text;
+        }
+      }
       void FileSystem.deleteAsync(asset.uri, { idempotent: true });
       if (chat.trim().length < MIN_CHARS) { showSnackbar(bn ? 'এই ফাইলে পড়ার মতো যথেষ্ট লেখা নেই। WhatsApp থেকে এক্সপোর্ট করা চ্যাটের .txt ফাইল বেছে নিন' : 'This file has too little text to read. Pick the .txt file exported from WhatsApp', 'info'); return; }
       if (chat.length > MAX_CHARS) { setTooLong(chat); return; }
