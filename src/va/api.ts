@@ -202,7 +202,7 @@ export const va = {
   contact: (id: string) => call<{ contact: Contact; messages: Message[]; notes: { id: string; text: string }[]; tasks: { id: string; title: string; is_done: boolean }[] }>('GET', `/admin/wa/contacts/${id}`),
   patchContact: (id: string, patch: Partial<Pick<Contact, 'name' | 'relation' | 'mode' | 'is_vip' | 'is_family' | 'is_blocked' | 'state' | 'category' | 'tags'>>) => call<unknown>('PATCH', `/admin/wa/contacts/${id}`, patch),
   reply: (id: string, text: string) => call<unknown>('POST', `/admin/wa/contacts/${id}/reply`, { text }),
-  suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
+  suggest: (id: string, instruction = '') => call<{ text?: string; reply?: string; warning?: string; private?: boolean }>('POST', `/admin/wa/contacts/${id}/suggest`, { instruction }),
   approve: (mid: string, text?: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/approve`, text ? { text } : undefined),
   discard: (mid: string) => call<unknown>('POST', `/admin/wa/messages/${mid}/discard`),
   confirmTask: (id: string) => call<unknown>('POST', `/admin/wa/tasks/${id}/confirm`, {}),
