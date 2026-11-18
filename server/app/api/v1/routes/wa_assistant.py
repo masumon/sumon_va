@@ -165,6 +165,9 @@ class AskIn(BaseModel):
 
 class SuggestIn(BaseModel):
     instruction: str = Field(default="", max_length=300)
+    tone: str = Field(default="auto", max_length=10)  # auto | short | warm | formal
+    avoid: list[str] = Field(default_factory=list, max_length=3)  # drafts the owner rejected ("আরেকটি লিখুন")
+    variant: int = Field(default=0, ge=0, le=50)
 
 
 @router.post("/admin/wa/ask", response_model=ApiResponse, dependencies=[Depends(rate_limit("wa-ai", 40, 300))])
@@ -184,7 +187,7 @@ async def suggest(cid: uuid.UUID, body: SuggestIn, db: AsyncSession = Depends(ge
     from app.assistant import ai_hub, wa_ai
 
     try:
-        return ApiResponse(data=await wa_ai.suggest_reply(db, cid, body.instruction.strip()))
+        return ApiResponse(data=await wa_ai.suggest_reply(db, cid, body.instruction.strip(), body.tone, [a[:600] for a in body.avoid], body.variant))
     except LookupError:
         raise HTTPException(status_code=404, detail="ব্যক্তি পাওয়া যায়নি")
     except ai_hub.HubError as exc:

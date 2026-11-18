@@ -3,10 +3,13 @@ import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from './AppText';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useAppPreferences } from '../app/AppPreferences';
 import { stillFor } from '../../modules/va-bridge';
 import { AppIcon } from './AppIcon';
 import { border, control, layout, opacity, radius, spacing, typography } from '../theme';
+
+const toBn = (n: number): string => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!);
 
 // D9: a quick glance away keeps the app open; anything longer asks again.
 const GRACE_MS = 120000; // leaving the app for under two minutes (to answer a message elsewhere) never asks again
@@ -14,7 +17,8 @@ const GRACE_MS = 120000; // leaving the app for under two minutes (to answer a m
 const AWAY_SECONDS = 600;
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'ok'] as const;
 
-// Wrong-PIN brake: 5 wrong tries, then a wait that doubles (30 s up to 15 min). Kept in memory for this app run; a restart clears it.
+// Wrong-PIN brake: 5 wrong tries, then a wait that doubles (30 s up to 15 min). Persisted in SQLite so Force Stop cannot reset it.
+const BRAKE_KEY = 'app_lock_brake';
 const BRAKE_FREE_TRIES = 5;
 const brake = { fails: 0, until: 0 };
 function registerFail(): void {
@@ -24,8 +28,16 @@ function registerFail(): void {
 const waitLeft = (): number => Math.max(0, Math.ceil((brake.until - Date.now()) / 1000));
 
 export function LockGate({ children }: PropsWithChildren) {
+  const db = useSQLiteContext();
   const { appLockEnabled, verifyAppLockPin, colors, language, reduceMotion } = useAppPreferences();
   const bn = language === 'bn';
+  const saveBrake = useCallback(() => {
+    void db.runAsync('INSERT OR REPLACE INTO app_preferences (key, value) VALUES (?, ?)', [BRAKE_KEY, JSON.stringify(brake)]).catch(() => {});
+  }, [db]);
+  const clearBrake = useCallback(() => {
+    brake.fails = 0; brake.until = 0;
+    void db.runAsync('DELETE FROM app_preferences WHERE key = ?', [BRAKE_KEY]).catch(() => {});
+  }, [db]);
   const [unlocked, setUnlocked] = useState(false);
   const [entry, setEntry] = useState('');
   const [failed, setFailed] = useState(false);
@@ -103,6 +115,20 @@ export function LockGate({ children }: PropsWithChildren) {
 
   const [wait, setWait] = useState(0);
   useEffect(() => {
+    let active = true;
+    void db.getFirstAsync<{ value: string }>('SELECT value FROM app_preferences WHERE key = ?', [BRAKE_KEY]).then((row) => {
+      if (!active || !row?.value) return;
+      try {
+        const parsed = JSON.parse(row.value) as { fails?: number; until?: number };
+        if (typeof parsed.fails === 'number' && parsed.fails > brake.fails) brake.fails = parsed.fails;
+        if (typeof parsed.until === 'number' && parsed.until > brake.until) brake.until = parsed.until;
+        const left = waitLeft();
+        if (left > 0) setWait(left);
+      } catch { /* ignore corrupt entry */ }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [db]);
+  useEffect(() => {
     if (wait <= 0) return undefined;
     const id = setInterval(() => setWait(waitLeft()), 1000);
     return () => clearInterval(id);
@@ -126,11 +152,11 @@ export function LockGate({ children }: PropsWithChildren) {
     (async () => {
       const ok = await verifyAppLockPin(entry);
       if (cancelled || verifyToken.current !== token) return;
-      if (ok) { brake.fails = 0; brake.until = 0; setUnlocked(true); setEntry(''); }
-      else if (entry.length >= 8) { registerFail(); setFailed(true); setEntry(''); setWait(waitLeft()); }
+      if (ok) { clearBrake(); setUnlocked(true); setEntry(''); }
+      else if (entry.length >= 8) { registerFail(); saveBrake(); setFailed(true); setEntry(''); setWait(waitLeft()); }
     })();
     return () => { cancelled = true; };
-  }, [entry, verifyAppLockPin]);
+  }, [entry, verifyAppLockPin, clearBrake, saveBrake]);
 
   const submit = useCallback(() => {
     if (waitLeft() > 0) { setWait(waitLeft()); setEntry(''); return; }
@@ -138,10 +164,10 @@ export function LockGate({ children }: PropsWithChildren) {
     void (async () => {
       const ok = await verifyAppLockPin(entry);
       if (verifyToken.current !== token) return;
-      if (ok) { brake.fails = 0; brake.until = 0; setUnlocked(true); setEntry(''); }
-      else { registerFail(); setFailed(true); setEntry(''); setWait(waitLeft()); }
+      if (ok) { clearBrake(); setUnlocked(true); setEntry(''); }
+      else { registerFail(); saveBrake(); setFailed(true); setEntry(''); setWait(waitLeft()); }
     })();
-  }, [entry, verifyAppLockPin]);
+  }, [entry, verifyAppLockPin, clearBrake, saveBrake]);
 
   if (!appLockEnabled || !locked) return <>{children}</>;
 
@@ -156,7 +182,7 @@ export function LockGate({ children }: PropsWithChildren) {
             <View key={i} style={[styles.dot, i < entry.length && styles.dotOn, failed && styles.dotFail]} />
           ))}
         </View>
-        <Text style={[styles.error, !failed && wait <= 0 && styles.errorHidden]}>{wait > 0 ? (bn ? `অনেকবার ভুল হয়েছে। ${wait} সেকেন্ড পরে আবার চেষ্টা করুন` : `Too many wrong tries. Try again in ${wait} s`) : (bn ? 'ভুল পিন — আবার চেষ্টা করুন' : 'Wrong PIN — try again')}</Text>
+        <Text style={[styles.error, !failed && wait <= 0 && styles.errorHidden]}>{wait > 0 ? (bn ? `অনেকবার ভুল হয়েছে। ${toBn(wait)} সেকেন্ড পরে আবার চেষ্টা করুন` : `Too many wrong tries. Try again in ${wait} s`) : (bn ? 'ভুল পিন — আবার চেষ্টা করুন' : 'Wrong PIN — try again')}</Text>
         {/* Icon-only by request — the label said nothing a lock badge and a fingerprint
             glyph didn't already say, and stayed as the accessibility label instead. */}
         <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বায়োমেট্রিক দিয়ে আনলক' : 'Unlock with biometrics'} onPress={() => { bioTried.current = false; setBioNonce(n => n + 1); }} hitSlop={8} style={({ pressed }) => StyleSheet.flatten([styles.bioBtn, pressed && styles.pressed])}>

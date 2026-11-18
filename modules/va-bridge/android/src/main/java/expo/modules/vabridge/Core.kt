@@ -171,13 +171,15 @@ object Outbox {
           else { stopped = true; break }
         }
         save(c, arr, consumed)
-        if (dropped > 0) Store.note(c, "$dropped" + "টি বার্তা সার্ভার নেয়নি, বাদ দেওয়া হয়েছে")
+        if (dropped > 0) Store.note(c, bnDigits(dropped) + "টি বার্তা সার্ভার নেয়নি, বাদ দেওয়া হয়েছে")
         else if (stopped) Store.note(c, "সার্ভারে পৌঁছানো যায়নি (${r.code})") else Store.note(c, null)
         !stopped
       }
       else -> { Store.note(c, "সার্ভারে পৌঁছানো যায়নি (${r.code})"); false }
     }
   }
+
+  private fun bnDigits(n: Int): String = n.toString().map { if (it in '0'..'9') ('০'.code + (it - '0')).toChar() else it }.joinToString("")
 
   /** A 4xx that means "this content is refused" (not: sign-in problem, timeout, too many requests). */
   // Only the answers our own server gives for a message it cannot accept (bad request / too large / validation) drop a message.

@@ -19,6 +19,13 @@ import { AppIcon } from '../src/ui/AppIcon';
 import { CATEGORY, CATEGORY_KEYS, CHANNEL, MESSAGE_STATUS, MODE, PRIORITY, displayName } from '../src/va/labels';
 
 const MODES: Contact['mode'][] = ['inherit', 'auto', 'telegram', 'draft', 'notify'];
+type DraftTone = 'auto' | 'short' | 'warm' | 'formal';
+const DRAFT_TONES: { key: DraftTone; bn: string; en: string }[] = [
+  { key: 'auto', bn: 'স্বাভাবিক', en: 'Natural' },
+  { key: 'short', bn: 'ছোট', en: 'Short' },
+  { key: 'warm', bn: 'আন্তরিক', en: 'Warm' },
+  { key: 'formal', bn: 'ভদ্র', en: 'Formal' },
+];
 
 /** WhatsApp-style ticks for what we sent: clock = on its way, ✓ = left us, ✓✓ = reached their phone, blue ✓✓ = they read it, ! = failed. */
 function Ticks({ m }: { m: Message }) {
@@ -60,6 +67,10 @@ export default function ContactScreen() {
   const [busy, setBusy] = useState(false);
   const [aliasText, setAliasText] = useState('');
   const [more, setMore] = useState(false); // the person's details and rules stay folded, so the chat page stays simple
+  const [draftMeta, setDraftMeta] = useState<{ pattern: string; source: 'ai' | 'rules'; tone: DraftTone; note?: string; warning?: string } | null>(null);
+  const [draftAvoid, setDraftAvoid] = useState<string[]>([]);
+  const [draftVariant, setDraftVariant] = useState(0);
+  const [draftHint, setDraftHint] = useState('');
   const aliases = useLoad(() => va.aliases(String(id)), `aliases:${String(id)}`, 60000);
 
   const act = async (fn: () => Promise<unknown>, ok?: string) => {
@@ -67,6 +78,28 @@ export default function ContactScreen() {
     try { await fn(); await detail.reload(); if (ok) showSnackbar(ok, 'success'); }
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
+  };
+
+  const writeDraft = (opts?: { tone?: DraftTone; another?: boolean }) => {
+    if (!c || busy) return;
+    const isRetry = Boolean(opts?.another || opts?.tone);
+    const tone: DraftTone = opts?.tone ?? draftMeta?.tone ?? 'auto';
+    const nextAvoid = isRetry ? [...draftAvoid, text.trim()].filter(Boolean).slice(-3) : [];
+    const nextVariant = opts?.another ? draftVariant + 1 : opts?.tone ? draftVariant : 0;
+    const instruction = isRetry ? draftHint : text.trim();
+    if (!isRetry) setDraftHint(text.trim());
+    void act(async () => {
+      const r = await va.suggest(c.id, { instruction, tone, avoid: nextAvoid, variant: nextVariant });
+      const draft = (r.text ?? r.reply ?? '').trim();
+      if (draft) {
+        setText(draft);
+        setDraftAvoid(nextAvoid);
+        setDraftVariant(nextVariant);
+        setDraftMeta({ pattern: r.pattern ?? '', source: r.source ?? 'ai', tone: r.tone ?? tone, note: r.note, warning: r.warning });
+      }
+      if (r.warning) showSnackbar(r.warning, 'info');
+      else if (draft) showSnackbar(bn ? '✓ খসড়া লেখা হয়েছে — পছন্দ না হলে “আরেকটি লিখুন” চাপুন' : '✓ Draft ready — tap Another if you want a new one', 'success');
+    });
   };
 
   const c = detail.data?.contact;
@@ -88,20 +121,27 @@ export default function ContactScreen() {
     <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}
       footer={c ? (
         <View style={{ gap: 8 }}>
-          <Field label="" value={text} onChangeText={setText} multiline placeholder={bn ? 'আপনার উত্তর লিখুন…' : 'Write your reply…'} />
+          {draftMeta ? (
+            <View style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                {draftMeta.pattern ? <AppBadge label={bn ? `ধরন: ${draftMeta.pattern}` : draftMeta.pattern} tone="primary" /> : null}
+                <AppBadge label={draftMeta.source === 'ai' ? 'AI' : (bn ? 'নিয়ম' : 'Rules')} tone="neutral" />
+              </View>
+              <ChipGroup<DraftTone>
+                options={DRAFT_TONES.map((t) => t.key)}
+                value={draftMeta.tone}
+                labelOf={(k) => { const t = DRAFT_TONES.find((x) => x.key === k); return t ? (bn ? t.bn : t.en) : k; }}
+                onChange={(t) => { if (t) writeDraft({ tone: t }); }}
+              />
+              {draftMeta.note ? <Text style={{ fontSize: 11, opacity: 0.75 }}>{draftMeta.note}</Text> : null}
+            </View>
+          ) : null}
+          <Field label="" value={text} onChangeText={(v) => { setText(v); if (!v.trim()) { setDraftMeta(null); setDraftAvoid([]); setDraftVariant(0); } }} multiline placeholder={bn ? 'আপনার উত্তর লিখুন, অথবা একটু হিন্ট লিখে “সহকারী লিখে দিক” চাপুন…' : 'Write your reply, or add a hint and tap Let it write…'} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><AppButton label={bn ? 'পাঠান' : 'Send'} icon="send" loading={busy} disabled={!text.trim()}
-              onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
-            <View style={{ flex: 1 }}><AppButton variant="secondary" icon="auto-fix" label={bn ? 'সহকারী লিখে দিক' : 'Let it write'} loading={busy}
-              onPress={() => void act(async () => {
-                if (c.is_family) { showSnackbar(bn ? 'পরিবারের চ্যাটে AI খসড়া বন্ধ থাকে — নিজে লিখুন' : 'AI drafts stay off for family chats', 'info'); return; }
-                if (c.category === 'personal' || c.category === 'spam') await va.patchContact(c.id, { category: 'business' });
-                const r = await va.suggest(c.id, text.trim());
-                const draft = (r.text ?? r.reply ?? '').trim();
-                if (draft) setText(draft);
-                if (r.warning) showSnackbar(r.warning, 'info');
-                else if (draft) showSnackbar(bn ? '✓ খসড়া লেখা হয়েছে — দেখে পাঠান' : '✓ Draft written — review and send', 'success');
-              })} /></View>
+              onPress={() => void act(async () => { await va.reply(c.id, text.trim()); setText(''); setDraftMeta(null); setDraftAvoid([]); setDraftVariant(0); setDraftHint(''); }, bn ? 'পাঠানোর জন্য দেওয়া হয়েছে' : 'Handed over for sending')} /></View>
+            <View style={{ flex: 1 }}><AppButton variant="secondary" icon={draftMeta ? 'refresh' : 'auto-fix'} label={draftMeta ? (bn ? 'আরেকটি লিখুন' : 'Write another') : (bn ? 'সহকারী লিখে দিক' : 'Let it write')} loading={busy}
+              onPress={() => writeDraft(draftMeta ? { another: true } : undefined)} /></View>
           </View>
         </View>
       ) : null}>
@@ -151,11 +191,11 @@ export default function ContactScreen() {
                 <AppButton
                   variant={c.category === 'business' || c.category === 'social' ? 'primary' : 'secondary'}
                   icon="brain"
-                  label={c.is_family ? (bn ? 'পরিবার (AI বন্ধ)' : 'Family (AI off)') : c.category === 'personal' ? (bn ? 'AI খসড়া চালু করুন' : 'Enable AI drafts') : (bn ? 'AI খসড়া: চালু ✓' : 'AI drafts: On ✓')}
+                  label={c.is_family ? (bn ? 'পরিবার (অটো বন্ধ · খসড়া চালু)' : 'Family (auto off · drafts on)') : c.category === 'personal' ? (bn ? 'AI অটো-পড়া চালু করুন' : 'Enable AI auto-read') : (bn ? 'AI অটো-পড়া: চালু ✓' : 'AI auto-read: On ✓')}
                   disabled={busy || c.is_family}
                   onPress={() => void act(
                     () => va.patchContact(c.id, { category: c.category === 'personal' ? 'business' : 'personal', ...(c.category !== 'personal' && c.mode === 'auto' ? { mode: 'draft' } : {}) }),
-                    c.category === 'personal' ? (bn ? '✓ এই চ্যাটে AI পড়া ও খসড়া চালু হয়েছে' : '✓ AI reading & drafts enabled') : (bn ? 'ব্যক্তিগত মোড: AI ও অটো উত্তর বন্ধ' : 'Personal mode: AI & auto-reply off')
+                    c.category === 'personal' ? (bn ? '✓ এই চ্যাটে AI পড়া ও খসড়া চালু হয়েছে' : '✓ AI reading & drafts enabled') : (bn ? 'ব্যক্তিগত মোড: অটো উত্তর বন্ধ (নিচের বোতামে খসড়া পাবেন)' : 'Personal mode: auto-reply off (draft button still works)')
                   )}
                 />
               </View>
@@ -169,7 +209,7 @@ export default function ContactScreen() {
                 />
               </View>
             </View>
-            {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে নিরাপত্তার কারণে AI ও অটো উত্তর সবসময় বন্ধ থাকে।' : 'AI and auto-reply stay off for family chats.'}</Text> : null}
+            {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে অটো উত্তর সবসময় বন্ধ থাকে; তবে নিচের “সহকারী লিখে দিক” চেপে যেকোনো সময় খসড়া লিখিয়ে নিতে পারবেন।' : 'Auto-reply stays off for family chats, but you can tap “Let it write” below anytime for a draft.'}</Text> : null}
           </Card>
 
           {drafts.map((d) => (

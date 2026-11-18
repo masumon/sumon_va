@@ -7,8 +7,9 @@ import { AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
 import { useAppPreferences } from '../src/app/AppPreferences';
+import { useSQLiteContext } from 'expo-sqlite';
 import { va, type Limits, errTone } from '../src/va/api';
-import { useLoad } from '../src/va/hooks';
+import { clearOfflineCache, useLoad } from '../src/va/hooks';
 import { Page } from '../src/va/Page';
 import { InfoHint } from '../src/va/InfoHint';
 import { DesignPicker } from '../src/va/DesignPicker';
@@ -102,6 +103,7 @@ function AlertStrength() {
 
 export default function SettingsScreen() {
   const [confirm, setConfirm] = useState(false);
+  const db = useSQLiteContext();
   const { bn } = useKit();
   const p = useAppPreferences();
   const { showSnackbar } = useAppFeedback();
@@ -170,7 +172,7 @@ export default function SettingsScreen() {
       <AppConfirmDialog visible={confirm} danger icon="link-off" title={bn ? 'সংযোগ বিচ্ছিন্ন করবেন?' : 'Unpair this phone?'}
         description={(bn ? 'এই ফোন থেকে আর বার্তা যাবে না, জরুরি অ্যালার্টও আসবে না। আবার জোড়া লাগাতে নতুন কোড লাগবে।' : 'This phone will stop sending messages and will not get urgent alerts. You need a new code to pair again.') + unsentWarning(bn)}
         cancelLabel={bn ? 'না' : 'No'} confirmLabel={bn ? 'বিচ্ছিন্ন করুন' : 'Unpair'} onCancel={() => setConfirm(false)}
-        onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } unpair(); router.replace('/login' as never); }} />
+        onConfirm={async () => { setConfirm(false); try { await va.logout(); } catch { /* offline: still sign out here */ } await clearOfflineCache(db); unpair(); router.replace('/login' as never); }} />
     </Page>
   );
 }
