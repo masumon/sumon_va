@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { AppText as Text, AppTextInput as TextInput } from '../src/ui/AppText';
@@ -152,10 +152,27 @@ export default function F0Screen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <AppIcon name="robot-happy-outline" size={20} color={colors.primary} />
-            <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary }}>
-              {bn ? 'ব্যক্তিগত AI সচিব (@SumonVA_bot ও F0)' : 'Personal AI Secretary (F0)'}
+            <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, flexShrink: 1 }}>
+              {bn ? 'ব্যক্তিগত AI সচিব (F0)' : 'Personal AI Secretary (F0)'}
             </Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={bn ? 'Telegram বট @SumonVA_bot খুলুন' : 'Open Telegram bot @SumonVA_bot'}
+            onPress={() => void Linking.openURL('https://t.me/SumonVA_bot').catch(() => showSnackbar(bn ? 'Telegram অ্যাপ খোলা যায়নি' : 'Could not open Telegram', 'danger'))}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 9,
+              paddingVertical: 5,
+              borderRadius: radius.pill,
+              backgroundColor: colors.primaryTint,
+            }}
+          >
+            <AppIcon name="send-circle-outline" size={14} color={colors.primary} />
+            <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>@SumonVA_bot</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="switch"
             accessibilityState={{ checked: auto }}

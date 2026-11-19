@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppIcon } from '../src/ui/AppIcon';
@@ -21,6 +21,20 @@ export default function MoreScreen() {
   const missing = useMemo(() => (active ? notOnPhone(MODULES, isInstalled) : new Set<string>()), [active]);
   return (
     <Page title={bn ? 'আরও' : 'More'} subtitle={bn ? 'অ্যাপের সব অংশ' : 'Every part of the app'}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => void Linking.openURL('https://t.me/SumonVA_bot').catch(() => {})}
+        style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.primaryTint }, pressed && { opacity: 0.92 }]}
+      >
+        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <AppIcon name="send-circle-outline" size={24} color={colors.onPrimary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: '800', color: colors.primary }}>{bn ? 'Telegram বট খুলুন (@SumonVA_bot)' : 'Open Telegram Bot (@SumonVA_bot)'}</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{bn ? 'সরাসরি টেলিগ্রামে বট ওপেন করে নির্দেশ, ভয়েস বা ছবি দিন' : 'Open your bot directly in Telegram'}</Text>
+        </View>
+        <AppIcon name="open-in-new" size={20} color={colors.primary} />
+      </Pressable>
       {MENU.map((section) => ({ ...section, items: section.items.filter((i) => !IN_BAR.includes(i.href)) })).map((section) => (
 
         <View key={section.key} style={{ gap: 10 }}>

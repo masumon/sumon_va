@@ -104,7 +104,7 @@ export default function RoutineScreen() {
   const savePlace = async () => {
     if (!pl.label.trim() || !pl.say.trim() || pl.lat == null || pl.lng == null) return;
     const item: SavedPlace = { key: newKey('p'), label: pl.label.trim(), say: pl.say.trim(), lat: pl.lat, lng: pl.lng, radius_m: Number(pl.radius) };
-    if (await save({ places: [...places, item] })) setPl({ label: '', say: '', lat: null, lng: null, radius: '300' });
+    if (await save({ places: [...places, item] })) { setPl({ label: '', say: '', lat: null, lng: null, radius: '300' }); setAddr(''); }
   };
 
   const row = (icon: 'tag-outline' | 'calendar-clock' | 'map-marker-outline', title: string, sub: string, actions: ReactNode, key: string) => (

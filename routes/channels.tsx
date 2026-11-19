@@ -63,7 +63,7 @@ export default function ModulesScreen() {
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                 {add ? (
                   <AppBadge tone="neutral" label={missing.has(m.key) ? (bn ? 'ফোনে নেই' : 'Not on this phone') : (bn ? 'চাপুন: কীভাবে যুক্ত করবেন' : 'Tap: how to connect')} />
-                ) : !counts.data ? <AppBadge tone="neutral" label={bn ? 'দেখছি…' : 'Checking…'} /> : (
+                ) : counts.error ? <AppBadge tone="danger" label={bn ? 'হিসাব আনা যায়নি' : 'Could not load'} /> : !counts.data ? <AppBadge tone="neutral" label={bn ? 'দেখছি…' : 'Checking…'} /> : (
                   <AppBadge tone={vd === 'ok' ? 'success' : 'warning'} label={vd === 'ok' ? (bn ? 'চলছে ✓' : 'Working ✓') : (bn ? 'যুক্ত, এখনো বার্তা আসেনি' : 'Connected, no message yet')} />
                 )}
                 {!add && c && c.urgent ? <AppBadge tone="danger" label={bn ? `${n(c.urgent)} জরুরি` : `${c.urgent} urgent`} /> : null}
