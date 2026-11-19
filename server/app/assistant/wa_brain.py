@@ -203,6 +203,21 @@ CATEGORIES = ("business", "personal", "social", "spam")
 BUSINESS_KINDS = {"work", "update", "meet", "money"}
 
 
+def is_one_way_sms(contact: Any, text: str = "") -> bool:
+    """True for alphanumeric SMS sender IDs (BRAC BANK, CITY BANK., bKash, GP) or masked OTP SMS where no reply can/should be sent."""
+    ch = getattr(contact, "channel", None) or ""
+    raw_phone = str(getattr(contact, "phone", None) or "")
+    if ch != "sms" and not raw_phone.startswith("sms:"):
+        return False
+    if privacy.MASK in (text or ""):
+        return True
+    addr = raw_phone[4:].strip() if raw_phone.startswith("sms:") else raw_phone.strip()
+    if not addr:
+        return False
+    digits = re.sub(r"\D", "", addr)
+    return bool(re.search(r"[A-Za-z]", addr)) or len(digits) < 6
+
+
 def category_for(text: str, cfg: dict[str, Any], contact: Any, kind: str, channel: str = "whatsapp", ai_category: str = "") -> str:
     """Which part of the owner's life is this? Rules first (family, the person's saved category, words, kind), the AI reading may refine.
 
@@ -215,6 +230,8 @@ def category_for(text: str, cfg: dict[str, Any], contact: Any, kind: str, channe
     words = cfg.get("category_words") or {}
     if has_any(text, words.get("spam") or []):
         return "spam"
+    if is_one_way_sms(contact, text):
+        return "business"  # bank/MFS/service sender IDs (BRAC BANK, bKash) are never private family chats
     tags = getattr(contact, "tags", None) or []
     client_words = [w.lower() for w in (cfg.get("tag_client_words") or [])]
     if any(any(w in str(t.get("label", "")).lower() for w in client_words) for t in tags):
@@ -461,6 +478,10 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
                 d.handoff, d.notify = True, True
             return d
     quiet = cfg.get("quiet_after_reply_min", 20)
+    if is_one_way_sms(contact, body):
+        d.reply, d.reason = None, "one_way_sms"
+        d.note = "ব্যাংক/সার্ভিস মেসেজ বা ওটিপি — এখানে ফিরতি উত্তর পাঠানোর প্রয়োজন নেই"
+        return d
     if official:
         d.handoff, d.notify = True, True
         d.reason = "sensitive"
@@ -480,6 +501,16 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
         about = "" if d.summary.startswith("ব্যক্তিগত বার্তা") else f": {d.summary[:80]}"
         if not d.tasks:
             d.tasks = [{"title": f"VIP ({name or 'গুরুত্বপূর্ণ'}){about}", "due": None}]
+        pat = dw.read_pattern(body)
+        d.note = f"VIP কৌশলী উত্তর ({pat.label}) — আপনাকে জানানো হয়েছে"
+        if owner_replied or _recent_out(recent, ("vip_tactful", "sensitive", "urgent", "note", "answer", "ask1", "ask2", "thanks"), quiet, now):
+            d.reply, d.reason = None, "quiet"
+            d.note = "VIP বার্তা — একটু আগেই উত্তর গেছে, তাই আবার উত্তর দেওয়া হয়নি"
+        else:
+            pat_reply = dw.rule_draft(pat, lang, "আপনি", False, 0)
+            d.reply = _compose([pat_reply, status_line])
+            d.reason = "vip_tactful"
+        return d
     if p == 4:
         if not _recent_out(recent, ("repeat",), 30, now):
             d.reply, d.reason = say("repeat_ack"), "repeat"

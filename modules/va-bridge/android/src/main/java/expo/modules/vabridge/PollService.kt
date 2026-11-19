@@ -168,8 +168,16 @@ class PollService : Service() {
         val clean = target.trim()
         if (clean.isNotEmpty() && body.isNotBlank()) {
           val keys = if (clean.startsWith("notif:")) listOf(clean) else listOf("notif:com.whatsapp:$clean", "notif:com.whatsapp.w4b:$clean")
+          var sent = false
           for (k in keys) {
-            if (ReplyBoxes.send(ctx, k, body)) break
+            if (ReplyBoxes.send(ctx, k, body)) { sent = true; break }
+          }
+          if (!sent && smsGuard(ctx, clean) == null) {
+            try {
+              val number = clean.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
+              val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()
+              sms.sendMultipartTextMessage(number, null, sms.divideMessage(body), null, null)
+            } catch (_: Exception) {}
           }
         }
         null

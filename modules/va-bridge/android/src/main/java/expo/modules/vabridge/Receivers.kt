@@ -67,7 +67,7 @@ class VaNotificationListener : NotificationListenerService() {
       if (rawTitle.equals(appLabel(ctx, sbn.packageName), ignoreCase = true) && text.length < 40) return  // the app talking about itself
 
       val (chat, group) = chatOf(extras)
-      if (chat.isEmpty()) return
+      if (chat.isEmpty() || chat.lowercase() in SELF_NAMES || rawTitle.lowercase() in SELF_NAMES) return
       rememberReplyBox(sbn.packageName, chat, n)
 
       // Several messages often arrive in ONE notification: read each of them, not only the last line.
@@ -75,8 +75,9 @@ class VaNotificationListener : NotificationListenerService() {
       val items = if (list.isNotEmpty()) list else listOf(Triple(if (group) rawTitle.substringAfter(": ", "") else "", text, sbn.postTime))
       val toAdd = ArrayList<org.json.JSONObject>()
       for ((who, body, at) in items) {
+        if (who.trim().lowercase() in SELF_NAMES || ReplyBoxes.wasJustSent(body)) continue
         val line = if (group && who.isNotBlank() && !body.startsWith(who)) "$who: $body" else body
-        if (line.isBlank() || SYSTEM_TEXT.containsMatchIn(line)) continue
+        if (line.isBlank() || SYSTEM_TEXT.containsMatchIn(line) || ReplyBoxes.wasJustSent(line)) continue
         if (Outbox.duplicate("${sbn.packageName}|$chat|$line|${at / 60000}")) continue
         val ext = "n:" + sha("${sbn.packageName}|$chat|$line|${at / 60000}")
         toAdd.add(item("msg", "notif", chat, sbn.packageName, line, ext, null, group))
@@ -139,8 +140,13 @@ class VaNotificationListener : NotificationListenerService() {
   private fun messagesOf(extras: Bundle): List<Triple<String, String, Long>> = try {
     @Suppress("DEPRECATION") val arr = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: emptyArray()
     val since = System.currentTimeMillis() - 24 * 3600_000L
+    @Suppress("DEPRECATION")
+    val selfPerson = if (Build.VERSION.SDK_INT >= 28) extras.getParcelable<android.app.Person>(Notification.EXTRA_MESSAGING_PERSON)?.name?.toString()?.trim()?.lowercase().orEmpty() else ""
     Notification.MessagingStyle.Message.getMessagesFromBundleArray(arr)
-      .filter { it.timestamp >= since && !it.text.isNullOrBlank() }
+      .filter {
+        val s = it.senderPerson?.name?.toString()?.trim()?.lowercase().orEmpty()
+        it.timestamp >= since && !it.text.isNullOrBlank() && s !in SELF_NAMES && (selfPerson.isEmpty() || s != selfPerson)
+      }
       .map { Triple(it.senderPerson?.name?.toString() ?: "", it.text.toString().trim(), it.timestamp) }
       .takeLast(20)
   } catch (_: Exception) { emptyList() }
@@ -159,6 +165,7 @@ class VaNotificationListener : NotificationListenerService() {
   companion object {
     @Volatile var instance: VaNotificationListener? = null
     private val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val SELF_NAMES = setOf("you", "আপনি", "me", "আমি")
     private val NOT_MESSAGE_CATEGORIES = setOf(Notification.CATEGORY_PROGRESS, Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, Notification.CATEGORY_STATUS,
       Notification.CATEGORY_TRANSPORT, Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM, Notification.CATEGORY_RECOMMENDATION, Notification.CATEGORY_PROMO, Notification.CATEGORY_NAVIGATION)
     private val SYSTEM_TEXT = Regex("(preparing|creating|restoring|uploading|backup|checking for new messages|waiting for network|connecting|syncing|end-to-end encrypted|\\d+%|ব্যাকআপ)", RegexOption.IGNORE_CASE)
@@ -172,6 +179,15 @@ object ReplyBoxes {
   private class Box(val intent: PendingIntent, val inputs: Array<RemoteInput>)
 
   private val boxes = LinkedHashMap<String, Box>()  // oldest first, so the 200-box limit drops the oldest chat
+  @Volatile private var lastSentBody: String = ""
+  @Volatile private var lastSentAt: Long = 0L
+
+  fun wasJustSent(text: String): Boolean {
+    val clean = text.trim()
+    val sent = lastSentBody
+    if (clean.isEmpty() || sent.isEmpty() || System.currentTimeMillis() - lastSentAt > 60_000L) return false
+    return clean == sent || (clean.length >= 16 && (sent.contains(clean) || clean.contains(sent)))
+  }
 
   // The server knows a chat as "notif:<app>:<name>" cut to 80 characters (and trimmed); the phone must use exactly the same key,
   // or a long chat name never finds its reply box again.
@@ -201,6 +217,8 @@ object ReplyBoxes {
       val fill = Intent()
       RemoteInput.addResultsToIntent(box.inputs, fill, data)
       box.intent.send(ctx, 0, fill)
+      lastSentBody = text.trim()
+      lastSentAt = System.currentTimeMillis()
       true
     } catch (_: Exception) { false }
   }
@@ -262,7 +280,7 @@ class CallReceiver : BroadcastReceiver() {
               val missed = when {
                 log == null -> !canRead
                 log.second == UNREADABLE -> true
-                else -> log.second == android.provider.CallLog.Calls.MISSED_TYPE
+                else -> log.second == android.provider.CallLog.Calls.MISSED_TYPE || log.second == android.provider.CallLog.Calls.REJECTED_TYPE
               }
               if (missed) {
                 val from = log?.first?.takeIf { it.isNotBlank() } ?: guess ?: "অজানা নম্বর"

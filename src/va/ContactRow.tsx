@@ -47,7 +47,7 @@ export const ContactRow = memo(function ContactRow({ contact, onPress }: { conta
   );
   return (
     <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} dragOffsetFromRight={-36} dragOffsetFromLeft={36} renderRightActions={finishPane}>
-    <Pressable android_ripple={{ color: 'rgba(128,128,128,0.12)' }} accessibilityRole="button" accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${contact.unread}টি নতুন বার্তা` : `${contact.unread} new`) : '', contact.summary || contact.preview || ''].filter(Boolean).join(', ')} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
+    <Pressable android_ripple={{ color: 'rgba(128,128,128,0.12)' }} accessibilityRole="button" accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${num(contact.unread, true)}টি নতুন বার্তা` : `${contact.unread} new`) : '', contact.summary || contact.preview || ''].filter(Boolean).join(', ')} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
       style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
       <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
       <View style={styles.main}>

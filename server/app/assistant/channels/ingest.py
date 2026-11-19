@@ -27,6 +27,11 @@ async def ingest(db: AsyncSession, *, channel: str, key: str, name: str | None, 
     ext = f"{channel}:{ext_id}"[:120]
     if not key or not ext_id:
         return None
+    if channel == "notif":
+        who_low = (name or "").strip().lower()
+        tail_low = key.split(":")[-1].strip().lower()
+        if who_low in ("you", "আপনি", "me", "আমি") or tail_low in ("you", "আপনি", "me", "আমি"):
+            return None  # self-echo notification from Android RemoteInput reply
     if (await db.execute(select(WaMessage.id).where(WaMessage.wa_id == ext))).first():
         return None
     contact = await flow.upsert_contact(db, key, name)

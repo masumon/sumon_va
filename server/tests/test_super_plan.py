@@ -256,3 +256,65 @@ async def test_telegram_owner_photo_and_video_analysis(monkeypatch):
 
     await telegram.handle_update(None, {"message": {"chat": {"id": 999}, "from": {"id": 999}, "photo": [{"file_id": "p2"}], "message_id": 10, "date": 1}})
     assert len(sent) == 1 and "৫,০০০ টাকা" in sent[0] and "প্রস্তাবিত কৌশলী উত্তর" in sent[0]
+
+
+# ── 6. Real-Phone Findings: One-Way Bank/OTP SMS, VIP Pattern Reply & Self-Echo Guard ──
+
+@pytest.mark.asyncio
+async def test_one_way_alphanumeric_bank_and_otp_sms_never_creates_reply_draft(Session, monkeypatch):
+    async def fake_cfg(db, force=False, scope=None):
+        return make_cfg(enabled=True)
+
+    async def fake_presence(db, c):
+        return c
+
+    async def fake_push(*a, **k):
+        return True
+
+    monkeypatch.setattr(wa_flow.wcfg, "load_config", fake_cfg)
+    monkeypatch.setattr(wa_flow.presence, "apply", fake_presence)
+    monkeypatch.setattr(alerts, "push_owner", fake_push)
+
+    async with Session() as s:
+        bank = WaContact(phone="sms:BRAC BANK", channel="sms", name="BRAC BANK", category="personal", priority=5, mode="inherit", state="assistant", is_vip=False, is_family=False, is_blocked=False, unread=5)
+        s.add(bank)
+        await s.flush()
+        # Old stale draft that shouldn't be there
+        stale = WaMessage(contact_id=bank.id, direction="out", channel="sms", kind="text", body="Please briefly tell us what it is about", status="draft", reason="ask1", created_at=NOW - timedelta(hours=1))
+        m = WaMessage(contact_id=bank.id, direction="in", channel="sms", kind="text", body="Do not share the OTP with anyone. Use OTP: •••••• for transaction.", status="received", created_at=NOW)
+        s.add_all([stale, m])
+        await s.commit()
+
+        await wa_flow._process(s, m.id)
+        await s.refresh(bank)
+        await s.refresh(stale)
+        assert bank.category == "business"  # switched out of personal so it isn't sealed as a family chat
+        assert bank.unread == 0 and bank.state == "done"  # doesn't sit in "উত্তর বাকি" waiting for a reply
+        assert stale.status == "discarded"
+        drafts = (await s.execute(select(WaMessage).where(WaMessage.contact_id == bank.id, WaMessage.direction == "out", WaMessage.status == "draft"))).scalars().all()
+        assert drafts == []
+
+
+@pytest.mark.asyncio
+async def test_vip_gets_pattern_aware_tactical_reply_and_skips_if_already_answered():
+    c = make_cfg(status={"key": "meeting", "until": None, "custom": "মিটিংয়ে আছেন"})
+    vip = make_contact(name="বড় পার্টনার", is_vip=True)
+    d = await brain.decide(None, c, vip, "ভাই পেমেন্টের হিসাবটা কবে পাঠাবেন?", "text", None, [], [], NOW)
+    assert d.reason == "vip_tactful" and d.reply is not None
+    assert "মিটিংয়ে" in d.reply and d.tasks
+
+    # If owner already replied 2 minutes ago, do not double-reply
+    recent = [{"direction": "out", "reason": "owner", "status": "sent", "body": "আজ পাঠাচ্ছি", "created_at": NOW - timedelta(minutes=2)}]
+    d2 = await brain.decide(None, c, vip, "ভাই পেমেন্টের হিসাবটা কবে পাঠাবেন?", "text", None, recent, [], NOW)
+    assert d2.reply is None and d2.reason == "quiet"
+
+
+@pytest.mark.asyncio
+async def test_self_echo_notification_from_you_is_ignored_on_ingest(Session):
+    from app.assistant.channels import ingest as ingest_mod
+
+    async with Session() as s:
+        mid1 = await ingest_mod.ingest(s, channel="notif", key="notif:com.whatsapp:You", name="You", body="আপনার বার্তা তিনি পেয়েছেন", ext_id="echo1")
+        mid2 = await ingest_mod.ingest(s, channel="notif", key="notif:com.whatsapp:আপনি", name="আপনি", body="ঠিক আছে", ext_id="echo2")
+        assert mid1 is None and mid2 is None
+
