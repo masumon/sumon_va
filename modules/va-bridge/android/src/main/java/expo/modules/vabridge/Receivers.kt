@@ -179,14 +179,14 @@ object ReplyBoxes {
   private class Box(val intent: PendingIntent, val inputs: Array<RemoteInput>)
 
   private val boxes = LinkedHashMap<String, Box>()  // oldest first, so the 200-box limit drops the oldest chat
-  @Volatile private var lastSentBody: String = ""
-  @Volatile private var lastSentAt: Long = 0L
+  private val recentSent = ArrayDeque<Pair<String, Long>>()
 
-  fun wasJustSent(text: String): Boolean {
+  @Synchronized fun wasJustSent(text: String): Boolean {
     val clean = text.trim()
-    val sent = lastSentBody
-    if (clean.isEmpty() || sent.isEmpty() || System.currentTimeMillis() - lastSentAt > 60_000L) return false
-    return clean == sent || (clean.length >= 16 && (sent.contains(clean) || clean.contains(sent)))
+    if (clean.isEmpty()) return false
+    val cutoff = System.currentTimeMillis() - 60_000L
+    while (recentSent.isNotEmpty() && recentSent.first().second < cutoff) recentSent.removeFirst()
+    return recentSent.any { (sent, _) -> clean == sent || (clean.length >= 16 && (sent.contains(clean) || clean.contains(sent))) }
   }
 
   // The server knows a chat as "notif:<app>:<name>" cut to 80 characters (and trimmed); the phone must use exactly the same key,
@@ -217,8 +217,11 @@ object ReplyBoxes {
       val fill = Intent()
       RemoteInput.addResultsToIntent(box.inputs, fill, data)
       box.intent.send(ctx, 0, fill)
-      lastSentBody = text.trim()
-      lastSentAt = System.currentTimeMillis()
+      val clean = text.trim()
+      if (clean.isNotEmpty()) {
+        recentSent.addLast(clean to System.currentTimeMillis())
+        if (recentSent.size > 12) recentSent.removeFirst()
+      }
       true
     } catch (_: Exception) { false }
   }

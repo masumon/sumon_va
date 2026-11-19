@@ -379,12 +379,14 @@ class TextIn(BaseModel):
 @router.post("/admin/wa/contacts/{cid}/reply", response_model=ApiResponse)
 async def owner_reply(cid: uuid.UUID, body: TextIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
     c = await _get_contact(db, cid)
-    m = WaMessage(contact_id=c.id, direction="out", kind="text", body=body.text.strip(), reason="owner", status="queued", send_after=_now())
+    raw_text = body.text.strip()
+    stored_body = privacy.seal(raw_text) if privacy.is_private(c) else raw_text
+    m = WaMessage(contact_id=c.id, direction="out", kind="text", body=stored_body, reason="owner", status="queued", send_after=_now())
     db.add(m)
     c.state, c.unread = "owner", 0
     c.hold_until = _now() + timedelta(hours=int((await wcfg.load_config(db)).get("hold_hours", 12)))
     c.last_message_at = _now()
-    await _promise_task(db, c, m.body)
+    await _promise_task(db, c, raw_text)
     await db.commit()
     ok = await flow.deliver(db, m.id)
     await db.refresh(m)
@@ -408,12 +410,14 @@ async def sent_by_hand(cid: uuid.UUID, body: TextIn, db: AsyncSession = Depends(
     now = _now()
     for d in (await db.execute(select(WaMessage).where(WaMessage.contact_id == c.id, WaMessage.direction == "out", WaMessage.status.in_(("draft", "failed"))))).scalars().all():
         d.status = "discarded"
-    db.add(WaMessage(contact_id=c.id, direction="out", kind="text", body=body.text.strip(), reason="owner", status="sent", delivery="manual",
+    raw_text = body.text.strip()
+    stored_body = privacy.seal(raw_text) if privacy.is_private(c) else raw_text
+    db.add(WaMessage(contact_id=c.id, direction="out", kind="text", body=stored_body, reason="owner", status="sent", delivery="manual",
                      sent_at=now, meta={"via": "by-hand"}))
     c.state, c.unread = "owner", 0
     c.hold_until = now + timedelta(hours=int((await wcfg.load_config(db)).get("hold_hours", 12)))
     c.last_message_at = c.last_outbound_at = now
-    await _promise_task(db, c, body.text)
+    await _promise_task(db, c, raw_text)
     await db.commit()
     return ApiResponse(message="চ্যাটে লিখে রাখা হলো")
 
@@ -423,12 +427,17 @@ async def approve(mid: uuid.UUID, body: TextIn | None = None, db: AsyncSession =
     m = await db.get(WaMessage, mid)
     if not m or m.direction != "out" or m.status not in ("draft", "failed"):  # failed = "আবার পাঠান"
         raise HTTPException(status_code=404, detail="এই বার্তা আর পাঠানোর অপেক্ষায় নেই")
+    c = await db.get(WaContact, m.contact_id)
+    is_priv = bool(c and privacy.is_private(c))
     m.error = None
     if body and body.text.strip():
         m.meta = {**(m.meta or {}), "edited": True}
-        m.body = body.text.strip()
+        raw_text = body.text.strip()
+        m.body = privacy.seal(raw_text) if is_priv else raw_text
+    elif is_priv and m.body:
+        m.body = privacy.seal(privacy.unseal(m.body))
     m.status, m.send_after = "queued", _now()
-    await _promise_task(db, await db.get(WaContact, m.contact_id), m.body)
+    await _promise_task(db, c, privacy.unseal(m.body))
     await db.commit()
     ok = await flow.deliver(db, m.id)
     await db.refresh(m)
@@ -934,7 +943,8 @@ async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=422, detail="ফাইলটি পড়া যায়নি, আবার চেষ্টা করুন")
     max_bytes = 8_000_000 if mime.startswith("video/") else 5_000_000
     if not raw or len(raw) > max_bytes:
-        raise HTTPException(status_code=413, detail="ফাইলটি ৫ MB-এর বেশি হওয়ায় পড়া যায়নি")
+        limit_mb = "৮" if mime.startswith("video/") else "৫"
+        raise HTTPException(status_code=413, detail=f"ফাইলটি {limit_mb} MB-এর বেশি হওয়ায় পড়া যায়নি")
 
     is_audio = mime.startswith("audio/")
     is_video = mime.startswith("video/")
@@ -959,7 +969,10 @@ async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db)
         )
         prompt = f"Image{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
 
-    summary = (await ai_hub.run(db, "vision", system, prompt, images=[(mime, raw)], max_tokens=700) or "").strip()
+    try:
+        summary = (await ai_hub.run(db, "vision", system, prompt, images=[(mime, raw)], max_tokens=700) or "").strip()
+    except ai_hub.HubError as e:
+        raise HTTPException(e.status, e.message_bn)
     pat = dw.read_pattern(f"{body.caption} {summary}")
     suggested = dw.rule_draft(pat, "bn", "আপনি", False, 0)
     return ApiResponse(data={

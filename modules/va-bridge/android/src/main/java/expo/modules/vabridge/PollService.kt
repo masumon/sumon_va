@@ -149,7 +149,7 @@ class PollService : Service() {
 
   /** Runs one command. Returns null on success, or a short reason the owner can read. */
   private fun run(ctx: Context, kind: String, target: String, body: String, id: String, open: String = ""): String? = try {
-    if ((kind == "sms" || kind == "reply") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
+    if ((kind == "sms" || kind == "reply" || kind == "owner_wa") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
     else when (kind) {
       "alert" -> { showAlert(ctx, target, body, id, open); null }
       "sms" -> { val bad = smsGuard(ctx, target); if (bad != null) bad else {
@@ -166,21 +166,27 @@ class PollService : Service() {
       "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "এই চ্যাটের নোটিফিকেশন আর ফোনে নেই, তাই উত্তর-বক্স পাওয়া যায়নি। Android শুধু নোটিফিকেশন থাকা অবস্থায় উত্তর পাঠাতে দেয়: ওই মানুষ আবার লিখলে “আবার পাঠান” চাপুন, নয়তো অ্যাপটি খুলে নিজে উত্তর দিন"
       "owner_wa" -> {
         val clean = target.trim()
-        if (clean.isNotEmpty() && body.isNotBlank()) {
+        if (clean.isEmpty()) "নম্বর খালি"
+        else {
           val keys = if (clean.startsWith("notif:")) listOf(clean) else listOf("notif:com.whatsapp:$clean", "notif:com.whatsapp.w4b:$clean")
           var sent = false
           for (k in keys) {
             if (ReplyBoxes.send(ctx, k, body)) { sent = true; break }
           }
-          if (!sent && smsGuard(ctx, clean) == null) {
-            try {
+          if (sent) null
+          else {
+            val guard = smsGuard(ctx, clean)
+            if (guard != null) guard
+            else try {
               val number = clean.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
               val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()
               sms.sendMultipartTextMessage(number, null, sms.divideMessage(body), null, null)
-            } catch (_: Exception) {}
+              null
+            } catch (e: Exception) {
+              "রিলে পাঠানো যায়নি (${e.javaClass.simpleName})"
+            }
           }
         }
-        null
       }
       else -> "অজানা নির্দেশ"
     }

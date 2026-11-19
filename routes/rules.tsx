@@ -35,9 +35,9 @@ export default function RulesScreen() {
   const [lists, setLists] = useState<{ allow?: string; block?: string }>({});
   const [ownerWa, setOwnerWa] = useState<string | undefined>(undefined);
 
-  const save = async (patch: Record<string, unknown>) => {
-    try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
-    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+  const save = async (patch: Record<string, unknown>): Promise<boolean> => {
+    try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); return true; }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); return false; }
   };
 
   return (
@@ -108,7 +108,7 @@ export default function RulesScreen() {
               <Card icon="whatsapp" title={bn ? 'আমার দ্বিতীয় WhatsApp নম্বর (সব আপডেট)' : 'My second WhatsApp number'}>
                 <Field label={bn ? 'আপডেট পাওয়ার WhatsApp নম্বর' : 'Second WhatsApp number'} value={ownerWa ?? (c.owner_whatsapp ?? '')} onChangeText={setOwnerWa} placeholder={bn ? 'যেমন: 017XXXXXXXX' : 'e.g. 017XXXXXXXX'} hint={bn ? 'বট দেখার সময় না পেলেও জরুরি অ্যালার্ট, খসড়া ও সারাংশ আপনার এই আলাদা WhatsApp নম্বরে যাবে।' : 'Urgent alerts & summaries also go to this number.'} />
                 <AppButton variant="secondary" label={bn ? 'দ্বিতীয় WhatsApp নম্বর সংরক্ষণ' : 'Save second WhatsApp number'} disabled={ownerWa === undefined}
-                  onPress={() => void save({ owner_whatsapp: (ownerWa ?? '').trim() }).then(() => setOwnerWa(undefined))} />
+                  onPress={() => void save({ owner_whatsapp: (ownerWa ?? '').trim() }).then((ok) => { if (ok) setOwnerWa(undefined); })} />
               </Card>
 
               <Card icon="calendar-clock" title={bn ? 'সময়সূচি, অবস্থা ও জায়গা' : 'Routine, status and places'}>
@@ -132,8 +132,8 @@ export default function RulesScreen() {
                 <Field label={bn ? 'সহকারীর নাম' : 'Assistant name'} value={names.assistant ?? c.assistant_name} onChangeText={(v) => setNames((s) => ({ ...s, assistant: v }))} />
                 <Field label={bn ? 'আপনার নাম (সহকারী যা বলবে)' : 'Your name (as the assistant says it)'} value={names.owner ?? c.owner_name} onChangeText={(v) => setNames((s) => ({ ...s, owner: v }))} />
                 <Field label={bn ? '“কখন উত্তর পাবেন” বলার ধরন' : 'How it says when you will reply'} value={names.replyBy ?? c.reply_by} onChangeText={(v) => setNames((s) => ({ ...s, replyBy: v }))} hint={bn ? 'যেমন: পরে সুযোগ পেলেই' : 'e.g. as soon as he can'} />
-                <AppButton label={bn ? 'নাম ও কথা সংরক্ষণ' : 'Save names and wording'} disabled={!names.assistant && !names.owner && !names.replyBy}
-                  onPress={() => void save({ assistant_name: names.assistant ?? c.assistant_name, owner_name: names.owner ?? c.owner_name, reply_by: names.replyBy ?? c.reply_by }).then(() => setNames({}))} />
+                <AppButton label={bn ? 'নাম ও কথা সংরক্ষণ' : 'Save names and wording'} disabled={names.assistant === undefined && names.owner === undefined && names.replyBy === undefined}
+                  onPress={() => void save({ assistant_name: names.assistant ?? c.assistant_name, owner_name: names.owner ?? c.owner_name, reply_by: names.replyBy ?? c.reply_by }).then((ok) => { if (ok) setNames({}); })} />
               </Card>
 
               <Card icon="text-box-edit-outline" title={bn ? 'বাঁধা উত্তর ও পরীক্ষা' : 'Ready answers and testing'}>
@@ -173,7 +173,7 @@ export default function RulesScreen() {
                 <Field label={bn ? 'কখনো স্প্যাম নয় (নাম/নম্বর, কমা দিয়ে)' : 'Never spam (comma separated)'} value={lists.allow ?? (c.promo?.allow ?? []).join(', ')} onChangeText={(v) => setLists((s) => ({ ...s, allow: v }))} />
                 <Field label={bn ? 'সব সময় স্প্যাম (নাম/নম্বর, কমা দিয়ে)' : 'Always spam (comma separated)'} value={lists.block ?? (c.promo?.block ?? []).join(', ')} onChangeText={(v) => setLists((s) => ({ ...s, block: v }))} />
                 <AppButton variant="secondary" label={bn ? 'তালিকা সংরক্ষণ' : 'Save lists'} disabled={lists.allow === undefined && lists.block === undefined}
-                  onPress={() => { const split = (t?: string, d: string[] = []) => (t === undefined ? d : t.split(',').map((x) => x.trim()).filter(Boolean)); void save({ promo: { allow: split(lists.allow, c.promo?.allow), block: split(lists.block, c.promo?.block) } }).then(() => setLists({})); }} />
+                  onPress={() => { const split = (t?: string, d: string[] = []) => (t === undefined ? d : t.split(',').map((x) => x.trim()).filter(Boolean)); void save({ promo: { allow: split(lists.allow, c.promo?.allow), block: split(lists.block, c.promo?.block) } }).then((ok) => { if (ok) setLists({}); }); }} />
               </Card>
 
               <Card icon="bell-outline" title={bn ? 'অ্যালার্ট সীমা, সারাংশ ও সংরক্ষণ' : 'Alert limits, digest & retention'}>

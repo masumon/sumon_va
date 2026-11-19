@@ -358,8 +358,12 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     recent = [m for m in await recent_messages(db, contact.id) if m["id"] != msg.id]
     notes = await active_notes(db, contact.id) + await abo_order_facts(db, cfg, contact, msg.body or transcript or "")
     is_missed_call = msg.direction == "in" and call_ctx.is_call({"meta": msg.meta, "body": msg.body})
-    text_in, burst_n = (msg.body or "", 1) if is_missed_call or (msg.meta or {}).get("group") or transcript else ts.grouped_text(
-        recent, msg.body or "", msg.created_at, ts.settings_grouping(cfg))
+    raw_body = (msg.body or "").strip()
+    media_placeholder = raw_body in ("", "[ছবি]", "[ভিডিও]", "[ভয়েস]", "[অডিও]", "📷 Photo", "🎥 Video", "🎤 Voice")
+    if is_missed_call or (msg.meta or {}).get("group") or transcript:
+        text_in, burst_n = (transcript if (transcript and media_placeholder) else (msg.body or "")), 1
+    else:
+        text_in, burst_n = ts.grouped_text(recent, msg.body or "", msg.created_at, ts.settings_grouping(cfg))
     privacy.NAMES.set(tuple(n for n in (contact.name, *((contact.profile or {}).get("aliases") or [])) if n))  # masked before any AI call
     d = await brain.decide(db, cfg, contact, text_in, msg.kind, transcript, recent, notes)
     if burst_n > 1:
@@ -438,9 +442,11 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         if call_insight:
             msg.meta = {**msg.meta, "call_alert": {"p": d.priority, "n": call_insight.attempts_burst}}
     for t in d.tasks[:3]:
-        if t["title"] not in open_titles:
+        is_cb = "কলব্যাক করুন" in t["title"]
+        if t["title"] not in open_titles and not (is_cb and any("কলব্যাক করুন" in o for o in open_titles)):
             due = brain._parse_dt(t.get("due")) if t.get("due") else None
             db.add(WaTask(contact_id=contact.id, title=t["title"][:300], due_at=due, source="ai"))
+            open_titles.add(t["title"])
     msg.meta = {**(msg.meta or {}), "priority": d.priority, "kind": d.kind, "reason": d.reason, "note": d.note, "category": d.category}
     if privacy.is_private(contact, d.category):  # from now on this person's words sit encrypted in the database
         await privacy.seal_contact_messages(db, contact.id)
@@ -470,6 +476,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.created_at >= now - timedelta(hours=1),
         WaMessage.status.in_(("sent", "queued", "sending")), WaMessage.reason.notin_(("owner", "manual"))))).scalar_one()
     if recent_out >= int(cfg.get("per_sender_hour", 10)) and d.priority > 1:
+        if via_tg and d.reason not in ("spam", "blocked"):
+            await _telegram_card(db, contact, msg, plain, None)
         return
     reply = d.reply
     greeted = reply.lstrip().lower().startswith(("আসসালামু", "assalam", "ওয়া আলাইকুম", "wa alaikum", "শুভ", "good "))
@@ -485,6 +493,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         if m["direction"] == "in":
             unanswered += 1
     why = f"{d.note + ' · ' if d.note else ''}এটি এই ব্যক্তির {brain.bn_digits(unanswered)}-তম অনুত্তরিত বার্তা" + (" (বারবার লিখছেন)" if unanswered >= 3 else " (প্রথম বার)" if unanswered == 1 else "")
+    private_out = privacy.is_private(contact, d.category)
+    stored_reply = privacy.seal(reply) if private_out else reply
     if mode == "draft":
         # One draft per person: a new message UPDATES the waiting draft instead of piling up another one.
         # (never the OWNER's own draft, e.g. one made in F0: those words are his and must not be rewritten by the assistant)
@@ -492,7 +502,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
                                                             or_(WaMessage.reason.is_(None), WaMessage.reason.notin_(("owner", "manual"))))
                                     .order_by(WaMessage.created_at.desc()).limit(1))).scalar_one_or_none()
         if waiting:
-            waiting.body, waiting.meta = reply, {**(waiting.meta or {}), "note": why, "updated": True}
+            waiting.body, waiting.meta = stored_reply, {**(waiting.meta or {}), "note": why, "updated": True}
             await db.commit()
             if via_tg:
                 await _telegram_card(db, contact, msg, plain, waiting)
@@ -503,7 +513,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     delay = random.randint(int(cfg["delay"]["min"]), max(int(cfg["delay"]["min"]), int(cfg["delay"]["max"])))
     if d.priority == 1:
         delay = min(delay, 5)  # the one place we answer fast: "your urgent message reached Sumon"
-    out = WaMessage(contact_id=contact.id, direction="out", kind="text", body=reply, reason=d.reason,
+    out = WaMessage(contact_id=contact.id, direction="out", kind="text", body=stored_reply, reason=d.reason,
                     status="queued" if mode == "auto" else "draft", send_after=now + timedelta(seconds=delay) if mode == "auto" else None,
                     meta={"source": d.source, "ai": d.ai_used, "mode": mode, "note": why, "rule": mode_rule})
     db.add(out)
@@ -521,8 +531,9 @@ async def _telegram_card(db: AsyncSession, contact: WaContact, msg: WaMessage, t
         cfg = await wcfg.load_config(db, scope="app")
         who = contact.name or contact.phone.split(":")[-1]
         summary = f"📩 {who}: {(text or '(লেখা নেই)')[:180]}"
-        if draft and draft.body:
-            summary += f"\n✍ খসড়া উত্তর: {draft.body[:220]}"
+        draft_plain = privacy.unseal(draft.body) if draft and draft.body else ""
+        if draft_plain:
+            summary += f"\n✍ খসড়া উত্তর: {draft_plain[:220]}"
         await alerts.relay_to_owner_whatsapp(db, cfg, summary)
     except Exception:  # noqa: BLE001
         pass
@@ -676,7 +687,7 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
         for mid in due:
             out["sent"] += 1 if await deliver(db, mid) else 0
         # stuck "sending" (server restarted mid-send) → failed, never silently re-sent
-        stuck_ids = (await db.execute(select(WaMessage.id).where(WaMessage.status == "sending", WaMessage.created_at < now - timedelta(minutes=10)))).scalars().all()
+        stuck_ids = (await db.execute(select(WaMessage.id).where(WaMessage.status == "sending", func.coalesce(WaMessage.sent_at, WaMessage.send_after, WaMessage.created_at) < now - timedelta(minutes=10)))).scalars().all()
         if stuck_ids:
             await db.execute(update(WaMessage).where(WaMessage.id.in_(stuck_ids))
                              .values(status="failed", error="পাঠানোর মাঝখানে বন্ধ হয়েছিল — আবার পাঠাতে চাইলে নিজে পাঠান"))

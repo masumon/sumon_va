@@ -27,7 +27,15 @@ class VaBridgeModule : Module() {
 
   private fun granted(permission: String) = ContextCompat.checkSelfPermission(ctx, permission) == PackageManager.PERMISSION_GRANTED
 
-  private fun open(intent: Intent) { ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+  private fun open(intent: Intent) {
+    try {
+      ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: Exception) {
+      try {
+        ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      } catch (_: Exception) {}
+    }
+  }
 
   override fun definition() = ModuleDefinition {
     Name("VaBridge")
@@ -311,7 +319,7 @@ class VaBridgeModule : Module() {
     Function("alertHistory") {
       PollService.history(ctx).reversed().map {
         mapOf("id" to it.optString("id"), "title" to it.optString("title"), "text" to it.optString("text"), "sub" to it.optString("sub"),
-          "target" to it.optString("target"), "zone" to it.optString("zone", "info"), "at" to it.optDouble("at", 0.0))
+          "target" to it.optString("target"), "open" to it.optString("open"), "zone" to it.optString("zone", "info"), "at" to it.optDouble("at", 0.0))
       }
     }
     Function("clearAlertHistory") { PollService.clearHistory(ctx); true }

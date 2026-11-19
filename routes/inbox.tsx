@@ -44,28 +44,28 @@ export default function InboxScreen() {
   const fromLink = VIEWS.find((v) => v.key === params.view)?.key as InboxView | undefined;
   const [view, setView] = useState<InboxView>(fromLink ?? 'waiting');
   const [linkSeen, setLinkSeen] = useState(params.view);
-  if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) setView(fromLink); }
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<Contact[]>([]);
+  if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) { setView(fromLink); setPage(1); setItems([]); } }
   const [q, setQ] = useState('');
   const [askClear, setAskClear] = useState(false);
   const { showSnackbar } = useAppFeedback();
   const [term, setTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [items, setItems] = useState<Contact[]>([]);
-  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); }, 350); return () => clearTimeout(t); }, [q]);
+  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); setItems([]); }, 350); return () => clearTimeout(t); }, [q]);
   const list = useLoad(async () => {
     const r = await va.contacts(view, term, page);
     setItems((prev) => (page === 1 ? r.items : [...prev, ...r.items]));
     return r;
   }, `contacts:${view}|${term}|${page}`, 20000);
   const total = list.data?.total ?? 0;
-  const shown = items.length > 0 ? items : (list.data?.items ?? []);
+  const shown = items;
 
   return (
     <Page
       title={bn ? 'স্মার্ট ইনবক্স' : 'Smart Inbox'}
       hideHeader
-      onRefresh={() => { setPage(1); void list.reload(); }}
-      refreshing={list.loading && items.length > 0}
+      onRefresh={() => { if (page === 1) void list.reload(); else setPage(1); }}
+      refreshing={list.loading && shown.length > 0}
     >
       {/* Compact Search Bar with Total Count Badge */}
       <View
@@ -110,7 +110,7 @@ export default function InboxScreen() {
               key={v.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              onPress={() => { setView(v.key); setPage(1); }}
+              onPress={() => { setView(v.key); setPage(1); setItems([]); }}
               style={{
                 paddingHorizontal: 13,
                 paddingVertical: 7,

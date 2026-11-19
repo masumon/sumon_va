@@ -487,7 +487,7 @@ export default function DashboardScreen() {
                       </Text>
                     </View>
                     {t.contact_name || t.contact_phone ? (
-                      <Text numberOfLines={1} style={{ fontSize: 11.5, color: colors.textMuted }}>{t.contact_name || t.contact_phone}</Text>
+                      <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, color: colors.textMuted }}>{t.contact_name || t.contact_phone}</Text>
                     ) : null}
                   </View>
                   <Text style={{ fontWeight: '700', fontSize: 13.5, color: colors.textPrimary }}>{t.title}</Text>
