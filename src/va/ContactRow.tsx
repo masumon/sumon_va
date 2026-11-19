@@ -7,10 +7,10 @@ import { useShell } from './shell';
 import { va, errTone } from './api';
 import { AppText as Text } from '../ui/AppText';
 import { AppBadge } from '../ui/AppSurface';
-import { BrandLogo, brandFor, brandName } from './BrandLogo';
+import { BrandLogo, brandFor } from './BrandLogo';
 import { useAppPreferences } from '../app/AppPreferences';
 import { formatBangladeshRelativeDate, formatBangladeshTime } from '../i18n/date-time';
-import { border, control, radius, spacing, type ThemeColors } from '../theme';
+import { border, radius, spacing, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
 import type { Contact } from './api';
 import { CATEGORY, PRIORITY, displayName } from './labels';
@@ -18,12 +18,13 @@ import { ChatMenuButton } from './ChatMenu';
 import { sourceLabel } from './modules';
 import { num } from './bd';
 
-/** One person in a list. The same row is used on Home and in the Inbox, so they can never look different. */
-export const ContactRow = memo(function ContactRow({ contact, onPress }: { contact: Contact; onPress: () => void }) {
+/** One person in a list. High-density 3-line card with priority left-border accent and 1-tap inline draft approval. */
+export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged }: { contact: Contact; onPress: () => void; onChanged?: () => void }) {
   const { colors, language, design } = useAppPreferences();
   const bn = language === 'bn';
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
   const [menu, setMenu] = useState(false);
+  const [sendingDraft, setSendingDraft] = useState(false);
   const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
   const urgent = contact.unread > 0 && contact.priority === 1;
   const when = contact.last_message_at
@@ -35,57 +36,117 @@ export const ContactRow = memo(function ContactRow({ contact, onPress }: { conta
   const canFinish = contact.unread > 0 || contact.state !== 'done';
   const finish = async () => {
     swipe.current?.close();
-    try { await va.patchContact(contact.id, { state: 'done' }); refreshAll(); showSnackbar(bn ? 'শেষ হিসেবে রাখা হয়েছে' : 'Marked done', 'success'); }
+    try { await va.patchContact(contact.id, { state: 'done' }); refreshAll(); onChanged?.(); showSnackbar(bn ? 'শেষ হিসেবে রাখা হয়েছে' : 'Marked done', 'success'); }
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
-  // Swipe the row to the left to reveal "শেষ"; a long press opens the full menu. Fewer buttons on screen, same power.
+  const sendDraftInline = async () => {
+    if (!contact.draft_id || sendingDraft) return;
+    setSendingDraft(true);
+    try {
+      await va.approve(contact.draft_id);
+      refreshAll();
+      onChanged?.();
+      showSnackbar(bn ? `✓ ${displayName(contact)}-কে খসড়া উত্তর পাঠানো হয়েছে` : `✓ Draft sent to ${displayName(contact)}`, 'success');
+    } catch (e) {
+      showSnackbar(e instanceof Error ? e.message : '', errTone(e));
+    } finally {
+      setSendingDraft(false);
+    }
+  };
+  const accentLeft = contact.is_family ? colors.success : contact.is_vip ? colors.warning : urgent ? colors.danger : design.cardBorder;
   const finishPane = () => (
     <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'শেষ' : 'Done'} onPress={() => { void finish(); }} style={styles.finish}>
       <AppIcon name="check" size={22} color="#FFFFFF" />
       <Text style={styles.finishText}>{bn ? 'শেষ' : 'Done'}</Text>
     </Pressable>
   );
+  const previewText = contact.need || contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message');
   return (
     <ReanimatedSwipeable ref={swipe} enabled={canFinish} friction={2} overshootRight={false} dragOffsetFromRight={-36} dragOffsetFromLeft={36} renderRightActions={finishPane}>
-    <Pressable android_ripple={{ color: 'rgba(128,128,128,0.12)' }} accessibilityRole="button" accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${num(contact.unread, true)}টি নতুন বার্তা` : `${contact.unread} new`) : '', contact.summary || contact.preview || ''].filter(Boolean).join(', ')} onPress={onPress} onLongPress={() => setMenu(true)} delayLongPress={350}
-      style={({ pressed }) => [styles.row, urgent && styles.urgent, pressed && styles.pressed]}>
-      <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={46} />
-      <View style={styles.main}>
-        <View style={styles.top}>
-          <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
-          <Text style={styles.when}>{when}</Text>
-          <ChatMenuButton contact={contact} size={20} shown={menu} onShownChange={setMenu} />
+      <Pressable
+        android_ripple={{ color: 'rgba(128,128,128,0.12)' }}
+        accessibilityRole="button"
+        accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${num(contact.unread, true)}টি নতুন বার্তা` : `${contact.unread} new`) : '', previewText].filter(Boolean).join(', ')}
+        onPress={onPress}
+        onLongPress={() => setMenu(true)}
+        delayLongPress={350}
+        style={({ pressed }) => [styles.row, { borderLeftWidth: 4, borderLeftColor: accentLeft }, urgent && styles.urgent, pressed && styles.pressed]}
+      >
+        <View style={styles.topRow}>
+          <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={38} />
+          <View style={styles.main}>
+            <View style={styles.top}>
+              <View style={styles.nameWrap}>
+                <Text numberOfLines={1} style={[styles.name, contact.unread > 0 && styles.bold]}>{displayName(contact)}</Text>
+                {contact.is_vip ? <AppBadge label="VIP" tone="warning" /> : null}
+                {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
+                {!contact.is_vip && !contact.is_family && contact.priority <= 2 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
+              </View>
+              <View style={styles.rightMeta}>
+                <Text style={styles.when}>{when}</Text>
+                <ChatMenuButton contact={contact} size={18} shown={menu} onShownChange={setMenu} />
+              </View>
+            </View>
+            <View style={styles.subRow}>
+              <Text numberOfLines={1} style={styles.source}>
+                {sourceLabel(contact.phone, contact.channel, bn)}
+                {contact.category ? ` · ${bn ? CATEGORY[contact.category].bn : CATEGORY[contact.category].en}` : ''}
+              </Text>
+              {contact.unread > 0 ? (
+                <View style={[styles.unreadPill, { backgroundColor: colors.danger }]}>
+                  <Text style={styles.unreadText}>{bn ? `${num(contact.unread, true)}টি নতুন` : `${contact.unread} new`}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
         </View>
-        <Text numberOfLines={1} style={styles.source}>{sourceLabel(contact.phone, contact.channel, bn)}</Text>
-        <Text numberOfLines={2} style={styles.preview}>{contact.summary || contact.preview || (bn ? 'কোনো বার্তা নেই' : 'No message')}</Text>
-        <View style={styles.badges}>
-          {contact.priority <= 2 || contact.unread > 0 ? <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} /> : null}
-          {contact.category ? <AppBadge label={bn ? CATEGORY[contact.category].bn : CATEGORY[contact.category].en} tone={CATEGORY[contact.category].tone} /> : null}
-          {(contact.tags ?? []).slice(0, 3).map((t) => <AppBadge key={t.label} label={`${t.important ? '★ ' : ''}${t.label}${t.value ? `: ${t.value}` : ''}`} tone={t.important ? 'danger' : 'primary'} />)}
-          {contact.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
-          {contact.is_vip ? <AppBadge label="VIP" tone="primary" /> : null}
-          <AppBadge label={brandName(brandFor(contact.channel, contact.phone))} tone="neutral" />
-          {contact.unread > 0 ? <AppBadge label={bn ? `${num(contact.unread, true)}টি নতুন` : `${contact.unread} new`} tone="danger" /> : null}
-        </View>
-      </View>
-    </Pressable>
+        <Text numberOfLines={2} style={styles.preview}>
+          {contact.need ? '💡 ' : ''}{previewText}
+        </Text>
+        {contact.draft_id && contact.draft_body ? (
+          <View style={styles.draftBar}>
+            <Text numberOfLines={1} style={styles.draftPreview}>
+              {bn ? '✍ খসড়া: ' : '✍ Draft: '}“{contact.draft_body}”
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={bn ? 'খসড়া পাঠান' : 'Send draft'}
+              disabled={sendingDraft}
+              onPress={() => { void sendDraftInline(); }}
+              style={[styles.draftBtn, { backgroundColor: colors.primary, opacity: sendingDraft ? 0.6 : 1 }]}
+            >
+              <Text style={[styles.draftBtnText, { color: colors.onPrimary }]}>
+                {sendingDraft ? (bn ? 'যাচ্ছে…' : 'Sending…') : (bn ? '✓ খসড়া পাঠান' : '✓ Send draft')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </Pressable>
     </ReanimatedSwipeable>
   );
 });
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.smd, padding: spacing.md, minHeight: control.rowMinHeight, borderRadius: design.radiusCard, borderWidth: border.thin, borderColor: design.cardBorder, backgroundColor: colors.surface, ...(design.shadow ?? {}) },
+  row: { gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: design.radiusCard, borderWidth: border.thin, borderColor: design.cardBorder, backgroundColor: colors.surface, ...(design.shadow ?? {}) },
   urgent: { borderColor: colors.danger, borderWidth: border.medium },
   pressed: { opacity: 0.92 },
-  finish: { width: 84, marginLeft: spacing.xs, borderRadius: design.radiusCard, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  finishText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  icon: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint },
-  main: { flex: 1, gap: spacing.xs },
-  top: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  name: { flex: 1, color: colors.textPrimary, fontSize: 16 },
-  bold: { fontWeight: '700' },
-  when: { color: colors.textMuted, fontSize: 12 },
-  source: { color: colors.textMuted, fontSize: 12 },
-  preview: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
+  finish: { width: 80, marginLeft: spacing.xs, borderRadius: design.radiusCard, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  finishText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  main: { flex: 1, minWidth: 0, gap: 2 },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  nameWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  name: { flexShrink: 1, color: colors.textPrimary, fontSize: 15 },
+  bold: { fontWeight: '800' },
+  rightMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  when: { color: colors.textMuted, fontSize: 11.5 },
+  subRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  source: { flex: 1, color: colors.textMuted, fontSize: 11.5 },
+  unreadPill: { paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: radius.pill },
+  unreadText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  preview: { color: colors.textSecondary, fontSize: 13.5, lineHeight: 19 },
+  draftBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 6, marginTop: 2, borderTopWidth: 1, borderTopColor: colors.border },
+  draftPreview: { flex: 1, color: colors.textMuted, fontSize: 12 },
+  draftBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, minHeight: 32, justifyContent: 'center' },
+  draftBtnText: { fontSize: 11.5, fontWeight: '800' },
 });

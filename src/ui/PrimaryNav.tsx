@@ -7,6 +7,9 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppPreferences } from '../app/AppPreferences';
+import { formatBangladeshNumber } from '../i18n/date-time';
+import { va } from '../va/api';
+import { useLoad } from '../va/hooks';
 import { AppIcon } from './AppIcon';
 import { tapSelect } from './haptics';
 import { border, getWindowSizeClass, icon as iconToken, layout, radius, spacing, typography, type AccentName } from '../theme';
@@ -50,6 +53,9 @@ export function PrimaryNav() {
   // never grow past the normal size — bigger text would push the icons up (rc.20 audit).
   const navScale = Math.min(useContext(TextScaleContext), 1);
   const bn = language === 'bn';
+  const ov = useLoad(() => va.overview(), 'header-overview', 30000);
+  const waitingCount = ov.data?.waiting ?? 0;
+  const openTasksCount = ov.data?.tasks_open ?? 0;
   const windowClass = getWindowSizeClass(width);
   const expanded = windowClass === 'expanded';
   const medium = windowClass === 'medium';
@@ -82,6 +88,9 @@ export function PrimaryNav() {
         {primaryNavItems.map((item) => {
           const active = item.href === '/' ? pathname === '/' : item.href === '/more' ? ['/more', '/channels', '/m/'].some((x) => pathname.startsWith(x)) : pathname.startsWith(item.href);
           const label = bn ? item.bn : item.en;
+          const isCenterF0 = item.href === '/f0';
+          const badgeCount = item.href === '/inbox' ? waitingCount : item.href === '/tasks' ? openTasksCount : 0;
+          const badgeBg = item.href === '/inbox' ? colors.danger : colors.warning;
           return (
             <Pressable
               key={item.href}
@@ -96,19 +105,27 @@ export function PrimaryNav() {
                 style={[
                   styles.iconWrap,
                   expanded && styles.iconWrapExpanded,
+                  isCenterF0 && styles.centerF0Wrap,
                   { backgroundColor: 'transparent', overflow: 'hidden' },
                 ]}
               >
-                {active ? <LinearGradient pointerEvents="none" colors={design.ctaGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
-                <AppIcon name={active ? item.activeIcon : item.icon} size={iconToken.md} color={active ? colors.onPrimary : colors.textMuted} />
+                {active || isCenterF0 ? <LinearGradient pointerEvents="none" colors={design.ctaGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { opacity: active ? 1 : 0.82 }]} /> : null}
+                <AppIcon name={active || isCenterF0 ? item.activeIcon : item.icon} size={iconToken.md} color={active || isCenterF0 ? colors.onPrimary : colors.textMuted} />
               </View>
+              {badgeCount > 0 ? (
+                <View style={[styles.navBadge, { backgroundColor: badgeBg }]}>
+                  <Text style={styles.navBadgeText}>
+                    {badgeCount > 99 ? (bn ? '৯৯+' : '99+') : formatBangladeshNumber(badgeCount, language)}
+                  </Text>
+                </View>
+              ) : null}
               <TextScaleContext.Provider value={navScale}>
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.85}
                 maxFontSizeMultiplier={1.3}
-                style={[styles.label, { color: active ? colors.primary : colors.textMuted, fontFamily: active ? typography.label.fontFamily : typography.caption.fontFamily }]}
+                style={[styles.label, { color: active || isCenterF0 ? colors.primary : colors.textMuted, fontFamily: active || isCenterF0 ? typography.label.fontFamily : typography.caption.fontFamily }]}
               >
                 {label}
               </Text>
@@ -135,6 +152,9 @@ const styles = StyleSheet.create({
     itemExpanded: { flex: 0, maxWidth: undefined, minHeight: 64, width: '100%', justifyContent: 'center', paddingHorizontal: spacing.xs },
     pressed: { opacity: 0.55 },
     iconWrap: { width: 50, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    centerF0Wrap: { width: 54, height: 34, borderRadius: 17 },
     iconWrapExpanded: { width: 46, height: 36, borderRadius: 18 },
+    navBadge: { position: 'absolute', top: 3, right: 8, minWidth: 16, height: 15, borderRadius: 8, paddingHorizontal: 3.5, alignItems: 'center', justifyContent: 'center' },
+    navBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' },
     label: { ...typography.caption, fontSize: 11.5, lineHeight: 15, maxWidth: 88, textAlign: 'center' },
 });

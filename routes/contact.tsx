@@ -62,38 +62,70 @@ function Ticks({ m }: { m: Message }) {
 function Bubble({ m, onRetryApp, onRetrySms, onRetryAuto }: { m: Message; onRetryApp?: (msgText: string) => void; onRetrySms?: (msgText: string) => void; onRetryAuto?: (msgText: string) => void }) {
   const { colors, bn, language } = useKit();
   const mine = m.direction === 'out';
-  // A status this app version does not know yet must never crash the chat: show the plain code instead.
   const st = MESSAGE_STATUS[m.status] ?? { bn: String(m.status ?? ''), en: String(m.status ?? '') };
   const text = m.transcript || m.body || (bn ? '(লেখা নেই)' : '(no text)');
   const showRetry = mine && m.status === 'failed' && Boolean(m.body?.trim()) && (onRetryApp || onRetrySms || onRetryAuto);
+  const inTag = m.body === '[মিসড কল]' || m.kind === 'call'
+    ? (bn ? '📞 মিসড কল' : '📞 Missed call')
+    : m.kind === 'audio'
+      ? (bn ? '🎤 ভয়েস মেসেজ' : '🎤 Voice note')
+      : m.kind === 'image'
+        ? (bn ? '📷 ছবি বিশ্লেষণ' : '📷 Image')
+        : m.kind === 'video'
+          ? (bn ? '🎥 ভিডিও বিশ্লেষণ' : '🎥 Video')
+          : (bn ? '💬 বার্তা' : '💬 Message');
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
-      <View style={{ padding: 12, borderRadius: 16, backgroundColor: mine ? colors.primaryTint : colors.surfaceMuted }}>
-        <Text style={{ color: colors.textPrimary, lineHeight: 22 }}>{text}</Text>
+      <View
+        style={{
+          paddingHorizontal: 13,
+          paddingVertical: 10,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: mine ? colors.primary : colors.border,
+          backgroundColor: mine ? colors.primaryTint : colors.surface,
+          gap: 4,
+        }}
+      >
+        {!mine ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Text style={{ fontSize: 10.5, fontWeight: '800', color: colors.primary }}>{inTag}</Text>
+            <Text style={{ fontSize: 10.5, color: colors.textMuted }}>
+              {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}
+            </Text>
+          </View>
+        ) : null}
+        <Text style={{ color: colors.textPrimary, fontSize: 14, lineHeight: 21 }}>{text}</Text>
+        {mine ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
+            <Text style={{ color: m.status === 'failed' ? colors.danger : colors.textMuted, fontSize: 10.5 }}>
+              {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}
+              {` · ${bn ? (m.delivery === 'read' ? 'পড়েছেন' : m.delivery === 'delivered' ? 'পৌঁছেছে' : st.bn) : (m.delivery === 'read' ? 'Read' : m.delivery === 'delivered' ? 'Delivered' : st.en)}`}
+              {m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
+            </Text>
+            <Ticks m={m} />
+          </View>
+        ) : null}
       </View>
-      <Text style={{ color: m.status === 'failed' ? colors.danger : colors.textMuted, fontSize: 11, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
-        {m.created_at ? formatBangladeshDateTime(m.created_at, language) : ''}{mine ? ` · ${bn ? (m.delivery === 'read' ? 'পড়েছেন' : m.delivery === 'delivered' ? 'পৌঁছেছে' : st.bn) : (m.delivery === 'read' ? 'Read' : m.delivery === 'delivered' ? 'Delivered' : st.en)}` : ''}{m.tag ? ` · ${m.tag}` : ''}{m.error ? ` · ${m.error}` : ''}
-      </Text>
       {showRetry ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
           {onRetryApp ? (
             <Pressable accessibilityRole="button" onPress={() => onRetryApp(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface }}>
-              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>{bn ? 'অ্যাপে খুলে পাঠান' : 'Open in app'}</Text>
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>{bn ? 'অ্যাপে খুলে পাঠান' : 'Open in app'}</Text>
             </Pressable>
           ) : null}
           {onRetrySms ? (
             <Pressable accessibilityRole="button" onPress={() => onRetrySms(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
-              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'SMS পাঠান' : 'Send SMS'}</Text>
+              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '700' }}>{bn ? 'SMS পাঠান' : 'Send SMS'}</Text>
             </Pressable>
           ) : null}
           {onRetryAuto ? (
             <Pressable accessibilityRole="button" onPress={() => onRetryAuto(m.body!)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
-              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>{bn ? 'অটো-Send' : 'Auto-Send'}</Text>
+              <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '700' }}>{bn ? 'অটো-Send' : 'Auto-Send'}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
-      {mine ? <View style={{ alignSelf: 'flex-end' }}><Ticks m={m} /></View> : null}
     </View>
   );
 }
@@ -400,14 +432,55 @@ export default function ContactScreen() {
           </Card>
 
           {drafts.map((d) => (
-            <Card key={d.id} title={bn ? 'সহকারীর খসড়া উত্তর' : "Assistant's draft reply"}>
-              <Text style={{ marginBottom: 6 }}>{d.body}</Text>
-              {d.note ? <Text style={{ opacity: 0.7, fontSize: 12, marginBottom: 10 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
-              <View style={{ gap: 8 }}>
-                <AppButton label={bn ? 'এটাই পাঠান' : 'Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? 'পাঠানোর জন্য দেওয়া হয়েছে (পৌঁছালে তালিকায় দেখাবে)' : 'Handed over for sending (shows in the list once delivered)')} />
-                <AppButton variant="secondary" label={bn ? 'পাঠাবেন না' : 'Do not send'} onPress={() => void act(() => va.discard(d.id))} />
+            <View
+              key={d.id}
+              style={{
+                padding: 12,
+                borderRadius: 18,
+                borderWidth: 1.5,
+                borderColor: colors.primary,
+                backgroundColor: colors.surface,
+                gap: 8,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: colors.primary }}>
+                  {bn ? '✨ AI কো-পাইলট খসড়া উত্তর' : '✨ AI Co-Pilot Draft'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {DRAFT_TONES.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      accessibilityRole="button"
+                      onPress={() => writeDraft({ tone: t.key })}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 8,
+                        backgroundColor: draftMeta?.tone === t.key ? colors.primary : colors.surfaceMuted,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10.5, fontWeight: '700', color: draftMeta?.tone === t.key ? colors.onPrimary : colors.textPrimary }}>
+                        {bn ? t.bn : t.en}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </Card>
+              <View style={{ padding: 10, borderRadius: 12, backgroundColor: colors.surfaceMuted }}>
+                <Text style={{ fontSize: 13.5, lineHeight: 20, color: colors.textPrimary }}>“{d.body}”</Text>
+              </View>
+              {d.note ? <Text style={{ opacity: 0.75, fontSize: 11.5 }}>{bn ? 'কারণ: ' : 'Why: '}{d.note}</Text> : null}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <AppButton label={bn ? '➤ এটাই পাঠান' : '➤ Send this'} icon="send" loading={busy} onPress={() => void act(() => va.approve(d.id), bn ? '✓ খসড়া উত্তর পাঠানো হয়েছে' : '✓ Draft sent')} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppButton variant="secondary" icon="refresh" label={bn ? 'আরেকটি লিখুন' : 'Write another'} disabled={busy} onPress={() => writeDraft({ another: true })} />
+                </View>
+              </View>
+              <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} disabled={busy} onPress={() => void act(() => va.discard(d.id))} />
+            </View>
           ))}
 
           <View style={{ gap: 14 }}>

@@ -16,8 +16,8 @@ import { NAV_BAR_GAP, NAV_BAR_HEIGHT, primaryNavItems } from '../ui/PrimaryNav';
  * The one page frame every screen of the app uses: background, width, spacing, header, pull-to-refresh and the room the
  * bottom bar needs. A new screen only supplies its title and content, so fonts, colours and spacing can never drift.
  */
-export function Page({ title, subtitle, right, back, children, onRefresh, refreshing = false, bottomPadding, footer }: {
-  title: string; subtitle?: string; right?: ReactNode; back?: string; children: ReactNode; onRefresh?: () => void; refreshing?: boolean; bottomPadding?: number; footer?: ReactNode;
+export function Page({ title, subtitle, right, back, children, onRefresh, refreshing = false, bottomPadding, footer, hideHeader = false }: {
+  title: string; subtitle?: string; right?: ReactNode; back?: string; children: ReactNode; onRefresh?: () => void; refreshing?: boolean; bottomPadding?: number; footer?: ReactNode; hideHeader?: boolean;
 }) {
   const { colors } = useAppPreferences();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -60,8 +60,8 @@ export function Page({ title, subtitle, right, back, children, onRefresh, refres
         keyboardShouldPersistTaps="handled"
         refreshControl={onRefresh ? <RefreshControl refreshing={pulling} onRefresh={pull} colors={[colors.primary]} progressBackgroundColor={colors.surface} tintColor={colors.primary} /> : undefined}
       >
-        <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />
-        <View style={styles.body}>{children}</View>
+        {hideHeader && !back ? null : <ScreenHeader title={title} subtitle={subtitle} right={right} backLabel={back} hideBack={!back} />}
+        <View style={[styles.body, hideHeader && !back && { marginTop: 4 }]}>{children}</View>
       </ScrollView>
       {footer ? <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: Math.max(insets.bottom, spacing.sm), backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>{footer}</View> : null}
     </View>
@@ -86,6 +86,6 @@ export function Hint({ children }: { children: ReactNode }) {
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1, backgroundColor: 'transparent' },
-  content: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
-  body: { gap: spacing.md, marginTop: spacing.sm },
+  content: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.xs },
+  body: { gap: spacing.smd, marginTop: spacing.xs },
 });
