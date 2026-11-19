@@ -315,7 +315,9 @@ async def _owner_reply_from_telegram(db: AsyncSession, chat_id: Any, reply_to: d
     # the owner answered: the assistant's waiting draft for this person is no longer needed
     for d in (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft"))).scalars().all():
         d.status = "discarded"
-    m = WaMessage(contact_id=contact.id, direction="out", kind="text", body=text[:4000], reason="owner", status="queued", send_after=now, meta={"via": "telegram"})
+    raw_text = text[:4000]
+    stored_body = privacy.seal(raw_text) if privacy.is_private(contact) else raw_text
+    m = WaMessage(contact_id=contact.id, direction="out", kind="text", body=stored_body, reason="owner", status="queued", send_after=now, meta={"via": "telegram"})
     db.add(m)
     contact.state, contact.unread = "owner", 0
     contact.hold_until = now + timedelta(hours=int((await wcfg.load_config(db)).get("hold_hours", 12)))

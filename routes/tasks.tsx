@@ -171,6 +171,7 @@ export default function TasksScreen() {
               accessibilityRole="checkbox"
               accessibilityState={{ checked: t.is_done }}
               accessibilityLabel={t.title}
+              disabled={busy}
               onPress={() => void act(() => va.toggleTask(t.id))}
               hitSlop={8}
               style={{ minWidth: 42, minHeight: 42, alignItems: 'center', justifyContent: 'center' }}

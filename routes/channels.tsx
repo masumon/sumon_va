@@ -34,7 +34,7 @@ export default function ModulesScreen() {
   const by = new Map((counts.data ?? []).map((c) => [c.key, c]));
 
   return (
-    <Page title={bn ? 'আমার অ্যাপগুলো' : 'My apps'} subtitle={bn ? 'প্রতিটি মাধ্যম আলাদা। কোন নম্বর বা কে পাঠিয়েছে, দেখা যায়' : 'Each channel apart — see which number or who wrote'} onRefresh={() => { void counts.reload(); void overview.reload(); }} refreshing={counts.loading && !!counts.data}>
+    <Page title={bn ? 'আমার অ্যাপগুলো' : 'My apps'} subtitle={bn ? 'প্রতিটি মাধ্যম আলাদা। কোন নম্বর বা কে পাঠিয়েছে, দেখা যায়' : 'Each channel apart — see which number or who wrote'} onRefresh={() => { void counts.reload(); void overview.reload(); void chans.reload(); }} refreshing={counts.loading && !!counts.data}>
       <Hero icon="apps" title={bn ? 'আমার অ্যাপগুলো' : 'My apps'} subtitle={bn ? 'যে অ্যাপ যুক্ত, সেটা ওপরে; নতুন অ্যাপ নিচ থেকে যুক্ত করুন' : 'Connected apps on top; connect more below'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HeroStat value={n(overview.data?.waiting ?? 0)} label={bn ? 'উত্তর বাকি' : 'Waiting'} />

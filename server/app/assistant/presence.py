@@ -91,7 +91,7 @@ async def apply(db: AsyncSession, cfg: dict[str, Any]) -> dict[str, Any]:
 
     The owner's manual status and weekly schedule still win; wa_brain.current_status decides the order. Nothing is saved.
     """
-    if not cfg.get("auto_presence", True):
+    if not cfg.get("auto_presence", True) and not cfg.get("presence_draft_when_active", True):
         return cfg
     p = await load(db)
     out = copy.deepcopy(cfg)

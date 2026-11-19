@@ -140,7 +140,7 @@ export default function ContactScreen() {
   const cfg = useLoad(() => va.assistantConfig(), 'assistant-config', 60000);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [aliasText, setAliasText] = useState('');
+  const [aliasText, setAliasText] = useState<string | null>(null);
   const [showRules, setShowRules] = useState(false); // top quick-rules stay folded in a 1-line bar so message bubbles appear immediately
   const [more, setMore] = useState(false); // the person's details and rules stay folded, so the chat page stays simple
   const [draftMeta, setDraftMeta] = useState<{ pattern: string; source: 'ai' | 'rules'; tone: DraftTone; note?: string; warning?: string } | null>(null);
@@ -221,7 +221,7 @@ export default function ContactScreen() {
       return;
     }
     if (clearAfter) clearComposer();
-    void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch(() => {});
+    void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch((e) => showSnackbar(e instanceof Error ? e.message : (bn ? 'চ্যাটে লেখা সেভ হয়নি' : 'Failed to record reply'), errTone(e)));
     showSnackbar(
       res.how === 'chat'
         ? (bn ? 'সরাসরি চ্যাট খুলে উত্তর বসানো হয়েছে — শুধু Send চাপুন' : 'Chat opened with your reply — tap Send')
@@ -252,7 +252,7 @@ export default function ContactScreen() {
     const res = autoSendInApp(chatPkg, chatName, msgText.trim());
     if (res.armed) {
       if (clearAfter) clearComposer();
-      void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch(() => {});
+      void va.sentByHand(c.id, msgText.trim()).then(() => detail.reload()).catch((e) => showSnackbar(e instanceof Error ? e.message : (bn ? 'চ্যাটে লেখা সেভ হয়নি' : 'Failed to record reply'), errTone(e)));
       showSnackbar(bn ? '✓ চ্যাট খুলে অটো-Send চালু করা হয়েছে' : '✓ Chat opened with Auto-Send armed', 'success');
     } else if (res.how !== 'none') {
       if (clearAfter) clearComposer();
@@ -525,10 +525,10 @@ export default function ContactScreen() {
           </Card>
           <Card title={bn ? 'অন্য নাম / ডাকনাম' : 'Other names'}>
             <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'এই মানুষকে আপনি আর কী নামে চেনেন? (যেমন Rahim, বড় ভাই)। একই মানুষ কি না মেলাতে এটা সহকারীকে সাহায্য করে। কমা দিয়ে লিখুন।' : 'Other names you know this person by (e.g. Rahim). Helps the assistant spot the same person. Separate with commas.'}</Text>
-            <Field label="" value={aliasText || (aliases.data?.aliases ?? []).join(', ')} onChangeText={setAliasText} placeholder={bn ? 'যেমন: Rahim, বড় ভাই' : 'e.g. Rahim, Boro Vai'} />
+            <Field label="" value={aliasText ?? (aliases.data?.aliases ?? []).join(', ')} onChangeText={setAliasText} placeholder={bn ? 'যেমন: Rahim, বড় ভাই' : 'e.g. Rahim, Boro Vai'} />
             <View style={{ marginTop: 8 }}>
-              <AppButton variant="secondary" label={bn ? 'সংরক্ষণ' : 'Save'} disabled={!aliasText.trim() && !(aliases.data?.aliases ?? []).length}
-                onPress={() => void act(async () => { await va.setAliases(c.id, aliasText.split(',').map((x) => x.trim()).filter(Boolean)); setAliasText(''); await aliases.reload(); }, bn ? 'সংরক্ষণ হয়েছে' : 'Saved')} />
+              <AppButton variant="secondary" label={bn ? 'সংরক্ষণ' : 'Save'} disabled={aliasText === null}
+                onPress={() => void act(async () => { await va.setAliases(c.id, (aliasText ?? '').split(',').map((x) => x.trim()).filter(Boolean)); setAliasText(null); await aliases.reload(); }, bn ? 'সংরক্ষণ হয়েছে' : 'Saved')} />
             </View>
           </Card>
           <ContactMemory contactId={c.id} />

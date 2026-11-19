@@ -95,7 +95,7 @@ def current_status(cfg: dict[str, Any], now: datetime | None = None) -> dict[str
             if inside and day in days:
                 key, source = item["status"], "schedule"
                 break
-    if source == "default":
+    if source == "default" and cfg.get("auto_presence", True):
         pres = cfg.get("_presence") or {}
         place = pres.get("place")
         if isinstance(place, dict) and place.get("label"):
@@ -386,6 +386,20 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
     if has_any(body, cfg.get("identity_words") or []):  # safety floor: honest answer, cannot be switched off
         d.reply, d.reason, d.note = say("identity_reply"), "identity", "কেউ জানতে চেয়েছে সহকারী মানুষ কি না — সৎ উত্তর"
         return d
+    mode = getattr(contact, "mode", "inherit")
+    never = has_any(body, cfg.get("never_auto_words") or [])
+    official = has_any(body, cfg.get("official_words") or [])
+    is_vip = bool(getattr(contact, "is_vip", False))
+    if (official or is_vip) and d.priority > 2:
+        p = d.priority = 2
+    if never or mode == "notify" or getattr(contact, "is_family", False):
+        d.handoff, d.notify = True, True
+        d.reason = "family" if getattr(contact, "is_family", False) else "sensitive"
+        d.note = "পরিবার/সংবেদনশীল বিষয় — সহকারী নিজে কিছু বলেনি, শুধু আপনাকে জানানো হয়েছে"
+        if p == 1 and not _recent_out(recent, ("urgent",), 30, now):
+            d.reply, d.reason = say("urgent_ack"), "urgent"
+        return d
+
     if kind_media == "audio" and not transcript:
         d.priority, d.notify, d.kind = min(p, 3), True, "voice"
         d.summary = d.need = "ভয়েস মেসেজ (লেখায় রূপান্তর হয়নি) — শুনে দেখুন"
@@ -403,20 +417,6 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
             "If it is urgent, please add a short text note." if en else "জরুরি কিছু হলে সংক্ষেপে লিখেও জানাতে পারেন।",
         ])
         d.reason = "media_ack"
-        return d
-
-    mode = getattr(contact, "mode", "inherit")
-    never = has_any(body, cfg.get("never_auto_words") or [])
-    official = has_any(body, cfg.get("official_words") or [])
-    is_vip = bool(getattr(contact, "is_vip", False))
-    if (official or is_vip) and d.priority > 2:
-        p = d.priority = 2
-    if never or mode == "notify" or getattr(contact, "is_family", False):
-        d.handoff, d.notify = True, True
-        d.reason = "family" if getattr(contact, "is_family", False) else "sensitive"
-        d.note = "পরিবার/সংবেদনশীল বিষয় — সহকারী নিজে কিছু বলেনি, শুধু আপনাকে জানানো হয়েছে"
-        if p == 1 and not _recent_out(recent, ("urgent",), 30, now):
-            d.reply, d.reason = say("urgent_ack"), "urgent"
         return d
 
     # understanding (AI reads, never decides) ------------------------------------

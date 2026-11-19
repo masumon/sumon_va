@@ -333,7 +333,7 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
         return _reply(intent, f"{len(items)} জনের উত্তর বাকি (কেউ উত্তর দিয়েছে এমন প্রমাণ নেই)" if items else "উত্তর বাকি আছে এমন কেউ পাইনি", items[:10])
     if intent == "tasks":
         open_tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False).order_by(WaTask.due_at.asc().nullslast()).limit(10))).scalars().all()  # noqa: E712
-        items = [{"title": t.title, "subtitle": ("প্রস্তাবিত, নিশ্চিত করা হয়নি" if t.source == "proposed" else "খোলা") + (f", সময় {t.due_at:%d/%m}" if t.due_at else ""),
+        items = [{"title": t.title, "subtitle": ("প্রস্তাবিত, নিশ্চিত করা হয়নি" if t.source == "proposed" else "খোলা") + (f", সময় {_when(t.due_at)}" if t.due_at else ""),
                   "contact_id": str(t.contact_id) if t.contact_id else ""} for t in open_tasks]
         return _reply(intent, f"{len(items)}টি খোলা কাজ" if items else "কোনো খোলা কাজ নেই", items)
     if intent == "add_task":
@@ -415,7 +415,7 @@ async def _search_person(db: AsyncSession, contacts: list[WaContact], who: str) 
         return _reply("search", f"{who} ব্যক্তিগত/পরিবারের চ্যাট, তাই সার্চে ধরা হয় না — অ্যাপে চ্যাট খুলে পড়ুন")
     rows = (await db.execute(select(WaMessage).where(WaMessage.contact_id.in_([c.id for c in open_]), WaMessage.direction == "in", WaMessage.status != "imported")
                              .order_by(WaMessage.created_at.desc()).limit(8))).scalars().all()
-    items = [{"title": _clip(privacy.unseal(m.transcript or m.body)), "subtitle": f"{_when(m.created_at)} · {CHANNEL_BN.get(m.channel or '', '')}", "contact_id": str(m.contact_id)} for m in rows]
+    items = [{"title": _clip(privacy.unseal(m.transcript or m.body)), "subtitle": " · ".join(p for p in (_when(m.created_at), CHANNEL_BN.get(m.channel or "", "")) if p), "contact_id": str(m.contact_id)} for m in rows]
     return _reply("search", f"{who}-এর শেষ {len(items)}টি বার্তা" if items else f"{who}-এর কোনো বার্তা পাইনি", items)
 
 
