@@ -109,6 +109,7 @@ export default function ContactScreen() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [aliasText, setAliasText] = useState('');
+  const [showRules, setShowRules] = useState(false); // top quick-rules stay folded in a 1-line bar so message bubbles appear immediately
   const [more, setMore] = useState(false); // the person's details and rules stay folded, so the chat page stays simple
   const [draftMeta, setDraftMeta] = useState<{ pattern: string; source: 'ai' | 'rules'; tone: DraftTone; note?: string; warning?: string } | null>(null);
   const [draftAvoid, setDraftAvoid] = useState<string[]>([]);
@@ -301,89 +302,101 @@ export default function ContactScreen() {
       {c && pr ? (
         <>
           <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <BrandLogo brand={brandFor(c.channel, c.phone)} size={40} />
-              <Text style={{ flex: 1, fontWeight: '700' }}>{bn ? 'এসেছে: ' : 'From: '}{brandName(brandFor(c.channel, c.phone))} · {c.phone.split(':').slice(-1)[0]}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} />
-              {c.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
-              {c.is_blocked ? <AppBadge label={bn ? 'ব্লক' : 'Blocked'} tone="danger" /> : null}
-              {c.category === 'spam' ? <AppBadge label={bn ? 'স্প্যাম' : 'Spam'} tone="warning" /> : null}
-              <AppBadge label={c.mode === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : (bn ? 'ম্যানুয়াল উত্তর' : 'Manual reply')} tone={c.mode === 'auto' ? 'primary' : 'neutral'} />
-            </View>
-            {c.need ? <Text style={{ marginTop: 8 }}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
-            {c.summary ? <Text style={{ marginTop: 4, opacity: 0.8 }}>{c.summary}</Text> : null}
-            {replyExplain ? <Text style={{ marginTop: 8, fontSize: 12, lineHeight: 18, opacity: 0.85 }}>{replyExplain}</Text> : null}
-            <View style={{ marginTop: 10 }}>
-              <ChipGroup<Contact['mode']>
-                label={bn ? 'এই চ্যাটে সহকারী কীভাবে কাজ করবে (১ ট্যাপে বেছে নিন)' : 'How the assistant handles this chat'}
-                options={['auto', 'draft', 'telegram', 'notify', 'inherit']}
-                value={c.mode}
-                labelOf={(m) => m === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : m === 'draft' ? (bn ? 'শুধু খসড়া' : 'Draft only') : m === 'telegram' ? (bn ? 'বটে অনুমোদন' : 'Bot approval') : m === 'notify' ? (bn ? 'শুধু জানাবে' : 'Notify only') : (bn ? 'সাধারণ নিয়ম' : 'App default')}
-                onChange={(m) => {
-                  if (!m || busy) return;
-                  if (m === 'auto' && c.is_family) {
-                    showSnackbar(bn ? 'পরিবারের চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে' : 'Family chats never auto-reply', 'info');
-                    return;
-                  }
-                  const promote = (m === 'auto' || m === 'draft' || m === 'telegram') && !c.is_family && (c.category === 'personal' || c.category === 'spam');
-                  void act(
-                    () => va.patchContact(c.id, { mode: m, ...(promote ? { category: 'business' } : {}) }),
-                    m === 'auto' ? (bn ? '✓ এই চ্যাটে AI ও অটো উত্তর চালু হয়েছে' : '✓ AI & auto-reply enabled')
-                      : m === 'draft' ? (bn ? '✓ সহকারী খসড়া লিখে রাখবে, আপনি পাঠাবেন' : '✓ Draft mode enabled')
-                      : m === 'telegram' ? (bn ? '✓ খসড়া আপনার Telegram বটে যাবে' : '✓ Telegram bot approval enabled')
-                      : (bn ? 'নিয়ম সংরক্ষণ হয়েছে' : 'Rule saved')
-                  );
-                }}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <BrandLogo brand={brandFor(c.channel, c.phone)} size={36} />
               <View style={{ flex: 1 }}>
-                <AppButton
-                  variant={c.category === 'business' || c.category === 'social' ? 'primary' : 'secondary'}
-                  icon="brain"
-                  label={c.is_family ? (bn ? 'পরিবার (অটো বন্ধ · খসড়া চালু)' : 'Family (auto off · drafts on)') : c.category === 'personal' ? (bn ? 'AI অটো-পড়া চালু করুন' : 'Enable AI auto-read') : (bn ? 'AI অটো-পড়া: চালু ✓' : 'AI auto-read: On ✓')}
-                  disabled={busy || c.is_family}
-                  onPress={() => void act(
-                    () => va.patchContact(c.id, { category: c.category === 'personal' ? 'business' : 'personal', ...(c.category !== 'personal' && c.mode === 'auto' ? { mode: 'draft' } : {}) }),
-                    c.category === 'personal' ? (bn ? '✓ এই চ্যাটে AI পড়া ও খসড়া চালু হয়েছে' : '✓ AI reading & drafts enabled') : (bn ? 'ব্যক্তিগত মোড: অটো উত্তর বন্ধ (নিচের বোতামে খসড়া পাবেন)' : 'Personal mode: auto-reply off (draft button still works)')
-                  )}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  variant="secondary"
-                  icon={c.category === 'spam' ? 'inbox-arrow-down-outline' : 'alert-octagon-outline'}
-                  label={c.category === 'spam' ? (bn ? 'স্প্যাম সরান' : 'Not spam') : (bn ? 'স্প্যাম করুন' : 'Mark spam')}
-                  disabled={busy || c.is_family}
-                  onPress={() => void act(() => va.patchContact(c.id, { category: c.category === 'spam' ? null : 'spam' }), c.category === 'spam' ? (bn ? 'ইনবক্সে ফিরিয়ে আনা হয়েছে' : 'Moved back to inbox') : (bn ? 'স্প্যাম হিসেবে চিহ্নিত হয়েছে' : 'Marked as spam'))}
-                />
-              </View>
-            </View>
-            {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে অটো উত্তর সবসময় বন্ধ থাকে; তবে নিচের “সহকারী লিখে দিক” চেপে যেকোনো সময় খসড়া লিখিয়ে নিতে পারবেন।' : 'Auto-reply stays off for family chats, but you can tap “Let it write” below anytime for a draft.'}</Text> : null}
-            <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border, gap: 6 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', opacity: 0.85 }}>{bn ? 'নোটিফিকেশন না থাকলে উত্তর পাঠানোর উপায় (একাধিক বেছে নিতে পারেন)' : 'Reply options when notification is gone (pick one or more)'}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {FALLBACK_OPTIONS.map((opt) => {
-                  const on = fallbacks.includes(opt.key);
-                  return (
-                    <Pressable key={opt.key} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => toggleFallback(opt.key)}
-                      style={{ minHeight: 38, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? colors.primary : colors.border, backgroundColor: on ? colors.primaryTint : colors.surface, justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 12, fontWeight: on ? '700' : '500', color: on ? colors.primary : colors.textPrimary }}>{on ? '✓ ' : ''}{bn ? opt.bn : opt.en}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {fallbacks.includes('auto') && !a11yOn ? (
-                <View style={{ marginTop: 4 }}>
-                  <AppButton variant="secondary" icon="cog-outline" label={bn ? 'অটো-Send চালু করতে Accessibility সেটিং খুলুন' : 'Open Accessibility settings for Auto-Send'} onPress={() => { openAccessibilitySettings(); }} />
+                <Text style={{ fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{brandName(brandFor(c.channel, c.phone))} · {c.phone.split(':').slice(-1)[0]}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  <AppBadge label={bn ? pr.bn : pr.en} tone={pr.tone} />
+                  {c.is_vip ? <AppBadge label="VIP" tone="warning" /> : null}
+                  {c.is_family ? <AppBadge label={bn ? 'পরিবার' : 'Family'} tone="success" /> : null}
+                  {c.is_blocked ? <AppBadge label={bn ? 'ব্লক' : 'Blocked'} tone="danger" /> : null}
+                  {c.category === 'spam' ? <AppBadge label={bn ? 'স্প্যাম' : 'Spam'} tone="warning" /> : null}
+                  <AppBadge label={c.mode === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : c.mode === 'telegram' ? (bn ? 'বটে অনুমোদন' : 'Bot approval') : (bn ? 'ম্যানুয়াল উত্তর' : 'Manual reply')} tone={c.mode === 'auto' ? 'primary' : 'neutral'} />
                 </View>
-              ) : null}
-              {fallbacks.includes('sms') && !smsNumber ? (
-                <Text style={{ fontSize: 11, opacity: 0.7 }}>{bn ? 'এই মানুষের ফোন নম্বর কনট্যাক্টসে মিললে SMS বোতাম সক্রিয় হবে।' : 'SMS button activates when a phone number is found in Contacts.'}</Text>
-              ) : null}
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'এই চ্যাটের নিয়ম ও সেটিংস' : 'Chat rules and settings'}
+                onPress={() => setShowRules((v) => !v)}
+                style={{ minHeight: 38, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: showRules ? colors.primary : colors.border, backgroundColor: showRules ? colors.primaryTint : colors.surface, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: showRules ? colors.primary : colors.textPrimary }}>
+                  {bn ? `⚙ নিয়ম ${showRules ? '▴' : '▾'}` : `⚙ Rules ${showRules ? '▴' : '▾'}`}
+                </Text>
+              </Pressable>
             </View>
+            {c.need ? <Text style={{ marginTop: 6, fontSize: 13 }} numberOfLines={showRules ? undefined : 2}>{bn ? 'কী চান: ' : 'Needs: '}{c.need}</Text> : null}
+            {showRules ? (
+              <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+                {c.summary ? <Text style={{ marginBottom: 6, opacity: 0.8 }}>{c.summary}</Text> : null}
+                {replyExplain ? <Text style={{ marginBottom: 8, fontSize: 12, lineHeight: 18, opacity: 0.85 }}>{replyExplain}</Text> : null}
+                <ChipGroup<Contact['mode']>
+                  label={bn ? 'এই চ্যাটে সহকারী কীভাবে কাজ করবে (১ ট্যাপে বেছে নিন)' : 'How the assistant handles this chat'}
+                  options={['auto', 'draft', 'telegram', 'notify', 'inherit']}
+                  value={c.mode}
+                  labelOf={(m) => m === 'auto' ? (bn ? 'অটো উত্তর' : 'Auto-reply') : m === 'draft' ? (bn ? 'শুধু খসড়া' : 'Draft only') : m === 'telegram' ? (bn ? 'বটে অনুমোদন' : 'Bot approval') : m === 'notify' ? (bn ? 'শুধু জানাবে' : 'Notify only') : (bn ? 'সাধারণ নিয়ম' : 'App default')}
+                  onChange={(m) => {
+                    if (!m || busy) return;
+                    if (m === 'auto' && c.is_family) {
+                      showSnackbar(bn ? 'পরিবারের চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে' : 'Family chats never auto-reply', 'info');
+                      return;
+                    }
+                    const promote = (m === 'auto' || m === 'draft' || m === 'telegram') && !c.is_family && (c.category === 'personal' || c.category === 'spam');
+                    void act(
+                      () => va.patchContact(c.id, { mode: m, ...(promote ? { category: 'business' } : {}) }),
+                      m === 'auto' ? (bn ? '✓ এই চ্যাটে AI ও অটো উত্তর চালু হয়েছে' : '✓ AI & auto-reply enabled')
+                        : m === 'draft' ? (bn ? '✓ সহকারী খসড়া লিখে রাখবে, আপনি পাঠাবেন' : '✓ Draft mode enabled')
+                        : m === 'telegram' ? (bn ? '✓ খসড়া আপনার Telegram বটে যাবে' : '✓ Telegram bot approval enabled')
+                        : (bn ? 'নিয়ম সংরক্ষণ হয়েছে' : 'Rule saved')
+                    );
+                  }}
+                />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <AppButton
+                      variant={c.category === 'business' || c.category === 'social' ? 'primary' : 'secondary'}
+                      icon="brain"
+                      label={c.is_family ? (bn ? 'পরিবার (অটো বন্ধ · খসড়া চালু)' : 'Family (auto off · drafts on)') : c.category === 'personal' ? (bn ? 'AI অটো-পড়া চালু করুন' : 'Enable AI auto-read') : (bn ? 'AI অটো-পড়া: চালু ✓' : 'AI auto-read: On ✓')}
+                      disabled={busy || c.is_family}
+                      onPress={() => void act(
+                        () => va.patchContact(c.id, { category: c.category === 'personal' ? 'business' : 'personal', ...(c.category !== 'personal' && c.mode === 'auto' ? { mode: 'draft' } : {}) }),
+                        c.category === 'personal' ? (bn ? '✓ এই চ্যাটে AI পড়া ও খসড়া চালু হয়েছে' : '✓ AI reading & drafts enabled') : (bn ? 'ব্যক্তিগত মোড: অটো উত্তর বন্ধ (নিচের বোতামে খসড়া পাবেন)' : 'Personal mode: auto-reply off (draft button still works)')
+                      )}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppButton
+                      variant="secondary"
+                      icon={c.category === 'spam' ? 'inbox-arrow-down-outline' : 'alert-octagon-outline'}
+                      label={c.category === 'spam' ? (bn ? 'স্প্যাম সরান' : 'Not spam') : (bn ? 'স্প্যাম করুন' : 'Mark spam')}
+                      disabled={busy || c.is_family}
+                      onPress={() => void act(() => va.patchContact(c.id, { category: c.category === 'spam' ? null : 'spam' }), c.category === 'spam' ? (bn ? 'ইনবক্সে ফিরিয়ে আনা হয়েছে' : 'Moved back to inbox') : (bn ? 'স্প্যাম হিসেবে চিহ্নিত হয়েছে' : 'Marked as spam'))}
+                    />
+                  </View>
+                </View>
+                {c.is_family ? <Text style={{ marginTop: 6, fontSize: 11, opacity: 0.7 }}>{bn ? 'পরিবারের চ্যাটে অটো উত্তর সবসময় বন্ধ থাকে; তবে নিচের “সহকারী লিখে দিক” চেপে যেকোনো সময় খসড়া লিখিয়ে নিতে পারবেন।' : 'Auto-reply stays off for family chats, but you can tap “Let it write” below anytime for a draft.'}</Text> : null}
+                <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border, gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', opacity: 0.85 }}>{bn ? 'নোটিফিকেশন না থাকলে উত্তর পাঠানোর উপায় (একাধিক বেছে নিতে পারেন)' : 'Reply options when notification is gone (pick one or more)'}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {FALLBACK_OPTIONS.map((opt) => {
+                      const on = fallbacks.includes(opt.key);
+                      return (
+                        <Pressable key={opt.key} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => toggleFallback(opt.key)}
+                          style={{ minHeight: 38, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? colors.primary : colors.border, backgroundColor: on ? colors.primaryTint : colors.surface, justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 12, fontWeight: on ? '700' : '500', color: on ? colors.primary : colors.textPrimary }}>{on ? '✓ ' : ''}{bn ? opt.bn : opt.en}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {fallbacks.includes('auto') && !a11yOn ? (
+                    <View style={{ marginTop: 4 }}>
+                      <AppButton variant="secondary" icon="cog-outline" label={bn ? 'অটো-Send চালু করতে Accessibility সেটিং খুলুন' : 'Open Accessibility settings for Auto-Send'} onPress={() => { openAccessibilitySettings(); }} />
+                    </View>
+                  ) : null}
+                  {fallbacks.includes('sms') && !smsNumber ? (
+                    <Text style={{ fontSize: 11, opacity: 0.7 }}>{bn ? 'এই মানুষের ফোন নম্বর কনট্যাক্টসে মিললে SMS বোতাম সক্রিয় হবে।' : 'SMS button activates when a phone number is found in Contacts.'}</Text>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
           </Card>
 
           {drafts.map((d) => (

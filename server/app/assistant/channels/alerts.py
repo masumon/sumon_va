@@ -81,6 +81,24 @@ async def _record_held(db: AsyncSession, who: str, priority: int, reason: str) -
     await db.commit()
 
 
+def _queue_owner_whatsapp(db: AsyncSession, cfg: dict[str, Any] | None, text: str) -> bool:
+    """If the owner configured a personal 2nd WhatsApp number (`owner_whatsapp`), queue a phone relay command."""
+    num = str((cfg or {}).get("owner_whatsapp") or "").strip()
+    if not num or not text:
+        return False
+    db.add(InboxCommand(device_id=None, kind="owner_wa", target=num[:80], body=text[:600]))
+    return True
+
+
+async def relay_to_owner_whatsapp(db: AsyncSession, cfg: dict[str, Any], text: str) -> bool:
+    """Explicitly send an organized update to the owner's 2nd WhatsApp number."""
+    if not _queue_owner_whatsapp(db, cfg, text):
+        return False
+    await db.commit()
+    wake.notify()
+    return True
+
+
 async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
     """Once the quiet time is over (and the daily cap has room), tell the owner ONCE what was held back. Returns how many were summarised."""
     now = brain.now_dhaka()
@@ -96,6 +114,7 @@ async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
         except Exception:  # noqa: BLE001
             logger.warning("held digest telegram failed", exc_info=True)
     db.add(InboxCommand(device_id=None, kind="alert", target="p2", body=text[:400]))
+    _queue_owner_whatsapp(db, cfg, text)
     await flow._set_val(db, HELD_KEY, json.dumps({"items": []}))
     await db.commit()
     wake.notify()
@@ -136,6 +155,13 @@ async def send_app_digest(db: AsyncSession) -> bool:
         except Exception:  # noqa: BLE001
             logger.warning("app digest telegram failed", exc_info=True)
     db.add(InboxCommand(device_id=None, kind="alert", target="p3", body=text[:400]))
+    try:
+        from app.assistant import wa_config as wcfg
+
+        app_cfg = await wcfg.load_config(db, scope="app")
+        _queue_owner_whatsapp(db, app_cfg, text)
+    except Exception:  # noqa: BLE001
+        pass
     await db.commit()
     wake.notify()
     return True
@@ -163,6 +189,7 @@ async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, 
             except Exception:  # noqa: BLE001 — a failed alert must never break the reply flow
                 logger.warning("owner telegram alert failed", exc_info=True)
         db.add(InboxCommand(device_id=None, kind="alert", target=f"p{d.priority}", body=text[:400], msg_id=contact.id))  # alerts: msg_id = the CONTACT, so a tap opens that chat
+        _queue_owner_whatsapp(db, cfg, text)
         today = now.strftime("%Y-%m-%d")
         await flow._set_val(db, "inbox_alerts", f"{today}:{await _count_today(db, today) + 1}")
         await db.commit()

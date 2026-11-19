@@ -167,15 +167,96 @@ def analyze(cfg: dict[str, Any], contact: Any, recent: list[dict[str, Any]], ope
     return out
 
 
-def apply(d: "brain.Decision", ins: CallInsight, cfg: dict[str, Any]) -> bool:
+def tactful_call_reply(
+    cfg: dict[str, Any],
+    contact: Any,
+    ins: CallInsight,
+    status: dict[str, Any] | None = None,
+    lang: str = "bn",
+) -> str | None:
+    """Craft a polite, status-aware & context-aware tactical reply for a missed or unanswered call."""
+    if "আপনি আগেই উত্তর দিয়েছেন" in (ins.facts or []):
+        return None
+    if contact is not None and getattr(contact, "is_family", False) and getattr(contact, "mode", None) != "auto":
+        return None
+    is_vip = bool(getattr(contact, "is_vip", False))
+    cat = getattr(contact, "category", None)
+    stranger = not is_vip and cat not in ("business", "social", "personal") and not (ins.facts or [])
+    if stranger and ins.attempts_burst < 2:
+        return None
+    owner = str(cfg.get("owner_name") or "সুমন ভাই").strip()
+    st = status or brain.current_status(cfg)
+    st_key = (st or {}).get("key") or "free"
+    st_say = str((st or {}).get("say") or "").strip().rstrip("।.")
+    if lang == "en":
+        if stranger:
+            return (
+                f"Assalamu Alaikum, {owner} could not take your call right now. "
+                "Please share your name and the purpose of your call here; he will get back to you soon."
+            )
+        busy_en = brain.STATUS_EN.get(st_key, "is occupied right now")
+        return (
+            f"Assalamu Alaikum, we saw your missed call. {owner} {busy_en}. "
+            "Your call has been noted with priority and he will call you back as soon as he is free. "
+            "If it is urgent, please leave a short text here."
+        )
+    if stranger:
+        return (
+            f"আসসালামু আলাইকুম, {owner} এখন কল ধরতে পারছেন না। "
+            "কে বলছেন এবং কী প্রয়োজনে ফোন দিয়েছেন অনুগ্রহ করে লিখে জানান, তিনি দেখে যোগাযোগ করবেন।"
+        )
+    status_part = f"{owner} {st_say}।" if st_say and st_key != "free" else f"{owner} এই মুহূর্তে কলটি রিসিভ করতে পারেননি।"
+    facts_joined = " ".join(ins.facts or [])
+    ctx_part = ""
+    if "খোলা কাজ" in facts_joined:
+        ctx_part = " আপনার আগের কাজের বিষয়টি আমাদের নোটে আছে।"
+    elif "বার্তার উত্তর যায়নি" in facts_joined or "বার্তা পাঠিয়েছেন" in facts_joined:
+        ctx_part = " আপনার আগের বার্তাটিও আমাদের নজরে আছে।"
+    reply_by = str(cfg.get("reply_by") or "").strip()
+    when_part = f" আশা করা যায় {reply_by} ফ্রি হয়েই" if reply_by and st_key != "free" else " ফ্রি হয়েই"
+    return (
+        f"আসসালামু আলাইকুম, আপনার কলটি এসেছে। {status_part}{ctx_part}"
+        f" আপনার কলের বিষয়টি গুরুত্বের সাথে নোট করা হয়েছে,{when_part} তিনি আপনার সাথে যোগাযোগ করবেন। "
+        "জরুরি কিছু হলে এখানে সংক্ষেপে লিখে রাখতে পারেন।"
+    )
+
+
+def apply(
+    d: "brain.Decision",
+    ins: CallInsight,
+    cfg: dict[str, Any],
+    contact: Any = None,
+    status: dict[str, Any] | None = None,
+) -> bool:
     """Put the insight into the brain's decision. Returns False (and changes nothing) after a hard stop such as a blocked number."""
     if d.reason in NO_OVERRIDE:
         return False
     d.priority, d.kind, d.need = ins.priority, "call", "মিসড কল"
     d.summary, d.note = ins.summary, ins.note
     d.notify = ins.alert
-    if not settings(cfg)["reply"]:  # a ringing phone has no words to answer: the owner hears about it, nothing is sent
+    if contact is None:
+        if not settings(cfg)["reply"]:  # legacy pure caller without contact object
+            d.reply, d.reason = None, "call_missed"
+        return True
+    if ins.attempts_burst >= 2 and (getattr(contact, "is_vip", False) or getattr(contact, "is_family", False) or ins.priority <= 2):
+        d.priority = 1
+        d.notify = True
+    want_reply = (
+        bool(cfg.get("call_tactical_reply", True))
+        or settings(cfg)["reply"]
+        or bool(getattr(contact, "is_vip", False))
+        or getattr(contact, "mode", None) == "auto"
+    )
+    if want_reply:
+        d.reply = tactful_call_reply(cfg, contact, ins, status=status, lang=d.lang)
+        d.reason = "call_missed"
+    else:
         d.reply, d.reason = None, "call_missed"
+    if d.reply or ins.priority <= 3 or ins.attempts_burst >= 2 or getattr(contact, "is_vip", False):
+        who = (getattr(contact, "name", None) or "").strip() or "কলার"
+        title = f"{who}-কে কলব্যাক করুন (মিসড কল {brain.bn_digits(ins.attempts_burst)} বার)"
+        if not any("কলব্যাক" in str(t.get("title") or "") for t in (d.tasks or [])):
+            d.tasks = list(d.tasks or []) + [{"title": title[:200], "due": None}]
     return True
 
 

@@ -68,7 +68,7 @@ def test_the_owner_can_empty_the_word_lists():
 
 def test_an_official_message_is_never_answered_and_is_raised_to_priority_two():
     d = asyncio.run(brain.decide(None, cfg(ai={"enabled": False, "voice": False}), who(), "আপনার পাসপোর্ট নবায়নের নোটিশ এসেছে", "text", None, [], []))
-    assert d.handoff and d.notify and d.reply is None and d.reason == "sensitive" and d.priority <= 2 and "দাপ্তরিক" in d.note
+    assert d.handoff and d.notify and d.reply and "দাপ্তরিক" in d.reply and d.reason == "sensitive" and d.priority <= 2 and "দাপ্তরিক" in d.note
 
 
 def test_an_urgent_official_message_keeps_priority_one():
@@ -134,7 +134,7 @@ async def test_a_dated_official_notice_becomes_one_proposed_task_and_no_reply(Se
         tasks = (await s.execute(select(WaTask).where(WaTask.contact_id == c.id))).scalars().all()
         assert [t.source for t in tasks] == ["proposed"] and tasks[0].due_at is not None and tasks[0].title.startswith("অফিস: দাপ্তরিক:")
         outs = (await s.execute(select(WaMessage).where(WaMessage.contact_id == c.id, WaMessage.direction == "out"))).scalars().all()
-        assert outs == []  # the assistant said nothing to the sender
+        assert len(outs) == 1 and "দাপ্তরিক" in outs[0].body  # polite tactical reply draft prepared for official notice
         assert alerts_sent and alerts_sent[0]["p"] <= 2
 
 

@@ -30,43 +30,40 @@ function wall(now: Date): { h: number; m: number; s: number } {
 export function HomeClock() {
   const { colors, language, design } = useAppPreferences();
   const [now, setNow] = useState(() => new Date());
-  // Ticks once a second only while this screen is in view and the app is in the foreground; updates at once on return.
+  // Ticks on minute boundaries only while this screen is in view and the app is in the foreground; avoids 60 re-renders per minute.
   useFocusEffect(useCallback(() => {
-    let id: ReturnType<typeof setInterval> | null = null;
-    let first: ReturnType<typeof setTimeout> | null = null;
-    const start = () => {
-      if (id) return;
-      first = setTimeout(() => setNow(new Date()), 0);
-      id = setInterval(() => setNow(new Date()), 1000);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNext = () => {
+      if (timer) clearTimeout(timer);
+      const cur = new Date();
+      setNow(cur);
+      const remMs = (60 - cur.getSeconds()) * 1000 - cur.getMilliseconds() + 50;
+      timer = setTimeout(scheduleNext, Math.max(1000, remMs));
     };
     const stop = () => {
-      if (id) clearInterval(id);
-      id = null;
-      if (first) clearTimeout(first);
-      first = null;
+      if (timer) clearTimeout(timer);
+      timer = null;
     };
-    if (AppState.currentState === 'active') start();
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') start(); else stop(); });
+    if (AppState.currentState === 'active') timer = setTimeout(scheduleNext, 0);
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') scheduleNext(); else stop(); });
     return () => { stop(); sub.remove(); };
   }, []));
   const bn = language === 'bn';
-  const { h, m, s } = wall(now);
+  const { h, m } = wall(now);
   const twelve = isHour12();
   const hh = twelve ? (h % 12 === 0 ? 12 : h % 12) : h;
   const two = (n: number) => String(n).padStart(2, '0');
   const fmt = (t: string) => (bn ? toBn(t) : t);
   const main = fmt(`${two(hh)}:${two(m)}`);
-  const sec = fmt(two(s));
   const part = bn ? bnPart(h) : enPart(h);
   const suffix = !bn && twelve ? (h < 12 ? ' AM' : ' PM') : '';
-  const spoken = `${bn ? 'এখন সময়' : 'Time now'} ${main}:${sec}${suffix} ${part}`;
+  const spoken = `${bn ? 'এখন সময়' : 'Time now'} ${main}${suffix} ${part}`;
   return (
     <View style={styles.wrap} accessible accessibilityLabel={spoken}>
       <View style={[styles.pill, { backgroundColor: design.barFill, borderColor: colors.accent }]}>
         <Text style={[styles.part, { color: colors.accent }]}>{part}{suffix}</Text>
         <View style={styles.row}>
           <Text style={[styles.time, { color: colors.textPrimary }]}>{main}</Text>
-          <Text style={[styles.sec, { color: colors.textMuted }]}>:{sec}</Text>
         </View>
       </View>
     </View>

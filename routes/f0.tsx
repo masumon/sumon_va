@@ -70,7 +70,10 @@ export default function F0Screen() {
     setAsked(label);
     try {
       const r = await va.analyzeMedia(m.mime, m.dataB64, m.name ?? '');
-      setRes({ intent: 'system', answer: r.summary, items: [], choices: [], draft: null });
+      const fullAns = r.suggested_reply
+        ? `${r.summary}\n\n✍ প্রস্তাবিত কৌশলী উত্তর${r.pattern ? ` (${r.pattern})` : ''}:\n${r.suggested_reply}`
+        : r.summary;
+      setRes({ intent: 'system', answer: fullAns, items: [], choices: [], draft: null });
     } catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
     finally { setBusy(false); }
   }, [bn, showSnackbar]);
@@ -84,11 +87,11 @@ export default function F0Screen() {
 
   const pickMedia = async () => {
     try {
-      const picked = await DocumentPicker.getDocumentAsync({ type: ['audio/*', 'image/*'], copyToCacheDirectory: true });
+      const picked = await DocumentPicker.getDocumentAsync({ type: ['audio/*', 'image/*', 'video/*'], copyToCacheDirectory: true });
       if (picked.canceled || !picked.assets?.length) return;
       const asset = picked.assets[0]!;
       const m = await readMediaUri(asset.uri, asset.mimeType ?? '');
-      await handleMedia({ ...m, name: asset.name || m.name }, bn ? `ফাইল: ${asset.name || 'ভয়েস/ছবি'}` : `File: ${asset.name || 'audio/image'}`);
+      await handleMedia({ ...m, name: asset.name || m.name }, bn ? `ফাইল: ${asset.name || 'ভয়েস/ছবি/ভিডিও'}` : `File: ${asset.name || 'media'}`);
     } catch (e) { showSnackbar(e instanceof Error ? e.message : '', 'danger'); }
   };
 
@@ -160,7 +163,7 @@ export default function F0Screen() {
               onPress={() => { const t = text.trim(); setAsked(t); void send(t); }} />
           </View>
           <View style={{ flex: 1 }}>
-            <AppButton variant="secondary" label={bn ? 'ভয়েস / ছবি' : 'Voice / Photo'} icon="microphone-outline" disabled={busy}
+            <AppButton variant="secondary" label={bn ? 'ভয়েস / ছবি / ভিডিও' : 'Voice / Photo / Video'} icon="microphone-outline" disabled={busy}
               onPress={() => void pickMedia()} />
           </View>
         </View>

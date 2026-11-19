@@ -94,16 +94,30 @@ async def edit_text(chat_id: str | int, message_id: int, text: str, reply_markup
 
 
 async def fetch_file(file_id: str) -> tuple[str, bytes]:
-    """Download one file (a voice note) the person sent to the bot. Refuses anything over 5 MB."""
+    """Download one file (voice, image, or video) sent to the bot. Refuses anything over 8 MB."""
     meta = (await _call("getFile", {"file_id": file_id})).get("result") or {}
-    path = meta.get("file_path")
-    if not path or int(meta.get("file_size") or 0) > 5_000_000:
+    path = str(meta.get("file_path") or "")
+    low = path.lower()
+    max_b = 8_000_000 if low.endswith((".mp4", ".mov", ".webm")) else 5_000_000
+    if not path or int(meta.get("file_size") or 0) > max_b:
         raise SendError("ফাইলটি বড় বা পাওয়া যায়নি")
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.get(f"{API}/file/bot{settings.TELEGRAM_BOT_TOKEN}/{path}")
     if r.status_code != 200:
         raise SendError("ফাইল নামানো যায়নি")
-    return ("audio/ogg" if path.endswith((".oga", ".ogg")) else "audio/mpeg"), r.content
+    if low.endswith((".jpg", ".jpeg")):
+        mime = "image/jpeg"
+    elif low.endswith(".png"):
+        mime = "image/png"
+    elif low.endswith(".webp"):
+        mime = "image/webp"
+    elif low.endswith((".mp4", ".mov", ".webm")):
+        mime = "video/mp4"
+    elif low.endswith((".oga", ".ogg", ".opus")):
+        mime = "audio/ogg"
+    else:
+        mime = "audio/mpeg"
+    return mime, r.content
 
 
 async def set_webhook(url: str) -> str:
@@ -139,15 +153,24 @@ def _name(frm: dict[str, Any], chat: dict[str, Any]) -> str | None:
 
 
 def _content(msg: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
-    """(kind, body, meta) — voice notes keep their file id; other media become a short tag the brain treats as 'unsupported'."""
+    """(kind, body, meta) — voice notes, photos, and videos keep their file id so AI can transcribe/analyze them."""
     if msg.get("text"):
         return "text", msg["text"], {}
     if msg.get("voice") or msg.get("audio"):
         v = msg.get("voice") or msg.get("audio")
         return "audio", "", {"file_id": v.get("file_id")}
+    if msg.get("photo"):
+        photos = msg.get("photo")
+        ph = photos[-1] if isinstance(photos, list) and photos and isinstance(photos[-1], dict) else {}
+        fid = ph.get("file_id")
+        return "image", msg.get("caption") or "[ছবি]", ({"file_id": fid} if fid else {})
+    if msg.get("video") or msg.get("video_note"):
+        vd = msg.get("video") or msg.get("video_note") or {}
+        fid = vd.get("file_id") if isinstance(vd, dict) else None
+        return "video", msg.get("caption") or "[ভিডিও]", ({"file_id": fid} if fid else {})
     if msg.get("caption"):
         return "text", msg["caption"], {}
-    for tag, word in (("photo", "ছবি"), ("video", "ভিডিও"), ("document", "ফাইল"), ("sticker", "স্টিকার")):
+    for tag, word in (("document", "ফাইল"), ("sticker", "স্টিকার")):
         if msg.get(tag):
             return "text", f"[{word}]", {}
     return "text", "", {}
@@ -428,6 +451,50 @@ async def handle_callback(db: AsyncSession, cb: dict[str, Any]) -> None:
             pass
 
 
+async def owner_media(db: AsyncSession, chat_id: Any, kind: str, file_id: str, caption: str = "") -> None:
+    """The owner sent a voice note, photo, or video to @SumonVA_bot: transcribe/analyze with AI and act or suggest a reply."""
+    from app.assistant import ai_hub
+    from app.assistant import draft_writer as dw
+
+    try:
+        mime, raw = await fetch_file(file_id)
+        if kind == "audio":
+            spoken = (await ai_hub.run(
+                db,
+                "vision",
+                "Transcribe this voice message exactly as spoken in Bangla/Sylheti/English. Output only the spoken words.",
+                "Transcribe.",
+                images=[(mime, raw)],
+                max_tokens=450,
+            ) or "").strip()
+            if not spoken:
+                await send_text(chat_id, "🎤 ভয়েসটি পরিষ্কার বোঝা যায়নি, অনুগ্রহ করে আবার বলুন বা লিখে দিন।")
+                return
+            await send_text(chat_id, f"🎤 আপনার কথা: “{spoken}”")
+            await owner_f0(db, chat_id, spoken)
+            return
+        label = "ভিডিও" if kind == "video" else "ছবি"
+        sys_p = (
+            "You are Sumon's personal assistant. Analyze this image or video in simple, natural Bangla (3-5 lines): "
+            "what is shown, any visible text/money/date/number, and what action or reply is needed. Never invent details."
+        )
+        summary = (await ai_hub.run(
+            db,
+            "vision",
+            sys_p,
+            f"{label}. {caption}".strip(),
+            images=[(mime, raw)],
+            max_tokens=600,
+        ) or "").strip()
+        pat = dw.read_pattern(f"{caption} {summary}")
+        suggested = dw.rule_draft(pat, "bn", "আপনি", False, 0)
+        out = f"🔍 {label} বিশ্লেষণ ({pat.label}):\n{summary}\n\n✍ প্রস্তাবিত কৌশলী উত্তর:\n{suggested}"
+        await send_text(chat_id, out[:3900])
+    except Exception:  # noqa: BLE001
+        logger.exception("owner media analysis via Telegram failed")
+        await send_text(chat_id, "এই ফাইলটি এখন বিশ্লেষণ করা গেল না, একটু পরে আবার চেষ্টা করুন।")
+
+
 async def handle_update(db: AsyncSession, update: dict[str, Any]) -> list[uuid.UUID]:
     """Process one Telegram update. Returns the ids of new inbound messages for the brain to answer."""
     if update.get("callback_query"):
@@ -454,6 +521,10 @@ async def handle_update(db: AsyncSession, update: dict[str, Any]) -> list[uuid.U
                 await _owner_reply_from_telegram(db, chat_id, msg["reply_to_message"], text)
             elif text:  # his own words: the bot is the same assistant as F0 in the app
                 await owner_f0(db, chat_id, text)
+            else:
+                mkind, mbody, mmeta = _content(msg)
+                if mkind in ("audio", "image", "video") and mmeta.get("file_id"):
+                    await owner_media(db, chat_id, mkind, str(mmeta["file_id"]), mbody if mbody not in ("[ছবি]", "[ভিডিও]") else "")
             return []  # the owner's own chat with the bot is the control room, never a customer thread
         if text.startswith("/"):  # a stranger's slash command is never a command; /start from a customer is just a hello
             if text.split()[0].split("@")[0].lower() == "/start":
