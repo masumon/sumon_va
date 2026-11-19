@@ -149,6 +149,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # E-mail: bring only what matters. mode "important" drops promotions/newsletters/no-reply mail before it is stored; "all" keeps everything.
     "email_filter": {"mode": "important", "allow": [], "block": []},
     "auto_presence": True,   # let the phone's screen/motion/location set the status ("sleeping", "on the road") while the owner has none set
+    "presence_draft_when_active": True,  # when the phone screen is on and touched within 90s, make a draft instead of auto-sending
+    "call_tactical_reply": True,         # tactful status-aware & context-aware reply on missed/incoming calls + callback task
+    "owner_whatsapp": "",                # owner's personal 2nd WhatsApp number for receiving organized updates & urgent alerts
     # Business / personal / social / spam: what the assistant may do for each (owner-editable). Family is always personal.
     "categories": {"business": {"auto": True}, "personal": {"auto": False}, "social": {"auto": False}, "spam": {"silent": True}},
     # How long messages are kept (days). Personal chats go first; family has its own; business keeps the general period.
@@ -292,7 +295,10 @@ async def load_config(db: AsyncSession, force: bool = False, scope: str | None =
     if row is None and sc == "app":  # first use: the app starts from a copy of today's settings, then the two live apart
         web = await _row(db, CONFIG_KEY)
         await _put(db, SCOPES["app"], web.value if web and web.value else "{}", False)
-        await db.commit()
+        if hasattr(db, "in_nested_transaction") and db.in_nested_transaction():
+            await db.flush()
+        else:
+            await db.commit()
         row = await _row(db, SCOPES["app"])
     try:
         stored = json.loads(row.value) if row and row.value else {}

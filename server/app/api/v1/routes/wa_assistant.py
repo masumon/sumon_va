@@ -907,35 +907,45 @@ async def report(days: int = Query(7, ge=1, le=30), db: AsyncSession = Depends(g
 
 class AnalyzeMediaIn(BaseModel):
     mime: str = Field(min_length=3, max_length=80)
-    data_b64: str = Field(min_length=4, max_length=7_000_000)
+    data_b64: str = Field(min_length=4, max_length=12_000_000)
     name: str = Field(default="", max_length=120)
     caption: str = Field(default="", max_length=500)
 
 
 @router.post("/admin/wa/analyze-media", response_model=ApiResponse)
 async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
-    """Transcribe a shared voice note or describe a shared image in simple Bangla using the connected vision AI."""
+    """Transcribe a shared voice note or describe a shared image/video in simple Bangla using the connected vision AI."""
     import base64
     from app.assistant import ai_hub
+    from app.assistant import draft_writer as dw
 
     mime = body.mime.split(";")[0].strip().lower()
-    if not (mime.startswith("audio/") or mime.startswith("image/")):
-        raise HTTPException(status_code=422, detail="শুধুমাত্র অডিও (ভয়েস) বা ছবি দেওয়া যাবে")
+    if not (mime.startswith("audio/") or mime.startswith("image/") or mime.startswith("video/")):
+        raise HTTPException(status_code=422, detail="শুধুমাত্র অডিও (ভয়েস), ছবি বা ভিডিও দেওয়া যাবে")
     try:
         raw = base64.b64decode(body.data_b64, validate=True)
     except Exception:
         raise HTTPException(status_code=422, detail="ফাইলটি পড়া যায়নি, আবার চেষ্টা করুন")
-    if not raw or len(raw) > 5_000_000:
+    max_bytes = 8_000_000 if mime.startswith("video/") else 5_000_000
+    if not raw or len(raw) > max_bytes:
         raise HTTPException(status_code=413, detail="ফাইলটি ৫ MB-এর বেশি হওয়ায় পড়া যায়নি")
 
     is_audio = mime.startswith("audio/")
+    is_video = mime.startswith("video/")
+    kind = "audio" if is_audio else "video" if is_video else "image"
     if is_audio:
         system = (
             "You are Sumon's personal assistant. Listen to this voice message. "
-            "First write the exact words spoken (in Bangla/Sylheti/English as spoken), then add a short 1-line simple Bangla summary of what the person wants. "
-            "Never invent anything not heard in the audio."
+            "First write the exact words spoken (in Bangla/Sylheti/English as spoken), then add a short 1-line simple Bangla summary of what the person wants, "
+            "and a polite 1-line suggested Bangla reply. Never invent anything not heard in the audio."
         )
         prompt = f"Voice note{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
+    elif is_video:
+        system = (
+            "You are Sumon's personal assistant. Watch and listen to this video clip and explain clearly in simple Bangla what is happening, "
+            "any spoken words or visible text, and what reply or action is needed. Never invent details."
+        )
+        prompt = f"Video{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
     else:
         system = (
             "You are Sumon's personal assistant. Look at this image and explain clearly in simple Bangla what is in it. "
@@ -943,5 +953,13 @@ async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db)
         )
         prompt = f"Image{f' ({body.name})' if body.name else ''}. {body.caption}".strip()
 
-    summary = await ai_hub.run(db, "vision", system, prompt, images=[(mime, raw)], max_tokens=700)
-    return ApiResponse(data={"ok": True, "kind": "audio" if is_audio else "image", "summary": (summary or "").strip()})
+    summary = (await ai_hub.run(db, "vision", system, prompt, images=[(mime, raw)], max_tokens=700) or "").strip()
+    pat = dw.read_pattern(f"{body.caption} {summary}")
+    suggested = dw.rule_draft(pat, "bn", "আপনি", False, 0)
+    return ApiResponse(data={
+        "ok": True,
+        "kind": kind,
+        "summary": summary,
+        "pattern": pat.label,
+        "suggested_reply": suggested,
+    })

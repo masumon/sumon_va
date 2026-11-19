@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 KEY = "owner_presence"
+HOLDING_S = 90          # screen on + touched within 90 seconds = owner is holding & using the phone right now
 ACTIVE_S = 300          # touched within 5 minutes = actively using the phone
 STILL_S = 45 * 60       # no touch and no motion for 45 minutes = still
 MOVE_KM, MOVE_WITHIN = 0.8, timedelta(minutes=25)
@@ -98,6 +99,17 @@ async def apply(db: AsyncSession, cfg: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def is_owner_holding_phone(p: dict[str, Any], now: datetime | None = None, window_s: int = HOLDING_S) -> bool:
+    """True when the phone reported recently, the screen is ON, and the owner touched it within `window_s` seconds."""
+    now = now or datetime.now(timezone.utc)
+    seen, touched = _t(p.get("at")), _t(p.get("touched_at"))
+    if not seen or now - seen > timedelta(minutes=5):
+        return False
+    if not bool(p.get("screen_on")):
+        return False
+    return bool(touched and 0 <= (now - touched).total_seconds() <= window_s)
+
+
 def hint(p: dict[str, Any], cfg: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     from app.assistant import timectx
 
@@ -105,4 +117,8 @@ def hint(p: dict[str, Any], cfg: dict[str, Any], now: datetime | None = None) ->
     st = state(p, now)
     hour = now.astimezone(DHAKA).hour
     key = "driving" if st == "moving" else "sleeping" if st == "still" and (hour >= 22 or hour < 6) else None
-    return {"key": key, "place": timectx.detect_place(cfg.get("places"), p.get("pos"), now)}
+    return {
+        "key": key,
+        "place": timectx.detect_place(cfg.get("places"), p.get("pos"), now),
+        "holding_phone": is_owner_holding_phone(p, now),
+    }

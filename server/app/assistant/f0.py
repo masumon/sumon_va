@@ -46,6 +46,11 @@ _ADD_TASK = re.compile(
     r"^\s*(?:কাজ\s*(?:যোগ\s*করো|যোগ\s*করুন|লিখে\s*রাখো|বানাও)|টাস্ক\s*(?:যোগ\s*করো|যোগ\s*করুন|বানাও)|মনে\s*করিয়ে\s*(?:দিও|দিবেন|দাও|দিন)|রিমাইন্ডার\s*(?:দাও|দিন|সেট\s*করো)|add\s+task|new\s+task|remind\s+me(?:\s+to)?|kaj\s+jog\s+koro|mone\s+koriye\s+dio)\s*[:：\-]?\s*(?P<title>.+)$",
     re.I | re.S,
 )
+_OWNER_WA = re.compile(
+    r"^\s*(?:আমার\s*)?(?:আপডেট|দ্বিতীয়|২য়|সেকেন্ড)\s*(?:হোয়াটসঅ্যাপ|ওয়াটসআপ|whatsapp)?\s*(?:নম্বর|নাম্বার|হোয়াটসঅ্যাপ|ওয়াটসআপ|whatsapp)(?:\s*(?:সেট\s*করো|হলো|:))?\s*(?P<num>\+?[0-9০-৯\s\-]{7,20})\s*$",
+    re.I,
+)
+_BN_TO_ASCII = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
 _HAS_TIME = re.compile(
     r"আজ|আগামী|আগামিকাল|পরশু|(?<![ঀ-৿])কাল(?![ঀ-৿])|কালকে|সোমবার|মঙ্গলবার|বুধবার|বৃহস্পতিবার|শুক্রবার|শনিবার|রবিবার|সকাল|দুপুর|বিকাল|বিকেল|সন্ধ্যা|রাত|\d+\s*(?:টা|টায়|am|pm)|\d{1,2}:\d{2}|today|tomorrow|tmrw|tonight|morning|evening|afternoon|night|next\s+week|monday|tuesday|wednesday|thursday|friday|saturday|sunday",
     re.I,
@@ -87,6 +92,11 @@ def parse(text: str) -> dict[str, Any]:
     at = _ADD_TASK.match(t)
     if at:
         return {"intent": "add_task", "name": "", "msg": at.group("title").strip(), "contact_id": cid}
+    ow = _OWNER_WA.match(t)
+    if ow:
+        raw_num = ow.group("num").translate(_BN_TO_ASCII)
+        clean_num = re.sub(r"[\s\-]+", "", raw_num).strip()
+        return {"intent": "set_owner_wa", "name": "", "msg": clean_num, "contact_id": cid}
     mem = _MEMORY.search(t)
     if mem:
         return {"intent": "memory", "name": (mem.group("name") or mem.group("name2")).strip(), "msg": "", "contact_id": cid}
@@ -283,7 +293,21 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
             ai["contact_id"] = p["contact_id"]
             p = ai
     intent = p["intent"]
+    if intent == "set_owner_wa":
+        num = p["msg"]
+        await wcfg.save_config(db, {"owner_whatsapp": num}, scope="app")
+        return _reply("set_owner_wa", f"আপনার দ্বিতীয় WhatsApp আপডেট নম্বর ({num}) সেভ করা হয়েছে। এখন থেকে গুরুত্বপূর্ণ আপডেট ও সারাংশ এই নম্বরেও যাবে।")
     if intent == "unknown":
+        clean_q = _ID.sub("", text or "").strip()
+        if len(clean_q) >= 4:
+            try:
+                from app.assistant import wa_ai
+
+                ans = (await wa_ai.ask(db, clean_q)).strip()
+                if ans:
+                    return _reply("ai_answer", ans)
+            except Exception:  # noqa: BLE001 - fall back to help text when no AI key is configured
+                pass
         return _reply("unknown", UNKNOWN_HELP)
     if intent == "help":
         return _reply("help", FRIENDLY_HELP)

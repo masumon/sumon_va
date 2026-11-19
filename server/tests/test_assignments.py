@@ -193,5 +193,6 @@ async def test_missed_call_end_to_end_one_alert_per_burst_and_no_reply_draft(Ses
         for m in calls:
             await wa_flow._process(s, m.id)
         assert len(alerts_sent) == 1 and "মিসড কল" in alerts_sent[0]["summary"] and alerts_sent[0]["p"] == 3
-        assert (await s.execute(select(WaMessage).where(WaMessage.direction == "out"))).scalars().all() == []
+        outs = (await s.execute(select(WaMessage).where(WaMessage.direction == "out"))).scalars().all()
+        assert len(outs) == 1 and "কলটি এসেছে" in (outs[0].body or "")
         assert (await s.get(WaMessage, calls[0].id)).meta.get("call_alert")

@@ -125,6 +125,9 @@ export type AssistantConfig = {
   delay: { min: number; max: number }; hold_hours: number; quiet_after_reply_min: number; per_sender_hour: number; retention_days: number;
   notify: { urgent: boolean; digest: boolean; digest_time: string }; ai: { enabled: boolean; voice: boolean }; f0?: { auto_send: boolean };
   calls?: { burst_min: number; escalate_after: number; reply: boolean };
+  call_tactical_reply?: boolean;
+  presence_draft_when_active?: boolean;
+  owner_whatsapp?: string;
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
   limits?: Limits;
@@ -156,7 +159,7 @@ export type HistoryReport = {
 };
 export type F0Draft = { id: string; to: string; channel: string; body: string; warnings: string[] };
 export type F0Result = {
-  intent: 'reply' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'unknown';
+  intent: 'reply' | 'remember' | 'add_task' | 'set_owner_wa' | 'ai_answer' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'help' | 'unknown';
   answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
   choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
   /** Present when auto mode sent it at once: the message's own stored status. */
@@ -228,7 +231,7 @@ export const va = {
     call<HistoryReport>('POST', `/admin/wa/contacts/${id}/import-history`, { chat_text, owner_speaker, days, consent_private }),
   f0Command: (text: string) => call<F0Result>('POST', '/admin/wa/f0/command', { text }),
   analyzeMedia: (mime: string, data_b64: string, name = '', caption = '') =>
-    call<{ ok: boolean; kind: 'audio' | 'image'; summary: string }>('POST', '/admin/wa/analyze-media', { mime, data_b64, name, caption }),
+    call<{ ok: boolean; kind: 'audio' | 'image' | 'video'; summary: string; pattern?: string; suggested_reply?: string }>('POST', '/admin/wa/analyze-media', { mime, data_b64, name, caption }),
   channels: () => cachedGet<ChannelsInfo>('/admin/inbox/channels', 8000),
   killSwitch: (on: boolean) => call<{ kill_switch_on: boolean }>('POST', '/admin/inbox/kill-switch', { on }),
   config: () => call<Record<string, unknown>>('GET', '/admin/wa/config'),

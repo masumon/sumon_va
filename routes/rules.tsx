@@ -29,6 +29,7 @@ export default function RulesScreen() {
   const c = cfg.data?.config;
   const [names, setNames] = useState<{ assistant?: string; owner?: string; replyBy?: string }>({});
   const [lists, setLists] = useState<{ allow?: string; block?: string }>({});
+  const [ownerWa, setOwnerWa] = useState<string | undefined>(undefined);
 
   const save = async (patch: Record<string, unknown>) => {
     try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
@@ -49,6 +50,8 @@ export default function RulesScreen() {
             <ToggleRow icon="robot-outline" label={bn ? 'নিজে নিজে উত্তর' : 'Reply by itself'} hint={bn ? 'বন্ধ থাকলে শুধু খসড়া হবে, আপনি ঠিক আছে বললে যাবে। চালু করলে সহকারীও চালু হবে।' : 'Off = drafts, sent when you approve. Turning this on also turns the assistant on.'} value={c.mode === 'auto'} onChange={(v) => void save({ ...(v && !c.enabled ? { enabled: true } : {}), mode: v ? 'auto' : 'shadow' })} />
             <ToggleRow icon="brain" label={bn ? 'AI দিয়ে বুঝে নেওয়া' : 'Understand with AI'} hint={bn ? 'বন্ধ থাকলে শুধু আপনার লেখা নিয়ম অনুযায়ী চলবে; AI কোনো অর্থ বুঝবে না বা খসড়া লিখবে না।' : 'Off = rules only; AI will not read or draft.'} value={c.ai.enabled} onChange={(v) => void save({ ai: { enabled: v } })} />
             <ToggleRow icon="microphone-outline" label={bn ? 'ভয়েস মেসেজ লিখে ফেলা' : 'Transcribe voice notes'} hint={bn ? 'এটি কাজ করার জন্য ওপরের “AI দিয়ে বুঝে নেওয়া” চালু থাকতে হবে।' : 'Requires “Understand with AI” above to be on.'} value={c.ai.voice} onChange={(v) => void save({ ai: { voice: v } })} />
+            <ToggleRow icon="phone-ring-outline" label={bn ? 'মিসড কল ও কলের কৌশলী অটো-উত্তর' : 'Tactful auto-reply on missed calls'} hint={bn ? 'চালু থাকলে মিসড কল এলে আপনার অবস্থা ও আগের প্রসঙ্গ বুঝে কৌশলী উত্তর দেবে এবং কলব্যাকের কাজ তৈরি করবে।' : 'Crafts a polite status-aware & context-aware reply on missed calls and adds a callback task.'} value={c.call_tactical_reply ?? true} onChange={(v) => void save({ call_tactical_reply: v, calls: { ...(c.calls || { burst_min: 10, escalate_after: 0, reply: v }), reply: v } })} />
+            <ToggleRow icon="cellphone-check" label={bn ? 'ফোন হাতে সচল থাকলে অটো-উত্তরের বদলে খসড়া' : 'Make draft instead of auto-reply while holding phone'} hint={bn ? 'আপনি যখন নিজে ফোন হাতে নিয়ে ব্যবহার করবেন, তখন সহকারী হুট করে অটো-উত্তর না পাঠিয়ে খসড়া বানিয়ে রাখবে।' : 'While you are actively using the phone, the assistant prepares a draft instead of auto-sending.'} value={c.presence_draft_when_active ?? true} onChange={(v) => void save({ presence_draft_when_active: v })} />
           </Card>
 
           <Card icon="calendar-clock" title={bn ? 'সময়সূচি, অবস্থা ও জায়গা' : 'Routine, status and places'}>
@@ -105,6 +108,9 @@ export default function RulesScreen() {
           <Card icon="bell-outline" title={bn ? 'জানানো ও রাখা' : 'Notify and keep'}>
             <ToggleRow icon="bell-alert-outline" label={bn ? 'জরুরি হলে আমাকে জানান' : 'Tell me when urgent'} value={c.notify.urgent} onChange={(v) => void save({ notify: { urgent: v } })} />
             <ToggleRow icon="calendar-today" label={bn ? 'প্রতিদিন সারাংশ' : 'Daily summary'} hint={c.notify.digest ? (bn ? `প্রতিদিন ${num(c.notify.digest_time, true)}-এ` : `Every day at ${c.notify.digest_time}`) : undefined} value={c.notify.digest} onChange={(v) => void save({ notify: { digest: v } })} />
+            <Field label={bn ? 'আমার দ্বিতীয় WhatsApp নম্বর (সব আপডেট পাওয়ার জন্য)' : 'My second WhatsApp number (for updates)'} value={ownerWa ?? (c.owner_whatsapp ?? '')} onChangeText={setOwnerWa} placeholder={bn ? 'যেমন: 017XXXXXXXX' : 'e.g. 017XXXXXXXX'} hint={bn ? 'বট দেখার সময় না পেলেও জরুরি অ্যালার্ট ও সারাংশ আপনার এই আলাদা WhatsApp নম্বরে যাবে।' : 'Urgent alerts and summaries will also be forwarded to this personal WhatsApp number.'} />
+            <AppButton variant="secondary" label={bn ? 'দ্বিতীয় WhatsApp নম্বর সংরক্ষণ' : 'Save second WhatsApp number'} disabled={ownerWa === undefined}
+              onPress={() => void save({ owner_whatsapp: (ownerWa ?? '').trim() }).then(() => setOwnerWa(undefined))} />
             <ChipGroup<(typeof KEEP)[number]> label={bn ? 'বার্তা কত দিন রাখবে' : 'Keep messages for (days)'} options={KEEP} value={String(c.retention_days) as (typeof KEEP)[number]} labelOf={(s) => num(s, bn)} onChange={(s) => { if (s) void save({ retention_days: Number(s) }); }} />
           </Card>
           <Card icon="text-box-edit-outline" title={bn ? 'বাঁধা উত্তর ও পরীক্ষা' : 'Ready answers and testing'}>

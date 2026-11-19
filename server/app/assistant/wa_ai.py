@@ -45,6 +45,9 @@ def _mask_names(*contacts: Any) -> None:
 
 
 async def overview_text(db: AsyncSession, cfg: dict[str, Any]) -> str:
+    from datetime import timedelta
+    from app.assistant.call_context import is_call
+
     st = brain.current_status(cfg)
     waiting = (await db.execute(select(WaContact).where(WaContact.unread > 0, WaContact.state != "done")
                                 .order_by(WaContact.priority, WaContact.last_message_at.desc()).limit(8))).scalars().all()
@@ -58,6 +61,22 @@ async def overview_text(db: AsyncSession, cfg: dict[str, Any]) -> str:
     if tasks:
         lines.append("বাকি কাজ:")
         lines += [f"- {t.title[:90]}" + (f" (সময়: {t.due_at.astimezone(brain.DHAKA):%d/%m %H:%M})" if t.due_at else "") for t in tasks]
+    now = flow.utcnow()
+    call_rows = (await db.execute(
+        select(WaMessage, WaContact).join(WaContact, WaContact.id == WaMessage.contact_id)
+        .where(WaMessage.direction == "in", WaMessage.created_at >= now - timedelta(hours=24))
+        .order_by(WaMessage.created_at.desc()).limit(60)
+    )).all()
+    call_counts: dict[Any, tuple[WaContact, int]] = {}
+    for m, c in call_rows:
+        if is_call({"meta": m.meta, "body": m.body}):
+            prev_c, n = call_counts.get(c.id, (c, 0))
+            call_counts[c.id] = (prev_c, n + 1)
+    if call_counts:
+        _mask_names(*(c for c, _ in call_counts.values()))
+        lines.append("গত ২৪ ঘণ্টার মিসড কল:")
+        for c, n in list(call_counts.values())[:6]:
+            lines.append(f"- {_who(c)}: {n} বার মিসড কল")
     return "\n".join(lines)
 
 

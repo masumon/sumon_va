@@ -164,6 +164,16 @@ class PollService : Service() {
         null
       } }
       "reply" -> if (ReplyBoxes.send(ctx, target, body)) null else "এই চ্যাটের নোটিফিকেশন আর ফোনে নেই, তাই উত্তর-বক্স পাওয়া যায়নি। Android শুধু নোটিফিকেশন থাকা অবস্থায় উত্তর পাঠাতে দেয়: ওই মানুষ আবার লিখলে “আবার পাঠান” চাপুন, নয়তো অ্যাপটি খুলে নিজে উত্তর দিন"
+      "owner_wa" -> {
+        val clean = target.trim()
+        if (clean.isNotEmpty() && body.isNotBlank()) {
+          val keys = if (clean.startsWith("notif:")) listOf(clean) else listOf("notif:com.whatsapp:$clean", "notif:com.whatsapp.w4b:$clean")
+          for (k in keys) {
+            if (ReplyBoxes.send(ctx, k, body)) break
+          }
+        }
+        null
+      }
       else -> "অজানা নির্দেশ"
     }
   } catch (e: SecurityException) {

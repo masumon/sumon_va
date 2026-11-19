@@ -128,6 +128,8 @@ def explain_mode(cfg: dict[str, Any], contact: WaContact) -> tuple[str, str]:
         return "draft", "প্ল্যাটফর্ম: এই ব্যক্তি বা এই সময়ে নিজে উত্তরের অনুমতি নেই"
     if contact.mode == "draft":
         return "draft", "ব্যক্তি: এই ব্যক্তির জন্য আপনি শুধু খসড়া বেছেছেন"
+    if cfg.get("presence_draft_when_active", True) and (cfg.get("_presence") or {}).get("holding_phone"):
+        return "draft", "উপস্থিতি: ফোন এখন আপনার হাতে সচল, তাই খসড়া তৈরি করে রাখা হলো"
     return "auto", "সব নিয়ম অনুমতি দিয়েছে" + (" (এই ব্যক্তির জন্য আপনি ‘নিজে’ বেছেছেন)" if explicit else "")
 
 
@@ -253,6 +255,26 @@ async def _transcribe_telegram(db: AsyncSession, cfg: dict[str, Any], file_id: s
         return None
 
 
+async def _describe_media_telegram(db: AsyncSession, cfg: dict[str, Any], file_id: str, kind: str, caption: str = "") -> str | None:
+    if not (cfg.get("ai", {}).get("enabled") and file_id):
+        return None
+    try:
+        from app.assistant import ai_hub
+        from app.assistant.channels import telegram
+
+        mime, data = await telegram.fetch_file(file_id)
+        prompt = (
+            "Analyze this image or video sent to Sumon Bhai. Describe in 2-3 short natural Bangla sentences what is inside "
+            "(any visible text, receipt amount, screenshot details, or scene) and what action or reply is needed."
+        )
+        user_q = f"Caption: {caption[:200]}" if caption and caption not in ("[ছবি]", "[ভিডিও]") else "Analyze."
+        out = await ai_hub.run(db, "vision", prompt, user_q, images=[(mime, data)], max_tokens=450)
+        return out.strip()[:1500] or None
+    except Exception as exc:  # noqa: BLE001 - never block the flow
+        logger.info("telegram media describe skipped: %s", type(exc).__name__)
+        return None
+
+
 async def _group_gate(msg_id: uuid.UUID) -> bool:
     """True = go on now. Messages from one person inside the grouping window are answered ONCE: every message waits the window,
     and only the last one of the burst carries on (it reads the whole burst, see ts.grouped_text). Urgent ones, calls and group
@@ -330,6 +352,9 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
             transcript = msg.transcript = await _transcribe(db, cfg, (msg.meta or {}).get("media_id", ""))
         elif contact.channel == "telegram":
             transcript = msg.transcript = await _transcribe_telegram(db, cfg, (msg.meta or {}).get("file_id", ""))
+    elif msg.kind in ("image", "video") and not transcript and not privacy.is_private(contact):
+        if contact.channel == "telegram" and (msg.meta or {}).get("file_id"):
+            transcript = msg.transcript = await _describe_media_telegram(db, cfg, (msg.meta or {}).get("file_id", ""), msg.kind, msg.body or "")
     recent = [m for m in await recent_messages(db, contact.id) if m["id"] != msg.id]
     notes = await active_notes(db, contact.id) + await abo_order_facts(db, cfg, contact, msg.body or transcript or "")
     is_missed_call = msg.direction == "in" and call_ctx.is_call({"meta": msg.meta, "body": msg.body})
@@ -346,7 +371,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         tasks = [{"title": t, "due_at": due} for t, due in (await db.execute(
             select(WaTask.title, WaTask.due_at).where(WaTask.is_done == False, WaTask.contact_id.in_(person_ids)).limit(10))).all()]  # noqa: E712
         ins = call_ctx.analyze(cfg, contact, wide, tasks, now, d.priority)
-        if call_ctx.apply(d, ins, cfg):
+        if call_ctx.apply(d, ins, cfg, contact=contact, status=brain.current_status(cfg)):
             call_insight = ins
     else:
         late = call_ctx.after_call_note(recent, now)
@@ -382,8 +407,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
                 await task_details.set_details(db, task.id, status="proposed", source_msg_id=msg.id, confidence=cand["confidence"], assigner_contact_id=contact.id)
                 open_titles.add(title)
                 d.note = (d.note + " · " if d.note else "") + "কাজের অনুরোধ ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)"
-        ob = obligations.detect(text_in, cfg, now)  # domains 3/6: a DATED invitation or official matter is not forgotten
-        if ob and ob["due_at"] is not None:
+        ob = obligations.detect(text_in, cfg, now)  # domains 3/6: an official matter (dated or undated) or a DATED invitation is not forgotten
+        if ob and (ob["due_at"] is not None or ob["kind"] == "official"):
             title = obligations.proposal_title(contact, ob["kind"], text_in, private)
             if title not in open_titles:
                 task = WaTask(contact_id=contact.id, title=title, due_at=ob["due_at"], source=assignments.PROPOSED)
@@ -391,7 +416,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
                 await db.flush()
                 await task_details.set_details(db, task.id, status="proposed", source_msg_id=msg.id, confidence="medium", assigner_contact_id=contact.id)
                 open_titles.add(title)
-                d.note = (d.note + " · " if d.note else "") + ("তারিখসহ দাপ্তরিক বিষয় ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)" if ob["kind"] == "official"
+                d.note = (d.note + " · " if d.note else "") + ("দাপ্তরিক বিষয় ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)" if ob["kind"] == "official"
                                                               else "তারিখসহ দাওয়াত ধরা হয়েছে (প্রস্তাবিত, নিশ্চিত করুন)")
         if assignments.asks_status(text_in) or assignments.asks_status(asked):
             rows = (await db.execute(select(WaTask.id, WaTask.title, WaTask.due_at, WaTask.is_done, WaTask.done_at, WaTask.source).where(WaTask.contact_id.in_(person_ids))

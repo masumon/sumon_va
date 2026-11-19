@@ -8,13 +8,18 @@
 
 > **একক পরিকল্পনা (প্রম্পটের বিপরীতে কী হয়েছে/বাদ/উন্নত, গবেষণা, কাজের ঢেউ, স্থগিত তালিকা): `docs/BRAIN_MASTER_PLAN.md`।** **সম্পূর্ণ অডিট (২০২৬-১১-১৯, ১৫টি বাংলা রিপোর্ট): `docs/full-system-audit-2026-11-19/`।** **আগের অডিট: `docs/AUDIT_2026-11-06.md`।** সেখানকার ক্রম এই ফাইলের §১-এর সঙ্গে মিলিয়ে চলবে।
 
-## ০০-ঝ. ২০২৬-১১-১৯ পূর্ণ সিস্টেম সার্জিক্যাল অডিট ও সব চ্যাটে AI খসড়া (সর্বশেষ)
-- ✅ `প্রমাণিত (pytest ৪৭৯ পাস, ০ ব্যর্থ · tsc/eslint ০ ত্রুটি · Kotlin কম্পাইল)`:
+## ০০-ঝ. ২০২৬-১১-১৯ সুপার-প্রিমিয়াম মাস্টার প্ল্যান, পূর্ণ সিস্টেম অডিট ও সব চ্যাটে AI খসড়া (সর্বশেষ)
+- ✅ `প্রমাণিত (pytest ৪৯০ পাস, ০ ব্যর্থ · tsc/eslint ০ ত্রুটি · Kotlin কম্পাইল)`:
+  - মাল্টি-মোডাল মিডিয়া (ভয়েস + ছবি + ভিডিও): `wa_assistant.py` (`analyze-media` `video/*` সহ + `suggested_reply`), `telegram.py` (`@SumonVA_bot`-এ ভয়েস/ছবি/ভিডিও AI বিশ্লেষণ), `wa_flow.py` (`_describe_media_telegram`), `AndroidManifest.xml`, `routes/f0.tsx`, `src/va/api.ts`।
+  - মিসড কল ও ইনকামিং কল কৌশলী ইঞ্জিন: `call_context.py` (`tactful_call_reply` — অবস্থা ও প্রসঙ্গ বুঝে কৌশলী উত্তর + কলব্যাক `WaTask`, অপরিচিত ১ম কলে নীরব ও ২+ কলে কৌশলী জিজ্ঞাসা, আগেই উত্তর দিলে বা পরিবার হলে অটো-উত্তর বন্ধ)।
+  - ৭-স্তরের ভিআইপি ও দাপ্তরিক কৌশলী অটো-উত্তর + তারিখবিহীন দাপ্তরিক বার্তাতেও প্রস্তাবিত `WaTask` (`wa_brain.py`, `wa_flow.py`)।
+  - সেন্সর ও উপস্থিতি-সচেতন সুইচ (`presence.py` `is_owner_holding_phone` + `wa_flow.py` `explain_mode` — ফোন হাতে সচল থাকলে অটো-উত্তরের বদলে খসড়া)।
+  - মালিকের দ্বিতীয় WhatsApp নম্বরে আপডেট রিলে (`owner_whatsapp` — `wa_config.py`, `alerts.py`, `f0.py`, `PollService.kt`, `routes/rules.tsx`)।
+  - বট ও F0 পূর্ণাঙ্গ AI সচিব (`f0.py` অজানা প্রশ্নে `wa_ai.ask` কল করে) + চ্যাট পাতায় ১-লাইন কলাপসিবল কন্ট্রোল হেডার (`routes/contact.tsx`) + `HomeClock.tsx` মিনিট-ভিত্তিক টাইমার।
   - `f0.py`: ফনেটিক/টোকেন/`aliases`/ফোন-ম্যাচ, `remember` ও `add_task`, ৪-উৎস প্রাইভেট-বাদ মাল্টি-সার্চ, `জরুরী` ও বাংলিশ কমান্ড, `items[].subtitle` বাংলা অঙ্ক, ও `routes/f0.tsx` হিন্ট (`test_f0_nlp_memory.py`)।
   - সব চ্যাটে (পারিবারিকসহ) প্যাটার্ন-বুঝে AI ও নিয়ম-ভিত্তিক খসড়া + ১-ট্যাপ **"আরেকটি লিখুন"** + ৪টি সুর (`স্বাভাবিক/ছোট/আন্তরিক/ভদ্র`): `draft_writer.py`, `wa_ai.py`, `wa_assistant.py`, `src/va/api.ts`, `routes/contact.tsx` (`test_draft_writer.py` ২২টি নতুন টেস্ট)।
   - নিরাপত্তা ও পারফরম্যান্স ফিক্স: `LockGate.tsx` SQLite-এ স্থায়ী ভুল-PIN ব্রেক + বাংলা অঙ্ক, `routes/_layout.tsx` `freezeOnBlur: true`, `Core.kt` বাংলা অঙ্ক।
 - ✅ `প্রমাণিত`: ১৫টি বাংলা অডিট রিপোর্ট তৈরি (`docs/full-system-audit-2026-11-19/01...15_*.md`), সৎ অবস্থা (`PASS`/`FAIL`/`BLOCKED`/`NOT TESTED`/`NOT IMPLEMENTED`)সহ।
-- ⏳ `বাকি (মালিকের অনুমোদন অপেক্ষায়)`: গিট কমিট/পুশ → Render Manual Deploy (`be55ffb`, `af792e6`, `f0.py`, `draft_writer.py`, `wa_ai.py`) → ফোনের নতুন APK বিল্ড (`tools\build-apk.ps1 -Target phone -Install -FreeMemory`, বর্তমান ফোনের বিল্ড `02:42:18`)।
 
 ## ০০-জ. মালিকের নির্দেশের চলমান তালিকা (2026-11-08 — আপডেটেড; প্রতিটি শেষ হলে ✅)
 1. ✅ রিফ্রেশে পাতা আটকে থাকা (স্পিনার সর্বোচ্চ ১.২ সে, পুরোনো তথ্য ব্যবহারযোগ্য)
