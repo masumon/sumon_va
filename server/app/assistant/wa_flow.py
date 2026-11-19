@@ -383,8 +383,8 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     if (msg.meta or {}).get("group"):  # a group chat: you read it, you answer in the group yourself
         d.reply, d.notify, d.reason, d.note = None, False, "group", "গ্রুপের বার্তা — সহকারী উত্তর লেখে না, আপনি নিজে গ্রুপে উত্তর দেবেন"
     contact.priority, contact.lang = d.priority, d.lang
-    if d.category and (contact.category in (None, "", "spam", "social") or d.category == "spam"):
-        contact.category = d.category  # a person sorted as business/personal keeps it until the owner changes it
+    if d.category and (contact.category in (None, "", "spam", "social") or d.category == "spam" or (d.reason == "one_way_sms" and not contact.is_family)):
+        contact.category = d.category  # a person sorted as business/personal keeps it until the owner changes it (one-way bank/OTP SMS stays business)
     open_titles = {t for (t,) in (await db.execute(select(WaTask.title).where(WaTask.is_done == False, WaTask.contact_id == contact.id))).all()}  # noqa: E712
     if msg.direction == "in" and not is_missed_call and not (msg.meta or {}).get("group") and d.reason not in ("blocked", "spam"):
         private = privacy.is_private(contact, d.category)
@@ -448,6 +448,14 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
     await abo_lead(db, cfg, contact, d)
 
     if not d.reply:
+        if d.reason == "one_way_sms":
+            for old_d in (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft",
+                                                                   or_(WaMessage.reason.is_(None), WaMessage.reason.notin_(("owner", "manual")))))).scalars().all():
+                old_d.status = "discarded"
+            if not d.tasks and d.priority >= 3:
+                contact.unread, contact.state = 0, "done"
+            await db.commit()
+            return
         if d.reason not in ("spam", "blocked") and msg.direction == "in":
             stale = (await db.execute(select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.direction == "out", WaMessage.status == "draft")
                                       .order_by(WaMessage.created_at.desc()).limit(1))).scalar_one_or_none()
@@ -476,7 +484,7 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
             break
         if m["direction"] == "in":
             unanswered += 1
-    why = f"{d.note + ' · ' if d.note else ''}এটি এই ব্যক্তির {unanswered}-তম অনুত্তরিত বার্তা" + (" (বারবার লিখছেন)" if unanswered >= 3 else " (প্রথম বার)" if unanswered == 1 else "")
+    why = f"{d.note + ' · ' if d.note else ''}এটি এই ব্যক্তির {brain.bn_digits(unanswered)}-তম অনুত্তরিত বার্তা" + (" (বারবার লিখছেন)" if unanswered >= 3 else " (প্রথম বার)" if unanswered == 1 else "")
     if mode == "draft":
         # One draft per person: a new message UPDATES the waiting draft instead of piling up another one.
         # (never the OWNER's own draft, e.g. one made in F0: those words are his and must not be rewritten by the assistant)
@@ -509,6 +517,15 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
 async def _telegram_card(db: AsyncSession, contact: WaContact, msg: WaMessage, text: str, draft: WaMessage | None) -> None:
     from app.assistant.channels import telegram  # local: telegram imports this module
     await telegram.send_approval(db, contact, msg, text, draft)
+    try:
+        cfg = await wcfg.load_config(db, scope="app")
+        who = contact.name or contact.phone.split(":")[-1]
+        summary = f"📩 {who}: {(text or '(লেখা নেই)')[:180]}"
+        if draft and draft.body:
+            summary += f"\n✍ খসড়া উত্তর: {draft.body[:220]}"
+        await alerts.relay_to_owner_whatsapp(db, cfg, summary)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 HANDLED = ("priority", "grouped", "swept")  # meta keys that mean "the flow already looked at this message"
