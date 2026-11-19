@@ -4,11 +4,11 @@ import { router } from 'expo-router';
 import { AppText as Text } from '../ui/AppText';
 import { AppIcon } from '../ui/AppIcon';
 import { useAppPreferences } from '../app/AppPreferences';
-import { border, radius, spacing, type ThemeColors } from '../theme';
+import { border, radius, type ThemeColors } from '../theme';
 import type { DesignTokens } from '../theme/designs';
 import { getStatus, startService } from '../../modules/va-bridge';
 import { useAppFeedback } from '../ui/AppFeedback';
-import { formatBangladeshDateTime, formatBangladeshNumber } from '../i18n/date-time';
+import { formatBangladeshDateTime, formatBangladeshNumber, formatBangladeshTime, formatBangladeshWeekdayDate } from '../i18n/date-time';
 import { clearApiCache, va } from './api';
 import { sameValue, useAppActive, useLoad } from './hooks';
 import { useShell } from './shell';
@@ -65,7 +65,24 @@ export function AppHeader() {
     return () => { clearInterval(id); sub.remove(); };
   }, []);
   const { bridge, at } = snap;
-  const urgent = overview.data?.urgent ?? 0;
+  const ov = overview.data;
+  const urgent = ov?.urgent ?? 0;
+  const assistantOn = ov ? ov.enabled : true;
+  const statusLabel = ov?.status_now?.label || (bn ? 'সচল' : 'Active');
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const tick = () => {
+      const cur = new Date();
+      setClock(cur);
+      const rem = (60 - cur.getSeconds()) * 1000 - cur.getMilliseconds() + 50;
+      t = setTimeout(tick, Math.max(1000, rem));
+    };
+    if (active) tick();
+    return () => { if (t) clearTimeout(t); };
+  }, [active]);
+  const dayShort = formatBangladeshWeekdayDate(clock, language).split(',')[0] ?? '';
+  const timeShort = formatBangladeshTime(clock, language);
   // One sync light instead of messages: green = running and in step with the server; red = not running or no contact for a
   // while (one short failed try is not shown); it spins while the screens reload.
   const age = bridge.lastOk ? at - bridge.lastOk : Infinity;
@@ -97,22 +114,35 @@ export function AppHeader() {
 
   return (
     <View style={styles.bar}>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মেনু খুলুন' : 'Open menu'} onPress={open} style={styles.iconBtn} hitSlop={0}>
-        <AppIcon name="menu" size={26} color={colors.textPrimary} />
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মেনু খুলুন' : 'Open menu'} onPress={open} style={styles.iconBtn} hitSlop={4}>
+        <AppIcon name="menu" size={23} color={colors.textPrimary} />
       </Pressable>
-      <Text numberOfLines={1} style={styles.title}>{bn ? 'সুমন সহকারী' : 'Sumon VA'}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} onPress={() => router.push('/f0' as never)} style={styles.iconBtn} hitSlop={0}>
-        <AppIcon name="brain" size={22} color={colors.textPrimary} />
+      <View style={styles.titleBlock}>
+        <View style={styles.titleRow}>
+          <Text numberOfLines={1} style={styles.title}>{bn ? 'সুমন সহকারী' : 'Sumon VA'}</Text>
+          <View style={[styles.livePill, { backgroundColor: assistantOn ? 'rgba(16,185,129,0.16)' : 'rgba(244,63,94,0.16)' }]}>
+            <View style={[styles.liveDot, { backgroundColor: assistantOn ? colors.success : colors.danger }]} />
+            <Text style={[styles.liveText, { color: assistantOn ? colors.success : colors.danger }]}>
+              {assistantOn ? (bn ? 'সচল' : 'On') : (bn ? 'বন্ধ' : 'Off')}
+            </Text>
+          </View>
+        </View>
+        <Text numberOfLines={1} style={styles.subLine}>
+          {`${dayShort} · ${timeShort}${ov?.status_now?.label ? ` · ${statusLabel}` : ''}`}
+        </Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'সহকারীকে বলুন' : 'Tell the assistant'} onPress={() => router.push('/f0' as never)} style={styles.iconBtn} hitSlop={4}>
+        <AppIcon name="robot-happy-outline" size={20} color={colors.primary} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={(bn ? 'এখনই সিঙ্ক করুন' : 'Sync now') + (lastSync ? (bn ? `, শেষ সিঙ্ক ${formatBangladeshDateTime(new Date(lastSync), language)}` : `, last sync ${formatBangladeshDateTime(new Date(lastSync), language)}`) : '')}
         onPress={() => { if (syncOk || bridge.serviceAlive) void doRefresh(); else router.push('/health' as never); }} style={styles.syncBtn}>
         <Animated.View pointerEvents="none" style={[styles.syncRing, { backgroundColor: light }, ringStyle]} />
         <Animated.View style={[styles.syncCore, { borderColor: light, backgroundColor: colors.surface }, dotStyle]}>
-          <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={22} color={light} /></Animated.View>
+          <Animated.View style={spinStyle}><AppIcon name={syncOk ? 'sync' : mood === 'amber' ? 'sync-alert' : 'sync-off'} size={19} color={light} /></Animated.View>
         </Animated.View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বিজ্ঞপ্তি' : 'Notifications'} onPress={() => router.push('/alerts' as never)} style={styles.iconBtn} hitSlop={0}>
-        <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={24} color={urgent ? colors.danger : colors.textPrimary} />
+      <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'বিজ্ঞপ্তি' : 'Notifications'} onPress={() => router.push('/alerts' as never)} style={styles.iconBtn} hitSlop={4}>
+        <AppIcon name={urgent ? 'bell-badge' : 'bell-outline'} size={21} color={urgent ? colors.danger : colors.textPrimary} />
         {urgent ? <View style={styles.badge}><Text style={styles.badgeText}>{urgent > 9 ? (bn ? '৯+' : '9+') : formatBangladeshNumber(urgent, language)}</Text></View> : null}
       </Pressable>
     </View>
@@ -120,17 +150,18 @@ export function AppHeader() {
 }
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.smd, minHeight: 60, marginHorizontal: 10, marginTop: 6, marginBottom: 6, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
-  syncBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  syncRing: { position: 'absolute', width: 44, height: 44, borderRadius: 22 },
-  syncCore: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  iconBtn: { width: 48, height: 48, borderRadius: Math.min(14, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
-  langBtn: { minWidth: 34, height: 28, paddingHorizontal: 6, borderRadius: 8, borderWidth: border.thin, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
-  langText: { color: colors.textPrimary, fontWeight: '700', fontSize: 12 },
-  title: { flex: 1, color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  light: { position: 'absolute', right: -1, bottom: -1, width: 11, height: 11, borderRadius: radius.pill, borderWidth: 2, borderColor: colors.surface },
-  badge: { position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  badgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: colors.onPrimary, fontWeight: '700', fontSize: 15 },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, minHeight: 54, marginHorizontal: 10, marginTop: 4, marginBottom: 4, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
+  syncBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  syncRing: { position: 'absolute', width: 38, height: 38, borderRadius: 19 },
+  syncCore: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 40, height: 40, borderRadius: Math.min(12, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  titleBlock: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: radius.pill },
+  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  liveText: { fontSize: 10, fontWeight: '800' },
+  subLine: { color: colors.textMuted, fontSize: 11, marginTop: 1 },
+  badge: { position: 'absolute', top: 2, right: 2, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '800' },
 });

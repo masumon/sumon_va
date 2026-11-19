@@ -84,7 +84,7 @@ def _iso(d: datetime | None) -> str | None:
     return d.isoformat() if d else None
 
 
-def _contact(c: WaContact, preview: str | None = None) -> dict[str, Any]:
+def _contact(c: WaContact, preview: str | None = None, draft_id: Any = None, draft_body: str | None = None) -> dict[str, Any]:
     window_left = None
     if c.last_inbound_at:
         window_left = max(0, int((c.last_inbound_at + flow.WINDOW - _now()).total_seconds() // 60))
@@ -92,7 +92,9 @@ def _contact(c: WaContact, preview: str | None = None) -> dict[str, Any]:
             "mode": c.mode, "is_vip": c.is_vip, "is_family": c.is_family, "is_blocked": c.is_blocked, "state": c.state,
             "hold_until": _iso(c.hold_until), "priority": c.priority, "need": c.need, "summary": c.summary, "profile": c.profile,
             "unread": c.unread, "lang": c.lang, "last_message_at": _iso(c.last_message_at), "window_minutes_left": window_left,
-            "preview": (privacy.unseal(preview) or "")[:120]}
+            "preview": (privacy.unseal(preview) or "")[:120],
+            "draft_id": str(draft_id) if draft_id else None,
+            "draft_body": (privacy.unseal(draft_body) or "")[:160] if draft_body else None}
 
 
 def _tag(m: WaMessage) -> str | None:
@@ -255,7 +257,11 @@ async def contacts(view: str = Query("all", max_length=10), q: str = Query("", m
                    db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
     preview = select(func.coalesce(WaMessage.transcript, WaMessage.body)).where(WaMessage.contact_id == WaContact.id) \
         .order_by(WaMessage.created_at.desc()).limit(1).scalar_subquery()
-    stmt = select(WaContact, preview)
+    draft_id_sub = select(WaMessage.id).where(WaMessage.contact_id == WaContact.id, WaMessage.direction == "out", WaMessage.status == "draft") \
+        .order_by(WaMessage.created_at.desc()).limit(1).scalar_subquery()
+    draft_body_sub = select(WaMessage.body).where(WaMessage.contact_id == WaContact.id, WaMessage.direction == "out", WaMessage.status == "draft") \
+        .order_by(WaMessage.created_at.desc()).limit(1).scalar_subquery()
+    stmt = select(WaContact, preview, draft_id_sub, draft_body_sub)
     if view not in ("spam", "blocked"):
         stmt = stmt.where(WaContact.category.is_distinct_from("spam"))  # spam lives only in its own folder
     if view == "urgent":
@@ -296,7 +302,7 @@ async def contacts(view: str = Query("all", max_length=10), q: str = Query("", m
     total = (await db.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))).scalar_one()
     rows = (await db.execute(stmt.order_by((WaContact.unread > 0).desc(), WaContact.priority, WaContact.last_message_at.desc().nullslast())
                              .offset((page - 1) * 30).limit(30))).all()
-    return ApiResponse(data={"items": [_contact(c, p) for c, p in rows], "total": total, "page": page})
+    return ApiResponse(data={"items": [_contact(c, p, did, dbody) for c, p, did, dbody in rows], "total": total, "page": page})
 
 
 @router.get("/admin/wa/contacts/{cid}", response_model=ApiResponse)

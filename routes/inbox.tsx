@@ -1,65 +1,57 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { AppText as Text } from '../src/ui/AppText';
+import { Pressable, ScrollView, View } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../src/ui/AppText';
 import { AppIcon } from '../src/ui/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppButton } from '../src/ui/AppSurface';
 import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChipGroup, Field, useKit } from '../src/ui/AppKit';
+import { useKit } from '../src/ui/AppKit';
 import { layout } from '../src/theme';
 import { va, type Contact, type View as InboxView } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Page, Status } from '../src/va/Page';
 import { ContactRow } from '../src/va/ContactRow';
-import { FilterSheet } from '../src/va/FilterSheet';
+import { num } from '../src/va/bd';
 
 const VIEWS: { key: InboxView; bn: string; en: string }[] = [
-  { key: 'all', bn: 'সব', en: 'All' },
+  { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
+  { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
+  { key: 'drafts', bn: 'খসড়া রেডি', en: 'Drafts ready' },
+  { key: 'vip', bn: 'VIP', en: 'VIP' },
+  { key: 'family', bn: 'পরিবার', en: 'Family' },
   { key: 'business', bn: 'ব্যবসায়িক', en: 'Business' },
   { key: 'personal', bn: 'ব্যক্তিগত', en: 'Personal' },
   { key: 'social', bn: 'সামাজিক', en: 'Social' },
-  { key: 'family', bn: 'পরিবার', en: 'Family' },
-  { key: 'vip', bn: 'VIP', en: 'VIP' },
-  { key: 'spam', bn: 'স্প্যাম', en: 'Spam' },
-  { key: 'blocked', bn: 'ব্লক', en: 'Blocked' },
-  { key: 'urgent', bn: 'জরুরি', en: 'Urgent' },
-  { key: 'waiting', bn: 'উত্তর বাকি', en: 'Waiting' },
-  { key: 'drafts', bn: 'পাঠানোর অপেক্ষায়', en: 'Ready to send' },
   { key: 'failed', bn: 'পাঠানো যায়নি', en: 'Failed' },
-  { key: 'owner', bn: 'আমি নিয়েছি', en: 'Mine' },
+  { key: 'spam', bn: 'স্প্যাম', en: 'Spam' },
   { key: 'done', bn: 'শেষ হয়েছে', en: 'Done' },
+  { key: 'all', bn: 'সব', en: 'All' },
 ];
 
-const STATE_KEYS: InboxView[] = ['waiting', 'urgent', 'drafts', 'failed', 'all'];
-/** One plain line under the chips: what this list is and what to do here. */
 const VIEW_HINT: Partial<Record<InboxView, { bn: string; en: string }>> = {
-  waiting: { bn: 'যাদের এখনো উত্তর দেওয়া হয়নি। নাম চাপুন, নিচে লিখে পাঠান।', en: 'People not answered yet. Tap a name and write below.' },
-  urgent: { bn: 'জরুরি বার্তা, আগে এগুলো দেখুন।', en: 'Urgent messages: look at these first.' },
-  drafts: { bn: 'সহকারী উত্তর লিখে রেখেছে। নাম চাপুন, “এটাই পাঠান” চাপুন বা বদলে নিন।', en: 'The assistant wrote a reply. Tap a name, then send or change it.' },
-  failed: { bn: 'এই উত্তরগুলো যায়নি। নাম চাপুন, কারণ দেখে আবার পাঠান।', en: 'These did not go out. Tap a name to see why and send again.' },
-  all: { bn: 'সবাই, নতুন বার্তা আগে।', en: 'Everyone, newest first.' },
-  done: { bn: 'যেগুলোর কাজ শেষ বলে চিহ্ন দিয়েছেন।', en: 'Marked as finished.' },
+  waiting: { bn: 'যাদের এখনো উত্তর দেওয়া হয়নি। খসড়া থাকলে সরাসরি “✓ খসড়া পাঠান” চাপুন।', en: 'People waiting for a reply. Tap Send draft if a draft is ready.' },
+  urgent: { bn: 'জরুরি ও গুরুত্বপূর্ণ বার্তা—আগে এগুলো দেখুন।', en: 'Urgent messages: look at these first.' },
+  drafts: { bn: 'সহকারী উত্তর লিখে রেখেছে। তালিকা থেকেই ১ ট্যাপে “✓ খসড়া পাঠান” চাপুন বা ভেতরে ঢুকে বদলান।', en: 'Assistant prepared a reply. Tap Send draft right from the list or open to edit.' },
+  failed: { bn: 'এই উত্তরগুলো যায়নি। নাম চাপুন, বিকল্প উপায়ে (অ্যাপে/SMS) আবার পাঠান।', en: 'These did not go out. Open to retry via app or SMS.' },
+  all: { bn: 'সব মাধ্যমের সবাই, নতুন ও জরুরি বার্তা আগে।', en: 'Everyone across all channels, newest first.' },
 };
 
 export default function InboxScreen() {
-  const { bn, colors } = useKit();
+  const { bn, colors, design } = useKit();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
   const fromLink = VIEWS.find((v) => v.key === params.view)?.key as InboxView | undefined;
   const [view, setView] = useState<InboxView>(fromLink ?? 'waiting');
-  // A new link (e.g. the bell → "urgent") switches the filter; adjusting state during render avoids a flash of the old list.
   const [linkSeen, setLinkSeen] = useState(params.view);
   if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) setView(fromLink); }
-  const [showMore, setShowMore] = useState(false);
   const [q, setQ] = useState('');
   const [askClear, setAskClear] = useState(false);
   const { showSnackbar } = useAppFeedback();
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Contact[]>([]);
-  // Search waits for a pause in typing instead of asking the server on every keystroke.
-  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); }, 400); return () => clearTimeout(t); }, [q]);
+  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); }, 350); return () => clearTimeout(t); }, [q]);
   const list = useLoad(async () => {
     const r = await va.contacts(view, term, page);
     setItems((prev) => (page === 1 ? r.items : [...prev, ...r.items]));
@@ -67,43 +59,132 @@ export default function InboxScreen() {
   }, `contacts:${view}|${term}|${page}`, 20000);
   const total = list.data?.total ?? 0;
   const shown = items.length > 0 ? items : (list.data?.items ?? []);
-  const EXTRA = VIEWS.map((v) => v.key).filter((k) => !STATE_KEYS.includes(k));
-  const labelOf = (k: InboxView) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; };
-  const extraActive = !STATE_KEYS.includes(view);
 
   return (
-    <Page title={bn ? 'ইনবক্স' : 'Inbox'} subtitle={bn ? 'সব মাধ্যমের সবাই, জরুরি আগে' : 'Everyone, every channel, by importance'}
-      onRefresh={() => { setPage(1); void list.reload(); }} refreshing={list.loading && items.length > 0}>
-      <Field label={bn ? 'কাউকে খুঁজুন' : 'Find someone'} value={q} onChangeText={setQ} placeholder={bn ? 'নাম, নম্বর বা কী নিয়ে কথা' : 'Name, number or topic'} />
-      <ChipGroup<InboxView> value={view} options={STATE_KEYS} labelOf={(k) => { const v = VIEWS.find((x) => x.key === k); return v ? (bn ? v.bn : v.en) : k; }} onChange={(v) => { if (v) { setView(v); setPage(1); } }} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <AppButton variant="secondary" icon="filter-variant" label={bn ? 'আরও ভাগ (পরিবার, VIP, স্প্যাম…)' : 'More (family, VIP, spam…)'} onPress={() => setShowMore(true)} />
-        {extraActive ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={bn ? `${labelOf(view)} ফিল্টার সরান` : `Remove the ${labelOf(view)} filter`} onPress={() => { setView('waiting'); setPage(1); }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 48, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primary }}>
-            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>{labelOf(view)}</Text>
-            <AppIcon name="close" size={16} color={colors.onPrimary} />
+    <Page
+      title={bn ? 'স্মার্ট ইনবক্স' : 'Smart Inbox'}
+      hideHeader
+      onRefresh={() => { setPage(1); void list.reload(); }}
+      refreshing={list.loading && items.length > 0}
+    >
+      {/* Compact Search Bar with Total Count Badge */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 12,
+          minHeight: 46,
+          borderRadius: design.radiusCard,
+          borderWidth: 1,
+          borderColor: design.cardBorder,
+          backgroundColor: colors.surface,
+        }}
+      >
+        <AppIcon name="magnify" size={20} color={colors.textMuted} />
+        <TextInput
+          value={q}
+          onChangeText={setQ}
+          placeholder={bn ? 'নাম, নম্বর বা কথার বিষয় খুঁজুন…' : 'Search name, number or topic…'}
+          placeholderTextColor={colors.textMuted}
+          style={{ flex: 1, fontSize: 13.5, color: colors.textPrimary, paddingVertical: 6 }}
+        />
+        {q ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={bn ? 'মুছুন' : 'Clear'} onPress={() => setQ('')} hitSlop={8}>
+            <AppIcon name="close-circle" size={18} color={colors.textMuted} />
           </Pressable>
         ) : null}
+        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: colors.surfaceMuted }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textSecondary }}>
+            {bn ? `${num(total, true)} জন` : `${total}`}
+          </Text>
+        </View>
       </View>
-      {VIEW_HINT[view] ? <Text style={{ color: colors.textSecondary }}>{bn ? VIEW_HINT[view]!.bn : VIEW_HINT[view]!.en}</Text> : null}
-      <FilterSheet<InboxView> visible={showMore} onClose={() => setShowMore(false)} title={bn ? 'আরও ভাগ' : 'More'} options={EXTRA} value={extraActive ? view : null} labelOf={labelOf} onSelect={(k) => { setView(k); setPage(1); }} />
+
+      {/* Single-Row Horizontal Filter Chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+        {VIEWS.map((v) => {
+          const active = view === v.key;
+          return (
+            <Pressable
+              key={v.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              onPress={() => { setView(v.key); setPage(1); }}
+              style={{
+                paddingHorizontal: 13,
+                paddingVertical: 7,
+                minHeight: 36,
+                borderRadius: 999,
+                justifyContent: 'center',
+                backgroundColor: active ? colors.primary : colors.surface,
+                borderWidth: 1,
+                borderColor: active ? colors.primary : colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: active ? '800' : '600', color: active ? colors.onPrimary : colors.textPrimary }}>
+                {bn ? v.bn : v.en}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {VIEW_HINT[view] ? (
+        <Text style={{ fontSize: 12, color: colors.textSecondary }}>{bn ? VIEW_HINT[view]!.bn : VIEW_HINT[view]!.en}</Text>
+      ) : null}
+
       {view === 'spam' ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.textSecondary }}>{bn ? 'অপারেটর ও দোকানের অফার এখানে ৩ দিন থাকে, তারপর নিজে মুছে যায়। ভুল করে কেউ এলে তার পাতায় “ইনি কেমন মানুষ?” বদলে দিন।' : 'Operator and shop offers stay here 3 days, then delete themselves. If someone real landed here, change “What kind of person” on their page.'}</Text>
+          <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+            {bn
+              ? 'অপারেটর ও দোকানের অফার এখানে ৩ দিন থাকে, তারপর নিজে মুছে যায়। ভুল করে কেউ এলে তার পাতায় “ইনি কেমন মানুষ?” বদলে দিন।'
+              : 'Operator and shop offers stay here 3 days, then delete themselves.'}
+          </Text>
           <AppButton variant="secondary" icon="delete-sweep-outline" label={bn ? 'সব স্প্যাম এখনই মুছুন' : 'Delete all spam now'} disabled={items.length === 0} onPress={() => setAskClear(true)} />
-          <AppConfirmDialog visible={askClear} title={bn ? 'সব স্প্যাম মুছবেন?' : 'Delete all spam?'} description={bn ? 'স্প্যাম ফোল্ডারের সব বার্তা মুছে যাবে। পরিবার ও VIP কখনো মোছা হয় না।' : 'Every message in the spam folder is deleted. Family and VIP are never touched.'}
-            confirmLabel={bn ? 'মুছুন' : 'Delete'} cancelLabel={bn ? 'না' : 'No'} danger icon="delete-sweep-outline" onCancel={() => setAskClear(false)}
-            onConfirm={() => { setAskClear(false); void va.clearSpam().then((r) => { showSnackbar(bn ? `${r.messages}টি বার্তা মুছে ফেলা হলো` : `${r.messages} messages deleted`, 'success'); void list.reload(); }).catch((e: unknown) => showSnackbar(e instanceof Error ? e.message : '', 'danger')); }} />
+          <AppConfirmDialog
+            visible={askClear}
+            title={bn ? 'সব স্প্যাম মুছবেন?' : 'Delete all spam?'}
+            description={bn ? 'স্প্যাম ফোল্ডারের সব বার্তা মুছে যাবে। পরিবার ও VIP কখনো মোছা হয় না।' : 'Every message in the spam folder is deleted.'}
+            confirmLabel={bn ? 'মুছুন' : 'Delete'}
+            cancelLabel={bn ? 'না' : 'No'}
+            danger
+            icon="delete-sweep-outline"
+            onCancel={() => setAskClear(false)}
+            onConfirm={() => {
+              setAskClear(false);
+              void va.clearSpam().then((r) => {
+                showSnackbar(bn ? `${num(r.messages, true)}টি বার্তা মুছে ফেলা হলো` : `${r.messages} messages deleted`, 'success');
+                void list.reload();
+              }).catch((e: unknown) => showSnackbar(e instanceof Error ? e.message : '', 'danger'));
+            }}
+          />
         </View>
       ) : null}
-      <View style={{ gap: 12, paddingBottom: layout.compactNavHeight + insets.bottom + 24 }}>
-      <Status loading={list.loading && shown.length === 0} error={shown.length ? null : list.error} onRetry={list.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
-        empty={!list.loading && !list.error && shown.length === 0} emptyTitle={bn ? 'এখানে কেউ নেই' : 'Nobody here'} emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'} />
-      <View style={{ gap: 12 }}>
-        {shown.map((c) => <ContactRow key={c.id} contact={c} onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)} />)}
-      </View>
-      {shown.length < total ? <AppButton variant="secondary" label={bn ? 'আরও দেখান' : 'Load more'} onPress={() => setPage((p) => p + 1)} /> : null}
+
+      <View style={{ gap: 8, paddingBottom: layout.compactNavHeight + insets.bottom + 20 }}>
+        <Status
+          loading={list.loading && shown.length === 0}
+          error={shown.length ? null : list.error}
+          onRetry={list.reload}
+          retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'}
+          empty={!list.loading && !list.error && shown.length === 0}
+          emptyTitle={bn ? 'এখানে কেউ নেই ✓' : 'Nobody here ✓'}
+          emptyHint={bn ? 'নতুন বার্তা এলে এখানে দেখা যাবে।' : 'New messages will appear here.'}
+        />
+        <View style={{ gap: 8 }}>
+          {shown.map((c) => (
+            <ContactRow
+              key={c.id}
+              contact={c}
+              onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)}
+              onChanged={() => { setPage(1); void list.reload(); }}
+            />
+          ))}
+        </View>
+        {shown.length < total ? (
+          <AppButton variant="secondary" label={bn ? 'আরও দেখান' : 'Load more'} onPress={() => setPage((p) => p + 1)} />
+        ) : null}
       </View>
     </Page>
   );

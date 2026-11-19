@@ -86,6 +86,7 @@ export type Contact = {
   id: string; channel: Channel; category: Category | null; tags: Tag[]; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify' | 'telegram';
   is_vip: boolean; is_family: boolean; is_blocked: boolean; state: 'assistant' | 'owner' | 'done'; priority: number;
   need: string | null; summary: string | null; unread: number; last_message_at: string | null; preview: string;
+  draft_id?: string | null; draft_body?: string | null;
 };
 
 export type Message = {
@@ -97,6 +98,7 @@ export type Message = {
 export type Overview = {
   enabled: boolean; mode: 'auto' | 'shadow'; waiting: number; urgent: number; drafts: number; queued: number; failed_24h: number;
   tasks_open: number; tasks_late: number;
+  status_now?: { key: string; label: string; say?: string; source?: string };
   alerts_held?: { count: number; items: { who: string; p: number; why: string; ts: string }[] };
   presence?: { state: 'active' | 'idle' | 'still' | 'moving' | 'unknown'; seen_at: string | null };
 };
