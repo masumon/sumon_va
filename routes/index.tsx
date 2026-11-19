@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '../src/ui/AppText';
@@ -30,8 +30,8 @@ const FOR = [
 function greeting(bn: boolean): string {
   const h = new Date().getHours();
   return bn
-    ? (h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 16 ? 'শুভ দুপুর' : h < 19 ? 'শুভ বিকাল' : 'শুভ সন্ধ্যা')
-    : (h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+    ? (h >= 20 || h < 5 ? 'শুভ রাত্রি' : h < 12 ? 'শুভ সকাল' : h < 16 ? 'শুভ দুপুর' : h < 18 ? 'শুভ বিকাল' : 'শুভ সন্ধ্যা')
+    : (h >= 20 || h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
 }
 
 /** Executive Home Cockpit: 1-tap status & master switch in hero, 4 non-duplicate counters, AI omnibox, and 3 segmented action tabs. */
@@ -319,7 +319,7 @@ export default function DashboardScreen() {
             <AppIcon name="video-outline" size={19} color={colors.primary} />
           </Pressable>
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
           {[
             { bn: '📞 মিসড কল', en: '📞 Missed calls', cmd: 'মিসড কল' },
             { bn: '⏳ কার উত্তর বাকি', en: '⏳ Who is waiting', cmd: 'কার উত্তর বাকি' },
@@ -330,12 +330,12 @@ export default function DashboardScreen() {
               key={q.cmd}
               accessibilityRole="button"
               onPress={() => go('/f0', { cmd: q.cmd })}
-              style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.surfaceMuted }}
+              style={{ paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.surfaceMuted }}
             >
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textPrimary }}>{bn ? q.bn : q.en}</Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {o?.alerts_held && o.alerts_held.count > 0 ? (
