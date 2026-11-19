@@ -120,12 +120,18 @@ export function AppHeader() {
       <View style={styles.titleBlock}>
         <View style={styles.titleRow}>
           <Text numberOfLines={1} style={styles.title}>{bn ? 'সুমন সহকারী' : 'Sumon VA'}</Text>
-          <View style={[styles.livePill, { backgroundColor: assistantOn ? 'rgba(16,185,129,0.16)' : 'rgba(244,63,94,0.16)' }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={bn ? 'সহকারীর মূল সুইচ ও নিয়ম' : 'Assistant switches & rules'}
+            onPress={() => router.push('/rules' as never)}
+            hitSlop={6}
+            style={[styles.livePill, { backgroundColor: assistantOn ? 'rgba(16,185,129,0.16)' : 'rgba(244,63,94,0.16)' }]}
+          >
             <View style={[styles.liveDot, { backgroundColor: assistantOn ? colors.success : colors.danger }]} />
             <Text style={[styles.liveText, { color: assistantOn ? colors.success : colors.danger }]}>
               {assistantOn ? (bn ? 'সচল' : 'On') : (bn ? 'বন্ধ' : 'Off')}
             </Text>
-          </View>
+          </Pressable>
         </View>
         <Text numberOfLines={1} style={styles.subLine}>
           {`${dayShort} · ${timeShort}${ov?.status_now?.label ? ` · ${statusLabel}` : ''}`}
