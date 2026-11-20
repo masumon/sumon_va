@@ -110,14 +110,19 @@ def current_status(cfg: dict[str, Any], now: datetime | None = None) -> dict[str
 
 
 def ai_context(cfg: dict[str, Any], now: datetime | None = None) -> str:
-    """Time/place block for AI prompts: the status text appears only when one is really active."""
+    """Time/place + active custom role block for ALL AI prompts (both auto-replies and drafts)."""
     from app.assistant import timectx
+    from app.assistant import wa_config as wcfg
 
     now = (now or now_dhaka()).astimezone(DHAKA)
     st = current_status(cfg, now)
     owner = cfg.get("owner_name", "")
     st = {**st, "say": fill(st.get("say", ""), owner=owner)}
-    return timectx.context_block(now, st)
+    base = timectx.context_block(now, st)
+    role = wcfg.active_role_obj(cfg)
+    if role.get("instruction"):
+        base += f"\nসক্রিয় রোল ({role.get('name', '')}): {role.get('instruction', '')}"
+    return base
 
 
 def tokens(text: str) -> list[str]:

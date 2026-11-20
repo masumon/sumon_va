@@ -104,22 +104,31 @@ def _ago_bn(d: datetime | None) -> str:
 
 def _source_bn(c: WaContact) -> str:
     ch = c.channel or "whatsapp"
-    p = (c.phone or "").lower()
+    raw_phone = (c.phone or "").strip()
+    p = raw_phone.lower()
+    # Extract the actual sender identifier (email address, phone number, or handle)
+    parts = raw_phone.split(":")
+    ident = parts[-1].strip() if len(parts) >= 2 else raw_phone
+    # Don't repeat if ident is identical to name and has no digits/@
+    show_ident = ident if ("@" in ident or any(d.isdigit() for d in ident)) else ""
     if ch == "notif":
         if "whatsapp.w4b" in p:
-            return "WhatsApp Business"
-        if "whatsapp" in p:
-            return "WhatsApp"
-        if "orca" in p or "mlite" in p:
-            return "Messenger"
-        if "telegram" in p:
-            return "Telegram"
-        if "instagram" in p:
-            return "Instagram"
-        if "gmail" in p:
-            return "Gmail"
-        return "ফোন অ্যাপ"
-    return {"whatsapp": "WhatsApp", "telegram": "Telegram", "sms": "SMS", "email": "ইমেইল", "webhook": "ওয়েব"}.get(ch, ch)
+            app_lbl = "WhatsApp Business"
+        elif "whatsapp" in p:
+            app_lbl = "WhatsApp"
+        elif "orca" in p or "mlite" in p:
+            app_lbl = "Messenger"
+        elif "telegram" in p:
+            app_lbl = "Telegram"
+        elif "instagram" in p:
+            app_lbl = "Instagram"
+        elif "gmail" in p or ".gm" in p:
+            app_lbl = "Gmail"
+        else:
+            app_lbl = "ফোন অ্যাপ"
+        return f"{app_lbl} · {show_ident}" if show_ident else app_lbl
+    base = {"whatsapp": "WhatsApp", "telegram": "Telegram", "sms": "SMS", "email": "Gmail / ইমেইল", "webhook": "ওয়েব"}.get(ch, ch)
+    return f"{base} · {show_ident}" if show_ident else base
 
 
 def _contact(c: WaContact, preview: str | None = None, draft_id: Any = None, draft_body: str | None = None) -> dict[str, Any]:

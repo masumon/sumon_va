@@ -125,11 +125,28 @@ export default function DashboardScreen() {
       <LinearGradient colors={heroGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[{ borderRadius: design.radiusHero, padding: 14, gap: 10 }, design.heroShadow ?? undefined]}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: heroSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 }}>
-              {bn ? 'এক্সিকিউটিভ ককপিট' : 'EXECUTIVE COCKPIT'}
+            <Text style={{ color: heroSoft, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
+              {c?.custom_roles?.find((r) => r.id === c.active_role)?.name || (bn ? 'ব্যক্তিগত সহকারী' : 'Personal Assistant')}
             </Text>
             <Text style={{ color: heroInk, fontSize: 19, fontWeight: '800', marginTop: 2 }}>{welcome}</Text>
             <Text style={{ color: heroSoft, fontSize: 12.5, marginTop: 2 }}>{summary}</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => go('/f0')}
+                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)' }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' }}>{bn ? '🎤 ভয়েস সহকারী' : '🎤 Voice AI'}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={() => void run(() => va.sendOwnerReport(), bn ? '✓ রিপোর্ট ২য় WhatsApp-এ পাঠানো হয়েছে' : '✓ Report sent')}
+                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)' }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' }}>{bn ? '📊 ২য় WA রিপোর্ট' : '📊 2nd WA Report'}</Text>
+              </Pressable>
+            </View>
           </View>
           {/* 1-Tap Live Status Dropdown Pill right in the Hero */}
           <Pressable
