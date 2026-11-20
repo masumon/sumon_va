@@ -6,11 +6,18 @@ import { useFocusEffect } from 'expo-router';
 import { onInboxChanged } from '../../modules/va-bridge';
 
 const CACHE_PREFIX = 'cache:';
+/** In-memory instant cache so switching tabs or pages renders immediately (0ms) with zero blank flash. */
+const memCache = new Map<string, unknown>();
+
 /** Only non-private list/summary views are cached locally for offline reading; individual chat threads (`contact:*`) are never cached. */
 const isCacheable = (key: string): boolean =>
-  key === 'overview' || key === 'assistant-config' || key === 'channels' || key.startsWith('tasks:') || key.startsWith('contacts:');
+  key === 'overview' || key === 'header-overview' || key === 'assistant-config' || key === 'channels' ||
+  key === 'family' || key === 'urgent' || key === 'drafts-home' || key === 'work' || key === 'business' ||
+  key === 'tasks-open' || key === 'ai-hub' || key === 'module-counts' ||
+  key.startsWith('report-') || key.startsWith('tasks:') || key.startsWith('contacts:');
 
 export async function clearOfflineCache(db: SQLiteDatabase): Promise<void> {
+  memCache.clear();
   await db.runAsync('DELETE FROM app_preferences WHERE key LIKE ?', [`${CACHE_PREFIX}%`]).catch(() => {});
 }
 
@@ -43,13 +50,25 @@ export function sameValue(a: unknown, b: unknown): boolean {
 export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: number, opts?: { always?: boolean }) {
   const db = useSQLiteContext();
   const always = !!opts?.always; // true for things that live outside a screen (the header, the problem banner)
-  const [data, setData] = useState<T | null>(null);
+  const syncInitial = isCacheable(queryKey) ? (memCache.get(queryKey) as T | undefined) ?? null : null;
+  const [data, setData] = useState<T | null>(syncInitial);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(syncInitial === null);
   const [fails, setFails] = useState(0); // consecutive failed loads: a screen that HAD data can still be honest when the server goes away
-  const hasDataRef = useRef(false);
+  const hasDataRef = useRef(syncInitial !== null);
   const loadRef = useRef(load);
   useEffect(() => { loadRef.current = load; });
+
+  // Sync in-memory update when queryKey changes
+  useEffect(() => {
+    if (!isCacheable(queryKey)) return;
+    const hit = memCache.get(queryKey) as T | undefined;
+    if (hit !== undefined) {
+      hasDataRef.current = true;
+      setData(hit);
+      setLoading(false);
+    }
+  }, [queryKey]);
 
   // Offline read-cache: immediately hydrate last-synced summary/list data so Home, Tasks & Inbox remain readable without internet.
   useEffect(() => {
@@ -59,6 +78,7 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
       if (!active || !row?.value) return;
       try {
         const parsed = JSON.parse(row.value) as T;
+        memCache.set(queryKey, parsed);
         hasDataRef.current = true;
         setData((cur) => (cur === null ? parsed : cur));
         setLoading(false);
@@ -68,9 +88,10 @@ export function useLoad<T>(load: () => Promise<T>, queryKey: string, everyMs?: n
   }, [db, queryKey]);
 
   const run = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
+    if (!quiet && !hasDataRef.current) setLoading(true);
     try {
       const fresh = await loadRef.current();
+      if (isCacheable(queryKey)) memCache.set(queryKey, fresh);
       hasDataRef.current = true;
       setData(fresh);
       setError(null);

@@ -5,7 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppBadge, AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
-import { useAppFeedback } from '../src/ui/AppFeedback';
+import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
 import { formatBangladeshDateTime } from '../src/i18n/date-time';
 import { va, type Contact, type Message, errTone } from '../src/va/api';
 import { useAppActive, useLoad } from '../src/va/hooks';
@@ -147,6 +147,7 @@ export default function ContactScreen() {
   const [draftAvoid, setDraftAvoid] = useState<string[]>([]);
   const [draftVariant, setDraftVariant] = useState(0);
   const [draftHint, setDraftHint] = useState('');
+  const [discardId, setDiscardId] = useState<string | null>(null);
   const [fallbacks, setFallbacks] = useState<FallbackMethod[]>(['app']);
   const a11yOn = appActive ? isAccessibilityEnabled() : isAccessibilityEnabled();
   const aliases = useLoad(() => va.aliases(String(id)), `aliases:${String(id)}`, 60000);
@@ -162,14 +163,14 @@ export default function ContactScreen() {
           setFallbacks(clean);
         }
       } catch { /* ignore */ }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { alive = false; };
   }, [db, id]);
 
   const toggleFallback = (m: FallbackMethod) => {
     setFallbacks((prev) => {
       const next = prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m];
-      void db.runAsync('INSERT OR REPLACE INTO app_preferences (key, value) VALUES (?, ?)', [`reply_via:${String(id)}`, JSON.stringify(next)]).catch(() => {});
+      void db.runAsync('INSERT OR REPLACE INTO app_preferences (key, value) VALUES (?, ?)', [`reply_via:${String(id)}`, JSON.stringify(next)]).catch(() => { });
       return next;
     });
   };
@@ -274,14 +275,14 @@ export default function ContactScreen() {
   };
   const replyExplain = !c ? '' : !ac ? ''
     : !ac.enabled ? (bn ? 'মূল সহকারী বন্ধ থাকায় এখন অটো উত্তর বা খসড়া কিছুই তৈরি হবে না।' : 'Main assistant is off — no auto-replies or drafts will be made.')
-    : c.is_blocked ? (bn ? 'ব্লক করা: এই মানুষের কোনো উত্তর বা খসড়া তৈরি হবে না।' : 'Blocked: no replies or drafts will be made.')
-    : (c.is_family || c.category === 'personal') ? (bn ? 'পরিবার ও ব্যক্তিগত চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে; শুধু আপনাকে জানাবে।' : 'Auto-reply stays off for family and personal chats; you are notified only.')
-    : c.category === 'spam' ? (bn ? 'স্প্যাম: এখানে কোনো অটো উত্তর বা অ্যালার্ট যাবে না।' : 'Spam: no auto-replies or alerts.')
-    : c.mode === 'auto' ? (bn ? `✓ অটো উত্তর চালু${ac.ai.enabled ? ' (AI বুঝে উত্তর দেবে)' : ' (শুধু আপনার নিয়মে উত্তর দেবে)'}` : `✓ Auto-reply on${ac.ai.enabled ? ' (AI enabled)' : ' (rules only)'}`)
-    : c.mode === 'telegram' ? (bn ? 'Telegram বট মোড: খসড়া আপনার বটে যাবে, আপনি “পাঠান” চাপলে তবেই যাবে।' : 'Telegram bot mode: drafts go to your bot for approval.')
-    : c.mode === 'draft' ? (bn ? 'ম্যানুয়াল মোড: সহকারী খসড়া লিখে রাখবে, আপনি দেখে পাঠালে তবেই যাবে।' : 'Manual mode: assistant prepares drafts for you to send.')
-    : c.mode === 'notify' ? (bn ? 'শুধু জানাবে: কোনো অটো উত্তর বা খসড়া তৈরি হবে না।' : 'Notify only: no auto-replies or drafts.')
-    : (bn ? `অ্যাপের সাধারণ নিয়মে চলবে (${ac.mode === 'auto' ? 'অটো চালু' : 'শুধু খসড়া'}${ac.ai.enabled ? ' · AI চালু' : ' · AI বন্ধ'})।` : `Follows app default (${ac.mode === 'auto' ? 'auto' : 'drafts'}${ac.ai.enabled ? ' · AI on' : ' · AI off'}).`);
+      : c.is_blocked ? (bn ? 'ব্লক করা: এই মানুষের কোনো উত্তর বা খসড়া তৈরি হবে না।' : 'Blocked: no replies or drafts will be made.')
+        : (c.is_family || c.category === 'personal') ? (bn ? 'পরিবার ও ব্যক্তিগত চ্যাটে নিরাপত্তার কারণে অটো উত্তর বন্ধ থাকে; শুধু আপনাকে জানাবে।' : 'Auto-reply stays off for family and personal chats; you are notified only.')
+          : c.category === 'spam' ? (bn ? 'স্প্যাম: এখানে কোনো অটো উত্তর বা অ্যালার্ট যাবে না।' : 'Spam: no auto-replies or alerts.')
+            : c.mode === 'auto' ? (bn ? `✓ অটো উত্তর চালু${ac.ai.enabled ? ' (AI বুঝে উত্তর দেবে)' : ' (শুধু আপনার নিয়মে উত্তর দেবে)'}` : `✓ Auto-reply on${ac.ai.enabled ? ' (AI enabled)' : ' (rules only)'}`)
+              : c.mode === 'telegram' ? (bn ? 'Telegram বট মোড: খসড়া আপনার বটে যাবে, আপনি “পাঠান” চাপলে তবেই যাবে।' : 'Telegram bot mode: drafts go to your bot for approval.')
+                : c.mode === 'draft' ? (bn ? 'ম্যানুয়াল মোড: সহকারী খসড়া লিখে রাখবে, আপনি দেখে পাঠালে তবেই যাবে।' : 'Manual mode: assistant prepares drafts for you to send.')
+                  : c.mode === 'notify' ? (bn ? 'শুধু জানাবে: কোনো অটো উত্তর বা খসড়া তৈরি হবে না।' : 'Notify only: no auto-replies or drafts.')
+                    : (bn ? `অ্যাপের সাধারণ নিয়মে চলবে (${ac.mode === 'auto' ? 'অটো চালু' : 'শুধু খসড়া'}${ac.ai.enabled ? ' · AI চালু' : ' · AI বন্ধ'})।` : `Follows app default (${ac.mode === 'auto' ? 'auto' : 'drafts'}${ac.ai.enabled ? ' · AI on' : ' · AI off'}).`);
 
   return (
     <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}
@@ -376,8 +377,8 @@ export default function ContactScreen() {
                       () => va.patchContact(c.id, { mode: m, ...(promote ? { category: 'business' } : {}) }),
                       m === 'auto' ? (bn ? '✓ এই চ্যাটে AI ও অটো উত্তর চালু হয়েছে' : '✓ AI & auto-reply enabled')
                         : m === 'draft' ? (bn ? '✓ সহকারী খসড়া লিখে রাখবে, আপনি পাঠাবেন' : '✓ Draft mode enabled')
-                        : m === 'telegram' ? (bn ? '✓ খসড়া আপনার Telegram বটে যাবে' : '✓ Telegram bot approval enabled')
-                        : (bn ? 'নিয়ম সংরক্ষণ হয়েছে' : 'Rule saved')
+                          : m === 'telegram' ? (bn ? '✓ খসড়া আপনার Telegram বটে যাবে' : '✓ Telegram bot approval enabled')
+                            : (bn ? 'নিয়ম সংরক্ষণ হয়েছে' : 'Rule saved')
                     );
                   }}
                 />
@@ -479,9 +480,24 @@ export default function ContactScreen() {
                   <AppButton variant="secondary" icon="refresh" label={bn ? 'আরেকটি লিখুন' : 'Write another'} disabled={busy} onPress={() => writeDraft({ another: true })} />
                 </View>
               </View>
-              <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} disabled={busy} onPress={() => void act(() => va.discard(d.id))} />
+              <AppButton variant="secondary" label={bn ? 'বাদ দিন' : 'Discard'} disabled={busy} onPress={() => setDiscardId(d.id)} />
             </View>
           ))}
+          <AppConfirmDialog
+            visible={!!discardId}
+            danger
+            icon="delete-outline"
+            title={bn ? 'খসড়াটি বাদ দেবেন?' : 'Discard this draft?'}
+            description={bn ? 'এই খসড়া উত্তরটি মুছে ফেলা হবে।' : 'This draft reply will be removed.'}
+            confirmLabel={bn ? 'হ্যাঁ, বাদ দিন' : 'Discard'}
+            cancelLabel={bn ? 'না' : 'No'}
+            onCancel={() => setDiscardId(null)}
+            onConfirm={() => {
+              const mid = discardId;
+              setDiscardId(null);
+              if (mid) void act(() => va.discard(mid), bn ? '✓ খসড়া বাদ দেওয়া হয়েছে' : '✓ Draft discarded');
+            }}
+          />
 
           <View style={{ gap: 14 }}>
             {detail.data!.messages.map((m) => (
@@ -504,39 +520,39 @@ export default function ContactScreen() {
 
           <AppButton variant="secondary" icon={more ? 'chevron-up' : 'chevron-down'} label={more ? (bn ? 'তথ্য ও নিয়ম লুকান' : 'Hide details and rules') : (bn ? 'এই মানুষের তথ্য ও নিয়ম' : 'This person’s details and rules')} onPress={() => setMore((v) => !v)} />
           {more ? (<>
-          <Card title={bn ? 'ইনি কেমন মানুষ?' : 'What kind of person is this?'}>
-            <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
-            <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
-          </Card>
+            <Card title={bn ? 'ইনি কেমন মানুষ?' : 'What kind of person is this?'}>
+              <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
+              <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
+            </Card>
 
-          <Card title={bn ? 'এই মানুষটির নিয়ম' : 'Rules for this person'}>
-            <ToggleRow icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} hint={bn ? 'পরিবারকে কখনও নিজে উত্তর দেওয়া হয় না, শুধু আপনাকে জানানো হয়।' : 'Family never gets auto-replies; you are only notified.'}
-              value={c.is_family} onChange={(v) => void act(() => va.patchContact(c.id, { is_family: v }))} />
-            <ToggleRow icon="star-outline" label="VIP" value={c.is_vip} onChange={(v) => void act(() => va.patchContact(c.id, { is_vip: v }))} />
-            <ToggleRow icon="block-helper" label={bn ? 'ব্লক' : 'Block'} value={c.is_blocked} onChange={(v) => void act(() => va.patchContact(c.id, { is_blocked: v }))} />
-            <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m]?.bn : MODE[m]?.en) ?? m}
-              hint={bn ? '“নিজে উত্তর”: সহকারী এই মানুষকে নিজেই উত্তর দেবে। “Telegram-এ অনুমোদন”: প্রতিটি বার্তা খসড়াসহ আপনার Telegram বটে যাবে, সেখানে “পাঠান” চাপুন বা Reply-তে নিজে লিখুন। “শুধু খসড়া”: আপনি অ্যাপে দেখে পাঠাবেন। পরিবার ও ব্যক্তিগত মানুষকে কখনও নিজে উত্তর যায় না।' : '“Auto-reply”: the assistant answers this person itself. “Approve in Telegram”: each message comes to your Telegram bot with a draft; tap Send or reply there. “Drafts only”: you send from the app. Family and personal people never get auto-replies.'}
-              onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি নিজে দেখব (সহকারী চুপ থাকবে)' : "I'll handle it (assistant stays quiet)"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
-              {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'কাজ শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
-              {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'আবার সহকারীকে দিন' : 'Hand back to the assistant'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
-            </View>
-          </Card>
-          <Card title={bn ? 'অন্য নাম / ডাকনাম' : 'Other names'}>
-            <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'এই মানুষকে আপনি আর কী নামে চেনেন? (যেমন Rahim, বড় ভাই)। একই মানুষ কি না মেলাতে এটা সহকারীকে সাহায্য করে। কমা দিয়ে লিখুন।' : 'Other names you know this person by (e.g. Rahim). Helps the assistant spot the same person. Separate with commas.'}</Text>
-            <Field label="" value={aliasText ?? (aliases.data?.aliases ?? []).join(', ')} onChangeText={setAliasText} placeholder={bn ? 'যেমন: Rahim, বড় ভাই' : 'e.g. Rahim, Boro Vai'} />
-            <View style={{ marginTop: 8 }}>
-              <AppButton variant="secondary" label={bn ? 'সংরক্ষণ' : 'Save'} disabled={aliasText === null}
-                onPress={() => void act(async () => { await va.setAliases(c.id, (aliasText ?? '').split(',').map((x) => x.trim()).filter(Boolean)); setAliasText(null); await aliases.reload(); }, bn ? 'সংরক্ষণ হয়েছে' : 'Saved')} />
-            </View>
-          </Card>
-          <ContactMemory contactId={c.id} />
-          <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
+            <Card title={bn ? 'এই মানুষটির নিয়ম' : 'Rules for this person'}>
+              <ToggleRow icon="account-heart-outline" label={bn ? 'পরিবার' : 'Family'} hint={bn ? 'পরিবারকে কখনও নিজে উত্তর দেওয়া হয় না, শুধু আপনাকে জানানো হয়।' : 'Family never gets auto-replies; you are only notified.'}
+                value={c.is_family} onChange={(v) => void act(() => va.patchContact(c.id, { is_family: v }))} />
+              <ToggleRow icon="star-outline" label="VIP" value={c.is_vip} onChange={(v) => void act(() => va.patchContact(c.id, { is_vip: v }))} />
+              <ToggleRow icon="block-helper" label={bn ? 'ব্লক' : 'Block'} value={c.is_blocked} onChange={(v) => void act(() => va.patchContact(c.id, { is_blocked: v }))} />
+              <ChipGroup<Contact['mode']> label={bn ? 'উত্তরের ধরন' : 'Reply style'} options={MODES} value={c.mode} labelOf={(m) => (bn ? MODE[m]?.bn : MODE[m]?.en) ?? m}
+                hint={bn ? '“নিজে উত্তর”: সহকারী এই মানুষকে নিজেই উত্তর দেবে। “Telegram-এ অনুমোদন”: প্রতিটি বার্তা খসড়াসহ আপনার Telegram বটে যাবে, সেখানে “পাঠান” চাপুন বা Reply-তে নিজে লিখুন। “শুধু খসড়া”: আপনি অ্যাপে দেখে পাঠাবেন। পরিবার ও ব্যক্তিগত মানুষকে কখনও নিজে উত্তর যায় না।' : '“Auto-reply”: the assistant answers this person itself. “Approve in Telegram”: each message comes to your Telegram bot with a draft; tap Send or reply there. “Drafts only”: you send from the app. Family and personal people never get auto-replies.'}
+                onChange={(m) => { if (m) void act(() => va.patchContact(c.id, { mode: m })); }} />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {c.state !== 'owner' ? <AppButton variant="secondary" label={bn ? 'আমি নিজে দেখব (সহকারী চুপ থাকবে)' : "I'll handle it (assistant stays quiet)"} onPress={() => void act(() => va.patchContact(c.id, { state: 'owner' }))} /> : null}
+                {c.state !== 'done' ? <AppButton variant="secondary" label={bn ? 'কাজ শেষ' : 'Done'} onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }))} /> : null}
+                {c.state !== 'assistant' ? <AppButton variant="secondary" label={bn ? 'আবার সহকারীকে দিন' : 'Hand back to the assistant'} onPress={() => void act(() => va.patchContact(c.id, { state: 'assistant' }))} /> : null}
+              </View>
+            </Card>
+            <Card title={bn ? 'অন্য নাম / ডাকনাম' : 'Other names'}>
+              <Text style={{ opacity: 0.75, marginBottom: 6 }}>{bn ? 'এই মানুষকে আপনি আর কী নামে চেনেন? (যেমন Rahim, বড় ভাই)। একই মানুষ কি না মেলাতে এটা সহকারীকে সাহায্য করে। কমা দিয়ে লিখুন।' : 'Other names you know this person by (e.g. Rahim). Helps the assistant spot the same person. Separate with commas.'}</Text>
+              <Field label="" value={aliasText ?? (aliases.data?.aliases ?? []).join(', ')} onChangeText={setAliasText} placeholder={bn ? 'যেমন: Rahim, বড় ভাই' : 'e.g. Rahim, Boro Vai'} />
+              <View style={{ marginTop: 8 }}>
+                <AppButton variant="secondary" label={bn ? 'সংরক্ষণ' : 'Save'} disabled={aliasText === null}
+                  onPress={() => void act(async () => { await va.setAliases(c.id, (aliasText ?? '').split(',').map((x) => x.trim()).filter(Boolean)); setAliasText(null); await aliases.reload(); }, bn ? 'সংরক্ষণ হয়েছে' : 'Saved')} />
+              </View>
+            </Card>
+            <ContactMemory contactId={c.id} />
+            <TagEditor tags={c.tags ?? []} onSave={(tags) => act(() => va.patchContact(c.id, { tags }))} />
 
-          <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
+            <ChatTransfer contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} onLearned={() => void detail.reload()} />
 
-          <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
+            <HistoryImport contactId={c.id} isPrivate={c.is_family || c.category === 'personal'} />
 
           </>) : null}
         </>

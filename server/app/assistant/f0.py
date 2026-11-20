@@ -69,6 +69,13 @@ _DRAFTS = re.compile(r"খসড়া|খসড়া|drafts?|khosra", re.I)
 _HISTORY = re.compile(r"কী\s*কী\s*পাঠানো|কী\s*পাঠানো|সাম্প্রতিক\s*কাজ|পাঠানোর\s*ইতিহাস|recent\s+(?:actions|sent)|action\s+history", re.I)
 _SYSTEM = re.compile(r"সহকারী(?:র)?\s*(?:অবস্থা|স্ট্যাটাস)|সব\s*ঠিক\s*আছে|\bhealth\b|\bstatus\b|sohokarir\s+obostha|shob\s+thik\s+ache", re.I)
 _RULES = re.compile(r"নিয়ম|সেটিং|\brules?\b|\bsettings?\b", re.I)
+_BULK_SPAM = re.compile(r"(?:সব\s*)?স্প্যাম\s*(?:মুছ|সাফ|ডিলিট|ক্লিয়ার)|clear\s+spam|delete\s+(?:all\s+)?spam", re.I)
+_BULK_ORGANIZE = re.compile(r"ইনবক্স\s*(?:সাজাও|গুছাও|সামলাও)|সব\s*বার্তা\s*সাজাও|organize\s+inbox", re.I)
+_BULK_APPROVE = re.compile(r"সব\s*খসড়া\s*পাঠাও|approve\s+all\s+drafts", re.I)
+_SMART_TASKS = re.compile(r"(?:টাস্ক|কাজ)\s*(?:সাজাও|গুছাও|নিশ্চিত\s*করো)|organize\s+tasks", re.I)
+_SEND_REPORT = re.compile(r"(?:২য়|দ্বিতীয়|হোয়াটসঅ্যাপ|অ্যাপ)?\s*রিপোর্ট\s*(?:পাঠাও|দাও|দেখাও)|send\s+report", re.I)
+_SWITCH_ROLE = re.compile(r"^\s*(?P<role>.+?)\s*(?:রোল|ভূমিকা)\s*(?:চালু\s*করো|বদলাও|সেট\s*করো)|(?:switch|set)\s+role\s+(?P<role2>.+)", re.I)
+_TOGGLE_AUTO = re.compile(r"অটো\s*(?:উত্তর|মোড)\s*(?P<state>চালু|অন|বন্ধ|অফ)|turn\s+(?P<state2>on|off)\s+auto", re.I)
 _HELP = re.compile(r"^\s*(?:হ্যালো|হাই|সালাম|আসসালামু\s*আলাইকুম|কেমন\s*আছো?|সাহায্য|কী\s*কী?\s*করতে\s*পারো?|hello|hi|hey|help)\s*[!?.।]*\s*$", re.I)
 _CONF_BN = {"high": "নিশ্চিত", "medium": "মাঝারি", "low": "কম"}
 UNKNOWN_HELP = "বুঝতে পারিনি। যেমন লিখতে পারেন: “রহিমকে বলো কাল জানাব”, “রহিম সম্পর্কে মনে রাখো সে মিরপুরে থাকে”, “কাজ যোগ করো কাল রহিমকে ফোন দিতে হবে”, “রহিমের কাজের কী হলো”, “মিসড কল”, “কার উত্তর বাকি”, “আমার কাজ”, “রহিম সম্পর্কে কী জানো”, “রহিম কী বলেছে”, “খুঁজো দাম”, “জরুরি”, “খসড়া”, “কী কী পাঠানো হয়েছে”, “সহকারীর অবস্থা”, “নিয়ম”"
@@ -116,6 +123,23 @@ def parse(text: str) -> dict[str, Any]:
         return {"intent": "pending", "name": "", "msg": "", "contact_id": cid}
     if _TASKS.search(t):
         return {"intent": "tasks", "name": "", "msg": "", "contact_id": cid}
+    if _BULK_SPAM.search(t):
+        return {"intent": "bulk_clean_spam", "name": "", "msg": "", "contact_id": cid}
+    if _BULK_ORGANIZE.search(t):
+        return {"intent": "bulk_organize", "name": "", "msg": "", "contact_id": cid}
+    if _BULK_APPROVE.search(t):
+        return {"intent": "bulk_approve_drafts", "name": "", "msg": "", "contact_id": cid}
+    if _SMART_TASKS.search(t):
+        return {"intent": "smart_tasks", "name": "", "msg": "", "contact_id": cid}
+    if _SEND_REPORT.search(t):
+        return {"intent": "send_report_wa", "name": "", "msg": "", "contact_id": cid}
+    sr = _SWITCH_ROLE.search(t)
+    if sr:
+        return {"intent": "switch_role", "name": "", "msg": (sr.group("role") or sr.group("role2") or "").strip(), "contact_id": cid}
+    ta = _TOGGLE_AUTO.search(t)
+    if ta:
+        st = (ta.group("state") or ta.group("state2") or "").lower()
+        return {"intent": "toggle_auto", "name": "", "msg": "on" if st in ("চালু", "অন", "on") else "off", "contact_id": cid}
     for rx, intent in ((_HISTORY, "history"), (_DRAFTS, "drafts"), (_ALERTS, "alerts"), (_SYSTEM, "system"), (_RULES, "rules"), (_HELP, "help")):
         if rx.search(t):
             return {"intent": intent, "name": "", "msg": "", "contact_id": cid}
@@ -125,7 +149,11 @@ def parse(text: str) -> dict[str, Any]:
     return {"intent": "unknown", "name": "", "msg": "", "contact_id": cid}
 
 
-AI_INTENTS = ("reply", "remember", "add_task", "search", "task_status", "memory", "person", "missed_calls", "pending", "tasks", "alerts", "drafts", "history", "system", "rules")
+AI_INTENTS = (
+    "reply", "remember", "add_task", "search", "task_status", "memory", "person", "missed_calls", "pending",
+    "tasks", "alerts", "drafts", "history", "system", "rules",
+    "bulk_clean_spam", "bulk_organize", "bulk_approve_drafts", "smart_tasks", "send_report_wa", "switch_role", "toggle_auto",
+)
 _AI_SYSTEM = (
     "You turn the owner's short command (Bangla, Banglish or English) into JSON for his personal assistant app. Reply with JSON only: "
     '{"intent": one of ' + ", ".join(AI_INTENTS) + ', "name": the person he means or "", "msg": the exact words to send (for reply), the fact to save (for remember), the task title (for add_task), or the search words, or ""}. '
@@ -498,6 +526,38 @@ async def _overview_intents(db: AsyncSession, intent: str, p: dict[str, Any], no
                   "contact_id": str(c.id)} for m, c in rows]
         return _reply("history", f"শেষ {len(items)}টি বার্তার অবস্থা" if items else "এখনো কোনো বার্তা পাঠানো হয়নি", items)
     cfg = await wcfg.load_config(db, scope="app")
+    if intent == "bulk_clean_spam":
+        from app.api.v1.routes.wa_assistant import clear_spam
+        res = await clear_spam(db=db, admin_id="00000000-0000-0000-0000-000000000000")
+        return _reply("bulk_clean_spam", res.message or "স্প্যাম মুছে ফেলা হয়েছে")
+    if intent == "bulk_organize":
+        from app.api.v1.routes.wa_assistant import BulkInboxIn, bulk_inbox_action
+        res = await bulk_inbox_action(BulkInboxIn(action="auto_organize"), db=db, admin_id="00000000-0000-0000-0000-000000000000")
+        return _reply("bulk_organize", res.message or "ইনবক্স সাজানো হয়েছে")
+    if intent == "bulk_approve_drafts":
+        from app.api.v1.routes.wa_assistant import BulkInboxIn, bulk_inbox_action
+        res = await bulk_inbox_action(BulkInboxIn(action="approve_all_drafts"), db=db, admin_id="00000000-0000-0000-0000-000000000000")
+        return _reply("bulk_approve_drafts", res.message or "খসড়া পাঠানো হয়েছে")
+    if intent == "smart_tasks":
+        from app.api.v1.routes.wa_assistant import smart_organize_tasks
+        res = await smart_organize_tasks(db=db, _a="f0")
+        return _reply("smart_tasks", res.message or "টাস্ক সাজানো হয়েছে")
+    if intent == "send_report_wa":
+        rep = await alerts_mod.send_owner_report(db, cfg)
+        return _reply("send_report_wa", f"রিপোর্ট পাঠানো হয়েছে:\n{rep['text']}")
+    if intent == "switch_role":
+        q_role = (parsed.get("msg") or "").strip().lower()
+        roles = cfg.get("custom_roles") or []
+        hit = next((r for r in roles if isinstance(r, dict) and (q_role in str(r.get("name", "")).lower() or q_role in str(r.get("id", "")).lower())), None)
+        if not hit:
+            avail = ", ".join(str(r.get("name", "")) for r in roles if isinstance(r, dict))
+            return _reply("switch_role", f"এই নামের রোল পাইনি। আছে: {avail}")
+        await wcfg.save_config(db, {"active_role": hit["id"]}, scope="app")
+        return _reply("switch_role", f"রোল চালু হয়েছে: {hit['name']}")
+    if intent == "toggle_auto":
+        on = parsed.get("msg") == "on"
+        await wcfg.save_config(db, {"enabled": True if on else cfg.get("enabled"), "mode": "auto" if on else "shadow"}, scope="app")
+        return _reply("toggle_auto", "অটো-উত্তর চালু করা হয়েছে ✓" if on else "অটো-উত্তর বন্ধ করা হয়েছে (এখন শুধু খসড়া হবে)")
     if intent == "rules":
         lim, rem = cfg.get("limits") or {}, cfg.get("reminders") or {}
         items = [

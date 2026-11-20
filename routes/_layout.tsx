@@ -100,8 +100,8 @@ export default function RootLayout() {
   const canRender = fontsLoaded || Boolean(fontError) || fontTimedOut;
   const [splashDone, setSplashDone] = useState(false);
   const finishSplash = useCallback(() => setSplashDone(true), []);
-  // Safety net, independent of the splash's own timer: whatever happens, the splash is gone after 3.5 s.
-  useEffect(() => { const t = setTimeout(() => { setSplashDone(true); }, 3500); return () => clearTimeout(t); }, []);
+  // Safety net, independent of the splash's own timer: whatever happens, the splash is gone after 5.3 s.
+  useEffect(() => { const t = setTimeout(() => { setSplashDone(true); }, 5300); return () => clearTimeout(t); }, []);
   const hidden = useRef(false);
   useEffect(() => {
     if (canRender && !hidden.current) { hidden.current = true; void SplashScreen.hideAsync().catch(() => {}); }

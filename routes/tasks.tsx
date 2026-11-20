@@ -117,7 +117,17 @@ export default function TasksScreen() {
         </Pressable>
       </View>
 
-      {/* 3 Smart Task Tabs */}
+      {/* 3 Smart Task Tabs + AI Organize */}
+      <AppButton
+        variant="secondary"
+        icon="auto-fix"
+        label={bn ? '✨ AI দিয়ে কাজ সাজান ও প্রস্তাব নিশ্চিত করুন' : '✨ Smart organize tasks'}
+        disabled={busy}
+        onPress={() => void act(async () => {
+          const r = await va.smartOrganizeTasks();
+          showSnackbar(bn ? `✓ ${num(r.confirmed, true)}টি কাজ নিশ্চিত ও সাজানো হয়েছে` : `Organized ${r.confirmed} tasks`, 'success');
+        })}
+      />
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {[
           { k: 'open' as TaskTab, bn: `বাকি (${num(confirmedOpen.length, true)})`, en: `Open (${confirmedOpen.length})` },

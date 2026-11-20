@@ -86,7 +86,17 @@ export type Contact = {
   id: string; channel: Channel; category: Category | null; tags: Tag[]; phone: string; name: string | null; relation: string | null; mode: 'inherit' | 'auto' | 'draft' | 'notify' | 'telegram';
   is_vip: boolean; is_family: boolean; is_blocked: boolean; state: 'assistant' | 'owner' | 'done'; priority: number;
   need: string | null; summary: string | null; unread: number; last_message_at: string | null; preview: string;
+  ago?: string; source_label?: string; purpose?: string;
   draft_id?: string | null; draft_body?: string | null;
+};
+
+export type CustomRole = {
+  id: string;
+  name: string;
+  tone: 'auto' | 'short' | 'warm' | 'formal';
+  auto_level: 'low' | 'balanced' | 'high';
+  instruction: string;
+  builtin?: boolean;
 };
 
 export type Message = {
@@ -130,6 +140,8 @@ export type AssistantConfig = {
   call_tactical_reply?: boolean;
   presence_draft_when_active?: boolean;
   owner_whatsapp?: string;
+  active_role?: string;
+  custom_roles?: CustomRole[];
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
   limits?: Limits;
@@ -161,7 +173,7 @@ export type HistoryReport = {
 };
 export type F0Draft = { id: string; to: string; channel: string; body: string; warnings: string[] };
 export type F0Result = {
-  intent: 'reply' | 'remember' | 'add_task' | 'set_owner_wa' | 'ai_answer' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'help' | 'unknown';
+  intent: 'reply' | 'remember' | 'add_task' | 'set_owner_wa' | 'ai_answer' | 'task_status' | 'missed_calls' | 'pending' | 'tasks' | 'person' | 'memory' | 'search' | 'alerts' | 'drafts' | 'history' | 'system' | 'rules' | 'help' | 'bulk_clean_spam' | 'bulk_organize' | 'bulk_approve_drafts' | 'smart_tasks' | 'send_report_wa' | 'switch_role' | 'toggle_auto' | 'unknown';
   answer: string; items: { title: string; subtitle?: string; contact_id?: string }[];
   choices: { contact_id: string; label: string }[]; draft: F0Draft | null;
   /** Present when auto mode sent it at once: the message's own stored status. */
@@ -226,6 +238,10 @@ export const va = {
   smsImport: (items: { a: string; b: string; t: number; k: number }[], days: number) =>
     call<{ people: number; found: number; imported: number; duplicates: number; promotions_left_out: number }>('POST', '/admin/wa/sms/import', { items, days }),
   clearSpam: () => call<{ messages: number; people: number }>('POST', '/admin/wa/spam/clear', {}),
+  sendOwnerReport: () => call<{ text: string; telegram: boolean; whatsapp_queued: boolean }>('POST', '/admin/wa/report/send-owner', {}),
+  bulkInbox: (action: 'auto_organize' | 'approve_all_drafts' | 'mark_done' | 'delete_contacts', contact_ids: string[] = []) =>
+    call<{ drafted?: number; spam_cleared?: number; sent?: number; total?: number; count?: number }>('POST', '/admin/wa/inbox/bulk', { action, contact_ids }),
+  smartOrganizeTasks: () => call<{ confirmed: number; total_open: number }>('POST', '/admin/wa/tasks/smart-organize', {}),
   aliases: (contactId: string) => call<{ aliases: string[] }>('GET', `/admin/wa/contacts/${contactId}/aliases`),
   setAliases: (contactId: string, aliases: string[]) => call<{ aliases: string[] }>('PUT', `/admin/wa/contacts/${contactId}/aliases`, { aliases }),
   relationship: (contactId: string) => call<{ observations: RelationshipObservation[] }>('GET', `/admin/wa/contacts/${contactId}/relationship`),

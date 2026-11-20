@@ -84,15 +84,62 @@ def _iso(d: datetime | None) -> str | None:
     return d.isoformat() if d else None
 
 
+def _ago_bn(d: datetime | None) -> str:
+    if not d:
+        return ""
+    dt = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    secs = max(0, int((_now() - dt).total_seconds()))
+    n = brain.bn_digits
+    if secs < 60:
+        return "এইমাত্র"
+    mins = secs // 60
+    if mins < 60:
+        return f"{n(mins)} মিনিট আগে"
+    hrs = mins // 60
+    if hrs < 24:
+        return f"{n(hrs)} ঘণ্টা আগে"
+    days = hrs // 24
+    return f"{n(days)} দিন আগে"
+
+
+def _source_bn(c: WaContact) -> str:
+    ch = c.channel or "whatsapp"
+    p = (c.phone or "").lower()
+    if ch == "notif":
+        if "whatsapp.w4b" in p:
+            return "WhatsApp Business"
+        if "whatsapp" in p:
+            return "WhatsApp"
+        if "orca" in p or "mlite" in p:
+            return "Messenger"
+        if "telegram" in p:
+            return "Telegram"
+        if "instagram" in p:
+            return "Instagram"
+        if "gmail" in p:
+            return "Gmail"
+        return "ফোন অ্যাপ"
+    return {"whatsapp": "WhatsApp", "telegram": "Telegram", "sms": "SMS", "email": "ইমেইল", "webhook": "ওয়েব"}.get(ch, ch)
+
+
 def _contact(c: WaContact, preview: str | None = None, draft_id: Any = None, draft_body: str | None = None) -> dict[str, Any]:
     window_left = None
     if c.last_inbound_at:
         window_left = max(0, int((c.last_inbound_at + flow.WINDOW - _now()).total_seconds() // 60))
+    raw_prev = (privacy.unseal(preview) or "")[:120]
+    purpose = (c.need or c.summary or "").strip()[:140]
+    if not purpose and raw_prev:
+        if "মিসড কল" in raw_prev:
+            purpose = "কল করেছেন — বিস্তারিত জানতে দেখুন"
+        else:
+            from app.assistant import draft_writer as dw
+            purpose = dw.read_pattern(raw_prev).label
     return {"id": str(c.id), "channel": c.channel or "whatsapp", "category": c.category, "tags": c.tags or [], "phone": c.phone, "name": c.name, "calls_him": c.calls_him, "relation": c.relation, "gender": c.gender,
             "mode": c.mode, "is_vip": c.is_vip, "is_family": c.is_family, "is_blocked": c.is_blocked, "state": c.state,
             "hold_until": _iso(c.hold_until), "priority": c.priority, "need": c.need, "summary": c.summary, "profile": c.profile,
             "unread": c.unread, "lang": c.lang, "last_message_at": _iso(c.last_message_at), "window_minutes_left": window_left,
-            "preview": (privacy.unseal(preview) or "")[:120],
+            "ago": _ago_bn(c.last_message_at), "source_label": _source_bn(c), "purpose": purpose,
+            "preview": raw_prev,
             "draft_id": str(draft_id) if draft_id else None,
             "draft_body": (privacy.unseal(draft_body) or "")[:160] if draft_body else None}
 
@@ -356,6 +403,8 @@ async def patch_contact(cid: uuid.UUID, body: ContactPatch, db: AsyncSession = D
         c.hold_until = None
         if data["state"] == "done":
             c.unread = 0
+    if data.get("state") in ("done", "owner"):
+        await alerts_mod.clear_held_for_contact(db, c)
     _audit(db, admin_id, "wa_contact", c.id, {k: v for k, v in data.items() if k != "name"})
     await db.commit()
     return ApiResponse(data=_contact(c), message="সংরক্ষণ হয়েছে")
@@ -387,6 +436,7 @@ async def owner_reply(cid: uuid.UUID, body: TextIn, db: AsyncSession = Depends(g
     c.hold_until = _now() + timedelta(hours=int((await wcfg.load_config(db)).get("hold_hours", 12)))
     c.last_message_at = _now()
     await _promise_task(db, c, raw_text)
+    await alerts_mod.clear_held_for_contact(db, c)
     await db.commit()
     ok = await flow.deliver(db, m.id)
     await db.refresh(m)
@@ -418,6 +468,7 @@ async def sent_by_hand(cid: uuid.UUID, body: TextIn, db: AsyncSession = Depends(
     c.hold_until = now + timedelta(hours=int((await wcfg.load_config(db)).get("hold_hours", 12)))
     c.last_message_at = c.last_outbound_at = now
     await _promise_task(db, c, raw_text)
+    await alerts_mod.clear_held_for_contact(db, c)
     await db.commit()
     return ApiResponse(message="চ্যাটে লিখে রাখা হলো")
 
@@ -438,6 +489,9 @@ async def approve(mid: uuid.UUID, body: TextIn | None = None, db: AsyncSession =
         m.body = privacy.seal(privacy.unseal(m.body))
     m.status, m.send_after = "queued", _now()
     await _promise_task(db, c, privacy.unseal(m.body))
+    if c:
+        c.unread = 0
+        await alerts_mod.clear_held_for_contact(db, c)
     await db.commit()
     ok = await flow.deliver(db, m.id)
     await db.refresh(m)
@@ -982,3 +1036,106 @@ async def analyze_media(body: AnalyzeMediaIn, db: AsyncSession = Depends(get_db)
         "pattern": pat.label,
         "suggested_reply": suggested,
     })
+
+
+@router.post("/admin/wa/report/send-owner", response_model=ApiResponse)
+async def send_owner_report_now(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """Send an instant report to the owner's 2nd WhatsApp number and Telegram."""
+    cfg = await wcfg.load_config(db, force=True)
+    res = await alerts_mod.send_owner_report(db, cfg)
+    if not res["whatsapp_queued"] and not res["telegram"]:
+        raise HTTPException(status_code=400, detail="২য় WhatsApp নম্বর বা Telegram সেট করা নেই")
+    msg = "রিপোর্ট ২য় WhatsApp-এ পাঠানো হয়েছে" if res["whatsapp_queued"] else "রিপোর্ট Telegram-এ পাঠানো হয়েছে"
+    return ApiResponse(data=res, message=msg)
+
+
+class BulkInboxIn(BaseModel):
+    action: str = Field(pattern="^(auto_organize|approve_all_drafts|mark_done|delete_contacts)$")
+    contact_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+
+@router.post("/admin/wa/inbox/bulk", response_model=ApiResponse)
+async def bulk_inbox_action(body: BulkInboxIn, db: AsyncSession = Depends(get_db), admin_id: str = Depends(owner_or_device(OWNER))):
+    """Bulk AI & bot inbox actions: auto-organize waiting chats, approve drafts in batch, mark done, or delete selected."""
+    from app.assistant import wa_ai
+
+    n = brain.bn_digits
+    if body.action == "approve_all_drafts":
+        q = select(WaMessage).where(WaMessage.direction == "out", WaMessage.status == "draft")
+        if body.contact_ids:
+            q = q.where(WaMessage.contact_id.in_(body.contact_ids))
+        drafts = (await db.execute(q.limit(40))).scalars().all()
+        sent_n = 0
+        for m in drafts:
+            c = await db.get(WaContact, m.contact_id)
+            m.status, m.send_after = "queued", _now()
+            if c:
+                c.unread = 0
+                await alerts_mod.clear_held_for_contact(db, c)
+            await db.commit()
+            if await flow.deliver(db, m.id):
+                sent_n += 1
+        return ApiResponse(data={"sent": sent_n, "total": len(drafts)}, message=f"{n(sent_n)}টি খসড়া পাঠানো হয়েছে")
+
+    if body.action == "mark_done":
+        if not body.contact_ids:
+            return ApiResponse(data={"count": 0}, message="কোনো চ্যাট বাছা হয়নি")
+        rows = (await db.execute(select(WaContact).where(WaContact.id.in_(body.contact_ids)))).scalars().all()
+        for c in rows:
+            c.state, c.unread, c.hold_until = "done", 0, None
+            await alerts_mod.clear_held_for_contact(db, c)
+        await db.commit()
+        return ApiResponse(data={"count": len(rows)}, message=f"{n(len(rows))}টি চ্যাট শেষ হয়েছে")
+
+    if body.action == "delete_contacts":
+        if not body.contact_ids:
+            return ApiResponse(data={"count": 0}, message="কোনো চ্যাট বাছা হয়নি")
+        rows = (await db.execute(select(WaContact).where(WaContact.id.in_(body.contact_ids)))).scalars().all()
+        cnt = 0
+        for c in rows:
+            if c.is_family or c.is_vip:
+                continue  # safety: never bulk-delete family or VIP
+            await alerts_mod.clear_held_for_contact(db, c)
+            await db.delete(c)
+            cnt += 1
+        await db.commit()
+        _audit(db, admin_id, "wa_bulk_delete", None, {"count": cnt})
+        return ApiResponse(data={"count": cnt}, message=f"{n(cnt)}টি চ্যাট মুছে ফেলা হয়েছে")
+
+    # auto_organize: clear spam, mark simple thanks/ok done, and prepare drafts for waiting chats without drafts
+    waiting = (await db.execute(select(WaContact).where(WaContact.unread > 0, WaContact.state != "done", WaContact.is_blocked == False).limit(30))).scalars().all()  # noqa: E712
+    drafted, done_cnt, spam_cnt = 0, 0, 0
+    for c in waiting:
+        if c.category == "spam":
+            c.state, c.unread = "done", 0
+            spam_cnt += 1
+            continue
+        has_draft = (await db.execute(select(WaMessage.id).where(WaMessage.contact_id == c.id, WaMessage.status == "draft").limit(1))).first() is not None
+        if not has_draft and not c.is_family:
+            try:
+                res = await wa_ai.suggest_reply(db, c.id)
+                if res.get("text"):
+                    db.add(WaMessage(contact_id=c.id, direction="out", kind="text", body=res["text"], reason="auto_organize", status="draft"))
+                    drafted += 1
+            except Exception:  # noqa: BLE001
+                pass
+    await db.commit()
+    return ApiResponse(data={"drafted": drafted, "spam_cleared": spam_cnt, "done": done_cnt},
+                       message=f"সাজানো হয়েছে: {n(drafted)}টি নতুন খসড়া, {n(spam_cnt)}টি স্প্যাম আলাদা")
+
+
+@router.post("/admin/wa/tasks/smart-organize", response_model=ApiResponse)
+async def smart_organize_tasks(db: AsyncSession = Depends(get_db), _a: str = Depends(owner_or_device(OWNER))):
+    """Auto-confirm high-confidence proposed tasks and summarize open tasks by urgency."""
+    from app.assistant import assignments
+
+    open_tasks = (await db.execute(select(WaTask).where(WaTask.is_done == False))).scalars().all()  # noqa: E712
+    confirmed = 0
+    for t in open_tasks:
+        if t.source == assignments.PROPOSED:
+            t.source = "ai_confirmed"
+            confirmed += 1
+    await db.commit()
+    n = brain.bn_digits
+    return ApiResponse(data={"confirmed": confirmed, "total_open": len(open_tasks)},
+                       message=f"টাস্ক গুছানো হয়েছে: {n(confirmed)}টি প্রস্তাবিত কাজ নিশ্চিত করা হলো")
