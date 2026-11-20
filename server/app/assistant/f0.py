@@ -385,7 +385,10 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
             [{"title": title, "subtitle": "খোলা" + (f", সময় {_when(due_at)}" if due_at else "")}],
         )
 
-    if intent in ("alerts", "drafts", "history", "system", "rules") or (intent == "search" and p["msg"] and not p["name"]):
+    if intent in (
+        "alerts", "drafts", "history", "system", "rules",
+        "bulk_clean_spam", "bulk_organize", "bulk_approve_drafts", "smart_tasks", "send_report_wa", "switch_role", "toggle_auto",
+    ) or (intent == "search" and p["msg"] and not p["name"]):
         return await _overview_intents(db, intent, p, now)
 
     contacts, choices = await resolve(db, p["name"], p["contact_id"])
