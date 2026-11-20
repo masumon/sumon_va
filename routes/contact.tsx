@@ -340,6 +340,38 @@ export default function ContactScreen() {
       <Status loading={detail.loading && !detail.data} error={detail.data ? null : detail.error} onRetry={detail.reload} retryLabel={bn ? 'আবার চেষ্টা' : 'Retry'} />
       {c && pr ? (
         <>
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+            {c.state !== 'done' ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={() => void act(() => va.patchContact(c.id, { state: 'done' }), bn ? '✓ কাজ শেষ হয়েছে' : '✓ Marked done')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.primaryTint, borderWidth: 1, borderColor: colors.primary }}
+              >
+                <AppIcon name="check" size={14} color={colors.primary} />
+                <Text style={{ fontSize: 11.5, fontWeight: '800', color: colors.primary }}>{bn ? 'কাজ শেষ' : 'Done'}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() => writeDraft({})}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+            >
+              <AppIcon name="auto-fix" size={14} color={colors.primary} />
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textPrimary }}>{bn ? 'খসড়া লিখুন' : 'Write draft'}</Text>
+            </Pressable>
+            {chatPkg ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => openChat(chatPkg, chatName, '')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+              >
+                <AppIcon name="open-in-new" size={14} color={colors.textPrimary} />
+                <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.textPrimary }}>{bn ? 'অ্যাপে খুলুন' : 'Open app'}</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <BrandLogo brand={brandFor(c.channel, c.phone)} size={36} />
