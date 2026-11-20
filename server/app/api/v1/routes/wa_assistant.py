@@ -1142,7 +1142,7 @@ async def smart_organize_tasks(db: AsyncSession = Depends(get_db), _a: str = Dep
     confirmed = 0
     for t in open_tasks:
         if t.source == assignments.PROPOSED:
-            t.source = "ai_confirmed"
+            t.source = "ai"
             confirmed += 1
     await db.commit()
     n = brain.bn_digits

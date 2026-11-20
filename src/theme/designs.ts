@@ -64,15 +64,15 @@ export function getDesignTokens(id: DesignId, mode: Mode): DesignTokens {
     return {
       ...base,
       blobs: dim ? [] : dark
-        ? [{ color: '#6366F1', alpha: 0.42, cx: '12%', cy: '4%', r: '62%' }, { color: '#C026D3', alpha: 0.26, cx: '96%', cy: '30%', r: '58%' }, { color: '#0EA5E9', alpha: 0.26, cx: '20%', cy: '92%', r: '58%' }]
-        : [{ color: '#6366F1', alpha: 0.38, cx: '12%', cy: '4%', r: '62%' }, { color: '#F472B6', alpha: 0.30, cx: '96%', cy: '30%', r: '58%' }, { color: '#38BDF8', alpha: 0.30, cx: '20%', cy: '92%', r: '58%' }, { color: '#FBBF24', alpha: 0.22, cx: '90%', cy: '96%', r: '50%' }],
-      radiusCard: 18, radiusChip: 12, radiusButton: 14, radiusHero: 24, radiusBar: 22,
-      cardFill: dim ? colors.surface : dark ? 'rgba(21,27,52,0.72)' : 'rgba(255,255,255,0.72)',
-      cardBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.9)',
-      shadow: dim ? null : sh(dark ? '#000000' : '#4F46E5', dark ? 0.35 : 0.12, 16, 6, 3),
-      heroShadow: dim ? null : sh('#4F46E5', 0.35, 18, 8, 6),
+        ? [{ color: '#0F766E', alpha: 0.24, cx: '10%', cy: '4%', r: '55%' }, { color: '#1D4ED8', alpha: 0.20, cx: '94%', cy: '28%', r: '50%' }]
+        : [{ color: '#14B8A6', alpha: 0.14, cx: '12%', cy: '4%', r: '55%' }, { color: '#38BDF8', alpha: 0.14, cx: '94%', cy: '28%', r: '50%' }],
+      radiusCard: 22, radiusChip: 999, radiusButton: 16, radiusHero: 28, radiusBar: 26,
+      cardFill: dim ? colors.surface : colors.surface,
+      cardBorder: dim ? colors.border : dark ? 'rgba(148,163,184,0.16)' : '#E2E8F0',
+      shadow: dim ? null : sh(dark ? '#000000' : '#0F172A', dark ? 0.32 : 0.07, 14, 4, 2),
+      heroShadow: dim ? null : sh('#0F766E', 0.28, 20, 8, 6),
       heroGrad: dim ? ['#2A2214', '#15130F'] : ['#0F766E', '#1D4ED8'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#0F766E', '#1D4ED8'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#0F172A', '#0F766E'],
-      barFill: dim ? colors.surface : dark ? 'rgba(21,27,52,0.95)' : 'rgba(255,255,255,0.95)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.95)',
+      barFill: dim ? colors.surface : dark ? 'rgba(19,28,49,0.98)' : 'rgba(255,255,255,0.98)', barBorder: dim ? colors.border : dark ? 'rgba(148,163,184,0.18)' : '#E2E8F0',
     };
   }
   if (id === 'prime') {

@@ -547,9 +547,9 @@ function makeKitStyles(colors: ThemeColors, design: DesignTokens) {
     sub: { color: colors.textSecondary, ...typography.caption, marginTop: 2 },
     grow: { flex: 1, minWidth: 0 },
 
-    card: { borderWidth: border.thin, borderColor: design.cardBorder, borderRadius: design.radiusCard, backgroundColor: design.cardFill, padding: spacing.md, marginBottom: spacing.md, ...(design.shadow ?? {}) },
-    cardTitle: { color: colors.textMuted, ...typography.section, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm },
-    sectionTitle: { color: colors.textMuted, ...typography.section, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.sm },
+    card: { borderWidth: border.thin, borderColor: design.cardBorder, borderRadius: design.radiusCard, backgroundColor: design.cardFill, padding: spacing.md + 2, marginBottom: spacing.md, ...(design.shadow ?? {}) },
+    cardTitle: { color: colors.textPrimary, ...typography.section, fontWeight: '800', letterSpacing: 0.2, marginBottom: spacing.sm },
+    sectionTitle: { color: colors.textSecondary, ...typography.section, fontWeight: '800', letterSpacing: 0.2, marginBottom: spacing.sm, marginTop: spacing.sm },
 
     statRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
     statLabel: { color: colors.textSecondary, ...typography.bodySmall },

@@ -366,6 +366,19 @@ async def _process(db: AsyncSession, msg_id: uuid.UUID) -> None:
         text_in, burst_n = ts.grouped_text(recent, msg.body or "", msg.created_at, ts.settings_grouping(cfg))
     privacy.NAMES.set(tuple(n for n in (contact.name, *((contact.profile or {}).get("aliases") or [])) if n))  # masked before any AI call
     d = await brain.decide(db, cfg, contact, text_in, msg.kind, transcript, recent, notes)
+    if d.reply and d.reason not in brain.PROTECTED and (cfg.get("ai") or {}).get("enabled") and not is_missed_call and not privacy.is_private(contact):
+        try:
+            from app.assistant import wa_ai
+            thread_msgs = list(reversed((await db.execute(
+                select(WaMessage).where(WaMessage.contact_id == contact.id, WaMessage.status != "draft")
+                .order_by(WaMessage.created_at.desc()).limit(10)
+            )).scalars().all()))
+            open_t = (await db.execute(select(WaTask.title).where(WaTask.contact_id == contact.id, WaTask.is_done == False).limit(5))).scalars().all()  # noqa: E712
+            better = await wa_ai.smart_auto_reply(db, contact, cfg, thread_msgs, notes, list(open_t))
+            if better:
+                d.reply = better
+        except Exception:  # noqa: BLE001 - safe fallback to brain.decide reply
+            pass
     if burst_n > 1:
         d.note = (d.note + " · " if d.note else "") + f"{burst_n}টি বার্তা একসঙ্গে পড়ে একটি উত্তর"
     call_insight = None

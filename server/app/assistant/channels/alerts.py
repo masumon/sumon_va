@@ -93,8 +93,8 @@ async def clear_held_for_contact(db: AsyncSession, contact: WaContact) -> None:
         await flow._set_val(db, HELD_KEY, json.dumps({"items": kept}, ensure_ascii=False))
     await db.execute(
         update(InboxCommand)
-        .where(InboxCommand.kind == "alert", InboxCommand.msg_id == contact.id, InboxCommand.acked_at.is_(None))
-        .values(acked_at=flow.utcnow(), status="cancelled")
+        .where(InboxCommand.kind == "alert", InboxCommand.msg_id == contact.id, InboxCommand.done_at.is_(None))
+        .values(done_at=flow.utcnow(), status="cancelled")
     )
     # Also tell the phone to dismiss any active alert notification for this contact
     db.add(InboxCommand(device_id=None, kind="clear_alert", target=cid, body="", msg_id=contact.id))

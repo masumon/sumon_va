@@ -32,7 +32,12 @@ _BANGLISH = {"ami", "apni", "apnar", "kemon", "bhai", "vai", "koren", "korben", 
              "koi", "kita", "kitha", "ni", "bala", "bhala", "kemne", "keno", "kno", "ki", "tumi", "tui", "amar", "tomar", "ache", "acho",
              "achi", "aschi", "asbo", "jabo", "thik", "accha", "acha", "akhon", "ekhon", "aj", "aaj", "kal", "koto", "kto", "dam", "bolen",
              "bolo", "khobor", "khabar", "hoise", "hoyse", "korsi", "korcho", "koro", "pathan", "pathao", "apu", "bhaiya", "vaiya", "onek"}
-_SALAM = ("আসসালামু", "সালাম", "assalam", "salam", "hello", "হ্যালো", "হাই", "নমস্কার", "good morning", "good evening", "শুভ")
+_SALAM_ACTUAL = ("আসসালামু", "সালাম", "assalam", "salam", "slm")
+_SALAM = (*_SALAM_ACTUAL, "hello", "hi", "hey", "হ্যালো", "হাই", "নমস্কার", "good morning", "good evening", "good afternoon", "শুভ")
+_RUDE = re.compile(r"শালা|হারামি|বাজে|ফালতু|চুদ|মাদারচোদ|গাধা|বেয়াদব|চোর|বাটপার|stupid|idiot|fuck|bastard|scammer|nonsense|shut up", re.I)
+_SCAM = re.compile(r"(?:বিকাশ|নগদ|রকেট|ব্যাংক|bkash|nagad).*(?:পিন|pin|otp|ওটিপি|কোড)|(?:লটারি|পুরস্কার|lottery|prize).*(?:জিতেছেন|won)|send\s+(?:your\s+)?(?:pin|otp)", re.I)
+_CONDOLENCE = re.compile(r"ইন্নালিল্লাহ|মারা\s*গেছে|মারা\s*গেছেন|ইন্তেকাল|মৃত্যু|passed\s+away|\bdied\b", re.I)
+_SICK = re.compile(r"অসুস্থ|জ্বর|হাসপাতাল|ডাক্তার|দুর্ঘটনা|accident|hospital|sick|fever", re.I)
 _CURRENCY = re.compile(r"(৳|টাকা|\btk\b|\btaka\b|\bbdt\b|\$|\busd\b|ডলার)", re.I)
 
 
@@ -431,14 +436,14 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
     facts = "\n".join(notes)
     if cfg.get("abo", {}).get("enabled") and cfg["abo"].get("info") and cfg["abo"].get("facts"):
         facts = (facts + "\n" + cfg["abo"]["facts"]).strip()
-    private = privacy.is_private(contact, d.category)  # family/personal words never leave this server for an AI service
+    private = bool(getattr(contact, "is_family", False))  # family words never leave this server; non-family personal/friend chats can be read for smart understanding
     prof = getattr(contact, "profile", None)
     if not private and isinstance(prof, dict):
         mem_lines = [str(f.get("text") or "").strip() for f in memory.view(prof, privacy.unseal) if not f.get("inferred") and str(f.get("text") or "").strip()]
         if mem_lines:
             facts = (facts + "\n" + "\n".join(mem_lines[:6])).strip()
     ai = None
-    if cfg.get("ai", {}).get("enabled") and len(body) >= 8 and not is_salam_only(body) and not private:
+    if cfg.get("ai", {}).get("enabled") and len(body) >= 2 and not is_salam_only(body) and not private:
         ai = await analyze(db, cfg, body, recent, facts)
     if ai:
         d.ai_used = True
@@ -458,6 +463,40 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
         d.summary, d.need = "ব্যক্তিগত বার্তা (লেখা সুরক্ষিত)", ""
         d.note = (d.note + " · " if d.note else "") + "ব্যক্তিগত — AI পড়েনি, লেখা এনক্রিপ্টেড"
 
+    if _SCAM.search(body):
+        d.category = "spam"
+        d.priority, d.notify = 5, False
+        d.reason = "scam_guard"
+        d.summary = "সতর্কতা: প্রতারণা/OTP ফিশিং বার্তা"
+        d.note = "নিরাপত্তা ঢাল: পিন/ওটিপি বা প্রতারণামূলক বার্তা হওয়ায় কোনো উত্তর দেওয়া হয়নি"
+        return d
+    if _RUDE.search(body):
+        d.priority, d.notify = 4, True
+        d.handoff = True
+        d.reason = "rude_calm"
+        d.summary = "অভদ্র/উত্তেজিত ভাষা ব্যবহার করেছে"
+        d.note = "অভদ্র ভাষা: তর্ক না করে নীরব থাকা হলো, আপনি চাইলে নিজে দেখুন বা ব্লক করুন"
+        return d
+    if _CONDOLENCE.search(body):
+        d.priority, d.handoff, d.notify = 1, True, True
+        d.reason = "condolence"
+        d.summary = "শোকের খবর দিয়েছেন"
+        owner_n = cfg.get("owner_name_en") if en else cfg.get("owner_name", "সুমন ভাই")
+        d.reply = (
+            f"I'm deeply sorry to hear this. My sincere condolences and prayers. I am informing {owner_n} right away."
+            if en else f"ইন্না লিল্লাহি ওয়া ইন্না ইলাইহি রাজিউন। খবরটা শুনে খুব খারাপ লাগল। {owner_n}-কে এখনই জানাচ্ছি।"
+        )
+        return d
+    if _SICK.search(body):
+        d.priority, d.handoff, d.notify = 1, True, True
+        d.reason = "sick"
+        d.summary = "অসুস্থতা/দুর্ঘটনার খবর দিয়েছেন"
+        owner_n = cfg.get("owner_name_en") if en else cfg.get("owner_name", "সুমন ভাই")
+        d.reply = (
+            f"So sorry to hear that. Please take care and get well soon. I am informing {owner_n} right away."
+            if en else f"শুনে খুব খারাপ লাগল। নিজের যত্ন নিন, আল্লাহ দ্রুত সুস্থ করে দিন। {owner_n}-কে এখনই জানাচ্ছি।"
+        )
+        return d
     if p == 1:
         d.handoff = True
         if not _recent_out(recent, ("urgent",), 30, now):
@@ -529,7 +568,17 @@ async def decide(db: Any, cfg: dict[str, Any], contact: Any, text: str, kind_med
     if is_salam_only(body):
         other = next((q for q in cfg.get("questions") or [] if q.get("kind") == "other"), {})
         first = ((other.get("ask_en") or DEFAULT_ASK_EN["other"]) if en else (other.get("ask") or [""]))[0]
-        d.reply = _compose([say("salam_reply"), status_line, say("away_notice") if st["key"] != "free" else "", first])
+        low_b = body.lower()
+        is_actual_salam = any(w in low_b for w in _SALAM_ACTUAL)
+        if is_actual_salam:
+            greet = say("salam_reply")
+        elif en:
+            greet = "Hello! Thanks for reaching out."
+        elif "নমস্কার" in low_b:
+            greet = "নমস্কার!"
+        else:
+            greet = "হ্যালো! বলুন, কীভাবে সাহায্য করতে পারি?"
+        d.reply = _compose([greet, status_line, say("away_notice") if st["key"] != "free" else "", first])
         d.reason, d.summary, d.need = "salam", "শুধু সালাম/শুভেচ্ছা", ""
         d.priority, d.notify = 5, False
         return d

@@ -135,7 +135,7 @@ const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.cre
   // On Android a view with elevation (the bottom bar) is drawn above later siblings; the menu needs a higher elevation to cover it.
   layer: { zIndex: 1000, elevation: 1000 },
   veil: { backgroundColor: colors.overlay },
-  panel: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.surface, paddingHorizontal: spacing.md, borderRightWidth: border.thin, borderRightColor: colors.border, justifyContent: 'space-between', elevation: 1001 },
+  panel: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.surface, paddingHorizontal: spacing.md, borderRightWidth: border.thin, borderRightColor: colors.border, borderTopRightRadius: 28, borderBottomRightRadius: 28, justifyContent: 'space-between', elevation: 1001 },
   account: { flexDirection: 'row', alignItems: 'center', gap: spacing.smd, padding: spacing.md, borderRadius: design.radiusCard, overflow: 'hidden', ...(design.heroShadow ?? {}) },
   avatar: { width: 60, height: 60, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   logo: { width: 52, height: 52, borderRadius: 14 },

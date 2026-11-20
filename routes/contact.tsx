@@ -78,9 +78,11 @@ function Bubble({ m, onRetryApp, onRetrySms, onRetryAuto }: { m: Message; onRetr
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '88%', gap: 4 }}>
       <View
         style={{
-          paddingHorizontal: 13,
-          paddingVertical: 10,
-          borderRadius: 16,
+          paddingHorizontal: 14,
+          paddingVertical: 11,
+          borderRadius: 20,
+          borderBottomRightRadius: mine ? 5 : 20,
+          borderBottomLeftRadius: mine ? 20 : 5,
           borderWidth: 1,
           borderColor: mine ? colors.primary : colors.border,
           backgroundColor: mine ? colors.primaryTint : colors.surface,
@@ -558,9 +560,18 @@ export default function ContactScreen() {
 
           <AppButton variant="secondary" icon={more ? 'chevron-up' : 'chevron-down'} label={more ? (bn ? 'তথ্য ও নিয়ম লুকান' : 'Hide details and rules') : (bn ? 'এই মানুষের তথ্য ও নিয়ম' : 'This person’s details and rules')} onPress={() => setMore((v) => !v)} />
           {more ? (<>
-            <Card title={bn ? 'ইনি কেমন মানুষ?' : 'What kind of person is this?'}>
+            <Card title={bn ? 'ইনি কেমন মানুষ ও সম্পর্ক?' : 'Category & Relationship'}>
               <Text style={{ opacity: 0.75, marginBottom: 6 }}>{c.category ? (bn ? CATEGORY[c.category].hintBn : CATEGORY[c.category].hintEn) : (bn ? 'সহকারী বার্তা পড়ে নিজে ঠিক করবে। আপনি বদলাতে পারেন।' : 'The assistant decides from the messages. You can change it.')}</Text>
-              <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k })); }} />
+              <ChipGroup<(typeof CATEGORY_KEYS)[number]> options={CATEGORY_KEYS} value={c.category} labelOf={(k) => (bn ? CATEGORY[k].bn : CATEGORY[k].en)} onChange={(k) => { if (k) void act(() => va.patchContact(c.id, { category: k }), bn ? '✓ বিভাগ সেভ হয়েছে' : '✓ Saved'); }} />
+              <View style={{ marginTop: 10 }}>
+                <ChipGroup<string>
+                  label={bn ? 'সম্পর্ক (সেই অনুযায়ী সুর ও সম্বোধন হবে)' : 'Relationship (sets tone & address)'}
+                  options={['স্ত্রী', 'পরিবার', 'বন্ধু', 'গুরুজন', 'ক্লায়েন্ট', 'অফিস', 'অচেনা']}
+                  value={c.relation ?? ''}
+                  labelOf={(r) => r}
+                  onChange={(r) => { if (r) void act(() => va.patchContact(c.id, { relation: r }), bn ? `✓ সম্পর্ক: ${r} সেভ হয়েছে` : '✓ Relation saved'); }}
+                />
+              </View>
             </Card>
 
             <Card title={bn ? 'এই মানুষটির নিয়ম' : 'Rules for this person'}>

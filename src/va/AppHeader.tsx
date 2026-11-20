@@ -156,18 +156,18 @@ export function AppHeader() {
 }
 
 const makeStyles = (colors: ThemeColors, design: DesignTokens) => StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, minHeight: 54, marginHorizontal: 10, marginTop: 4, marginBottom: 4, borderRadius: design.radiusBar, backgroundColor: design.barFill, borderWidth: border.thin, borderColor: design.barBorder, ...(design.shadow ?? {}) },
-  syncBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  syncRing: { position: 'absolute', width: 38, height: 38, borderRadius: 19 },
-  syncCore: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  iconBtn: { width: 40, height: 40, borderRadius: Math.min(12, design.radiusButton), alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, minHeight: 56, backgroundColor: colors.surface, borderBottomWidth: border.thin, borderBottomColor: colors.border },
+  syncBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  syncRing: { position: 'absolute', width: 36, height: 36, borderRadius: 18 },
+  syncCore: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   titleBlock: { flex: 1, minWidth: 0, justifyContent: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', flexShrink: 1 },
-  livePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: radius.pill },
+  title: { color: colors.textPrimary, fontSize: 16, fontWeight: '800', flexShrink: 1, letterSpacing: -0.2 },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill },
   liveDot: { width: 6, height: 6, borderRadius: 3 },
-  liveText: { fontSize: 10, fontWeight: '800' },
-  subLine: { color: colors.textMuted, fontSize: 11, marginTop: 1 },
-  badge: { position: 'absolute', top: 2, right: 2, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  liveText: { fontSize: 10.5, fontWeight: '800' },
+  subLine: { color: colors.textMuted, fontSize: 11.5, marginTop: 1 },
+  badge: { position: 'absolute', top: 1, right: 1, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '800' },
 });

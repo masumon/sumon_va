@@ -25,7 +25,10 @@ DEFAULT: dict[str, Any] = {"enabled": True, "auto_for": "all", "alerts": "all", 
 
 
 def default_block() -> dict[str, dict[str, Any]]:
-    return {k: dict(DEFAULT) for k in KEYS}
+    out = {k: dict(DEFAULT) for k in KEYS}
+    for k in ("whatsapp", "messenger", "telegram"):
+        out[k]["phone_auto"] = True
+    return out
 
 
 _KEY = re.compile(r"^[a-z0-9_]{2,40}$")
