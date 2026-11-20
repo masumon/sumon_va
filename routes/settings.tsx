@@ -108,6 +108,8 @@ export default function SettingsScreen() {
   const p = useAppPreferences();
   const { showSnackbar } = useAppFeedback();
   const channels = useLoad(() => va.channels(), 'channels');
+  const acfg = useLoad(() => va.assistantConfig(), 'assistant-config');
+  const autoCfg = acfg.data?.config.automation;
   const limits = channels.data?.limits;
   const [pin, setPin] = useState('');
 
@@ -116,8 +118,19 @@ export default function SettingsScreen() {
     catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
   };
 
+  const saveAuto = async (patch: Record<string, unknown>) => {
+    try { await va.saveAssistantConfig({ automation: { ...(autoCfg ?? {}), ...patch } }); await acfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); }
+    catch (e) { showSnackbar(e instanceof Error ? e.message : '', errTone(e)); }
+  };
+
   return (
     <Page title={bn ? 'সেটিংস' : 'Settings'} subtitle={bn ? 'চেহারা, নিরাপত্তা ও সীমা' : 'Look, security and limits'}>
+      <Card icon="auto-fix" title={bn ? 'স্মার্ট অটোমেশন' : 'Smart Automation'}>
+        <ToggleRow icon="broom" label={bn ? 'পুরোনো স্প্যাম অটো পরিষ্কার' : 'Auto-clean old spam'} hint={bn ? '৩ দিনের পুরোনো স্প্যাম ও অফার নিজে থেকেই সরে যাবে।' : 'Old spam & promos clear automatically after 3 days.'} value={autoCfg?.auto_spam_clean ?? true} onChange={(v) => void saveAuto({ auto_spam_clean: v })} />
+        <ToggleRow icon="phone-check-outline" label={bn ? 'উত্তর বা কল-ব্যাক করলে কাজ অটো শেষ' : 'Auto-complete task on reply'} hint={bn ? 'আপনি নিজে উত্তর দিলে বা কল ব্যাক করলে বাকি কাজ নিজেই শেষ হবে।' : 'Completes open tasks when you reply yourself.'} value={autoCfg?.auto_callback_done ?? true} onChange={(v) => void saveAuto({ auto_callback_done: v })} />
+        <ToggleRow icon="weather-sunny" label={bn ? 'দৈনিক স্মার্ট ব্রিফিং' : 'Daily smart briefing'} hint={bn ? 'প্রতিদিন সকালে জরুরি বার্তা ও কাজের সারাংশ ২য় WhatsApp ও Telegram-এ যাবে।' : 'Sends morning summary to 2nd WhatsApp & Telegram.'} value={autoCfg?.daily_briefing ?? true} onChange={(v) => void saveAuto({ daily_briefing: v })} />
+      </Card>
+
       <Card icon="translate" title={bn ? 'ভাষা' : 'Language'}>
         <ChipGroup<Lang> options={['bn', 'en']} value={p.language} labelOf={(l) => (l === 'bn' ? 'বাংলা' : 'English')} onChange={(l) => { if (l) void p.setLanguage(l); }} />
       </Card>

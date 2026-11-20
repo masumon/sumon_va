@@ -191,3 +191,39 @@ async def suggest_reply(db: AsyncSession, contact_id: uuid.UUID, instruction: st
     ok = brain.guard_text(text, allowed, limit=600) is not None
     return {**base, "text": text, "source": "ai",
             "warning": "" if ok else "এতে টাকা বা সংখ্যার কথা আছে যা আপনার নোট/নির্দেশে নেই — পাঠানোর আগে ভালো করে দেখে নিন।"}
+
+
+async def smart_auto_reply(db: AsyncSession, contact: WaContact, cfg: dict[str, Any], msgs: list[WaMessage],
+                           notes: list[str], open_tasks: list[str] | None = None) -> str | None:
+    """Context-aware, custom-role-aligned auto-reply when mode == 'auto' and AI is enabled.
+    Returns None if AI fails or guard_text flags an ungrounded promise/number, so caller safely falls back.
+    """
+    if privacy.is_private(contact):
+        return None
+    _mask_names(contact)
+    st = brain.current_status(cfg)
+    role = wcfg.active_role_obj(cfg)
+    thread = "\n".join(f"{'সে' if m.direction == 'in' else 'আমি'}: {(privacy.unseal(m.transcript or m.body) or '')[:220]}" for m in msgs[-10:])
+    if not thread.strip():
+        return None
+    role_line = f"সক্রিয় রোল ({role.get('name', '')}): {role.get('instruction', '')}\n" if role.get("instruction") else ""
+    system = (
+        f"তুমি {cfg.get('assistant_name', 'সহকারী')}, {cfg.get('owner_name', 'সুমন ভাই')}-এর ব্যক্তিগত সহকারী। "
+        "কথোপকথনের পুরো প্রসঙ্গ বুঝে প্রেরকের শেষ বার্তার সরাসরি, ভদ্র ও প্রাসঙ্গিক উত্তর দাও (১–২ বাক্য)। "
+        "নিজে থেকে দাম, তারিখ, টাকা বা কোনো প্রতিশ্রুতি বানাবে না; শুধু NOTES, বাকি কাজ ও বর্তমান অবস্থার তথ্য ব্যবহার করো।\n"
+        + role_line + brain.ai_context(cfg)
+    )
+    user = (
+        f"অবস্থা: {st['label']} ({st['say']}); উত্তরের সময়: {cfg.get('reply_by', '')}\n"
+        f"NOTES: {'; '.join(notes) or '—'}\n"
+        f"বাকি কাজ: {'; '.join(open_tasks or []) or '—'}\n"
+        f"কথোপকথন:\n{thread}"
+    )
+    try:
+        text = _clean_draft(await ai_hub.run(db, "writing", system, user[:3200], max_tokens=220))
+    except ai_hub.HubError:
+        return None
+    if not text:
+        return None
+    allowed = " ".join([*notes, thread, st["say"], cfg.get("reply_by", "")])
+    return brain.guard_text(text, allowed, limit=450)

@@ -176,6 +176,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "channels": {"telegram": {"enabled": False, "auto": False}, "device": {"enabled": True, "auto_sms": False}, "email": {"enabled": False}},
     "platforms": platforms.default_block(),
     "custom_platforms": [],        # apps the owner added himself: [{"key","name","packages":[...]}], see platforms.normalize_custom
+    "automation": {"auto_spam_clean": True, "auto_callback_done": True, "daily_briefing": True, "briefing_time": "08:30"},
     "active_role": "personal_secretary",
     "custom_roles": [
         {

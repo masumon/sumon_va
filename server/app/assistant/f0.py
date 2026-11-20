@@ -69,11 +69,11 @@ _DRAFTS = re.compile(r"খসড়া|খসড়া|drafts?|khosra", re.I)
 _HISTORY = re.compile(r"কী\s*কী\s*পাঠানো|কী\s*পাঠানো|সাম্প্রতিক\s*কাজ|পাঠানোর\s*ইতিহাস|recent\s+(?:actions|sent)|action\s+history", re.I)
 _SYSTEM = re.compile(r"সহকারী(?:র)?\s*(?:অবস্থা|স্ট্যাটাস)|সব\s*ঠিক\s*আছে|\bhealth\b|\bstatus\b|sohokarir\s+obostha|shob\s+thik\s+ache", re.I)
 _RULES = re.compile(r"নিয়ম|সেটিং|\brules?\b|\bsettings?\b", re.I)
-_BULK_SPAM = re.compile(r"(?:সব\s*)?স্প্যাম\s*(?:মুছ|সাফ|ডিলিট|ক্লিয়ার)|clear\s+spam|delete\s+(?:all\s+)?spam", re.I)
-_BULK_ORGANIZE = re.compile(r"ইনবক্স\s*(?:সাজাও|গুছাও|সামলাও)|সব\s*বার্তা\s*সাজাও|organize\s+inbox", re.I)
-_BULK_APPROVE = re.compile(r"সব\s*খসড়া\s*পাঠাও|approve\s+all\s+drafts", re.I)
-_SMART_TASKS = re.compile(r"(?:টাস্ক|কাজ)\s*(?:সাজাও|গুছাও|নিশ্চিত\s*করো)|organize\s+tasks", re.I)
-_SEND_REPORT = re.compile(r"(?:২য়|দ্বিতীয়|হোয়াটসঅ্যাপ|অ্যাপ)?\s*রিপোর্ট\s*(?:পাঠাও|দাও|দেখাও)|send\s+report", re.I)
+_BULK_SPAM = re.compile(r"(?:সব\s*)?স্প্যাম\s*(?:মুছ|সাফ|ডিলিট|পরিষ্কার|ক্লিয়ার)|clear\s+spam|delete\s+(?:all\s+)?spam", re.I)
+_BULK_ORGANIZE = re.compile(r"(?:ইনবক্স(?:টা)?|সব\s*(?:বার্তা|মেসেজ)?)\s*(?:সাজাও|সাজান|গুছাও|গোছাও|সামলাও)|organize\s+inbox", re.I)
+_BULK_APPROVE = re.compile(r"সব\s*খসড়া\s*(?:পাঠাও|পাঠান)|approve\s+all\s+drafts", re.I)
+_SMART_TASKS = re.compile(r"(?:টাস্ক|কাজ)(?:গুলো)?\s*(?:সাজাও|সাজান|গুছাও|গোছাও|নিশ্চিত\s*করো)|organize\s+tasks", re.I)
+_SEND_REPORT = re.compile(r"(?:২য়|দ্বিতীয়|হোয়াটসঅ্যাপ|অ্যাপ)?\s*রিপোর্ট\s*(?:পাঠাও|পাঠান|দাও|দিন|দেখাও)|send\s+report", re.I)
 _SWITCH_ROLE = re.compile(r"^\s*(?P<role>.+?)\s*(?:রোল|ভূমিকা)\s*(?:চালু\s*করো|বদলাও|সেট\s*করো)|(?:switch|set)\s+role\s+(?P<role2>.+)", re.I)
 _TOGGLE_AUTO = re.compile(r"অটো\s*(?:উত্তর|মোড)\s*(?P<state>চালু|অন|বন্ধ|অফ)|turn\s+(?P<state2>on|off)\s+auto", re.I)
 _HELP = re.compile(r"^\s*(?:হ্যালো|হাই|সালাম|আসসালামু\s*আলাইকুম|কেমন\s*আছো?|সাহায্য|কী\s*কী?\s*করতে\s*পারো?|hello|hi|hey|help)\s*[!?.।]*\s*$", re.I)
@@ -160,7 +160,10 @@ _AI_SYSTEM = (
     "reply = he wants a message sent to someone; remember = save a fact about a person; add_task = create a new task/reminder in msg; "
     "search = find what someone said or find words; task_status = how a person's work/payment/order stands; "
     "memory = what is known about a person; person = who someone is; missed_calls; pending = who is waiting for an answer; tasks = his own task list; "
-    "alerts = urgent things; drafts = messages waiting for approval; history = what was sent; system = is the assistant working; rules = settings. "
+    "alerts = urgent things; drafts = messages waiting for approval; history = what was sent; system = is the assistant working; rules = settings; "
+    "bulk_clean_spam = delete all spam; bulk_organize = organize/sort inbox and prepare drafts; bulk_approve_drafts = send all waiting drafts; "
+    "smart_tasks = organize/confirm tasks; send_report_wa = send summary report to 2nd WhatsApp; "
+    "switch_role = activate a role by name in msg; toggle_auto = turn auto-reply on/off (msg='on' or 'off'). "
     "Keep the message in the owner's own language and words; never invent facts, prices or dates. Unknown: {\"intent\": \"unknown\"}."
 )
 

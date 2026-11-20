@@ -716,6 +716,23 @@ async def run_cron(db: AsyncSession) -> dict[str, Any]:
     try:
         out["swept"] = await sweep_unprocessed(db, now)
     except Exception:  # noqa: BLE001 - recovery must never stop the housekeeping below
+        pass
+    try:
+        from app.assistant import ai_hub
+        out["ai_keepalive"] = await ai_hub.keep_alive(db, every_minutes=20)
+    except Exception:  # noqa: BLE001 - AI keep-alive must never block cron
+        pass
+    if (app_cfg.get("automation") or {}).get("auto_spam_clean", True):
+        try:
+            cutoff = now - timedelta(days=3)
+            out["auto_spam_done"] = (await db.execute(
+                update(WaContact)
+                .where(WaContact.category == "spam", WaContact.state != "done", WaContact.is_family == False, WaContact.is_vip == False, WaContact.last_message_at <= cutoff)  # noqa: E712
+                .values(state="done", unread=0)
+            )).rowcount or 0
+            await db.commit()
+        except Exception:  # noqa: BLE001
+            pass
         logger.exception("sweep of unprocessed messages failed")
         await db.rollback()
     try:

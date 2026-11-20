@@ -242,11 +242,11 @@ def _candidates(task: str, need_vision: bool) -> list[tuple[dict[str, Any], dict
         cid, mid = pin.split(":", 1)
         pinned = [p for p in pairs if p[0]["id"] == cid and p[1]["id"] == mid]
         pairs = pinned + [p for p in pairs if p not in pinned]
-    # at most two models per connection, so one dead account can't eat the whole budget
+    # at most 4 models per connection so rate-limited top models seamlessly fall back to other working models
     seen: dict[str, int] = {}
     picked = []
     for c, m in pairs:
-        if seen.get(c["id"], 0) < 2:
+        if seen.get(c["id"], 0) < 4:
             picked.append((c, m))
             seen[c["id"]] = seen.get(c["id"], 0) + 1
     return picked
@@ -609,3 +609,28 @@ async def daily_check(db: AsyncSession) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("AI hub: broken-connection notice failed: %s", exc)
     return {"checked": len(result), "broken": len(broken), "full": full}
+
+
+_KEEPALIVE_KEY = "ai_hub_keepalive_at"
+
+
+async def keep_alive(db: AsyncSession, every_minutes: int = 20) -> dict[str, Any]:
+    """Periodic background keep-alive called by cron: wakes up idle/resting AI connections and keeps model rankings fresh."""
+    await _load(db)
+    conns = _state["conns"] or []
+    if not conns:
+        return {"skipped": True, "reason": "no_connections"}
+    row = (await _rows(db, [_KEEPALIVE_KEY])).get(_KEEPALIVE_KEY)
+    now = datetime.now(timezone.utc)
+    if row and row.value:
+        try:
+            last = datetime.fromisoformat(row.value)
+            if (now - last).total_seconds() < every_minutes * 60:
+                return {"skipped": True}
+        except ValueError:
+            pass
+    await _put(db, _KEEPALIVE_KEY, now.isoformat(timespec="seconds"), False)
+    await db.commit()
+    result = await test_all(db, full=False)
+    working = sum(1 for c in result if c.get("enabled") and c.get("status") == "ok")
+    return {"checked": len(result), "working": working}
