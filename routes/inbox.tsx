@@ -98,15 +98,15 @@ export default function InboxScreen() {
       onRefresh={() => { if (page === 1) void list.reload(); else setPage(1); }}
       refreshing={list.loading && shown.length > 0}
     >
-      {/* Compact Search Bar with Total Count Badge */}
+      {/* Modern Pill Search Bar with Total Count Badge */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           gap: 8,
-          paddingHorizontal: 12,
-          minHeight: 46,
-          borderRadius: design.radiusCard,
+          paddingHorizontal: 14,
+          minHeight: 48,
+          borderRadius: 999,
           borderWidth: 1,
           borderColor: design.cardBorder,
           backgroundColor: colors.surface,

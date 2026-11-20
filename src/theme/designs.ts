@@ -15,8 +15,8 @@ type Mode = 'light' | 'dark' | 'dim';
 const lightA: ThemeColors = { background: '#F1F5F9', surface: '#FFFFFF', surfaceMuted: '#E2E8F0', surfaceSunken: '#CBD5E1', primary: '#0F766E', primaryPressed: '#115E59', primaryTint: '#CCFBF1', onPrimary: '#FFFFFF', accent: '#1D4ED8', textPrimary: '#0F172A', textSecondary: '#334155', textMuted: '#475569', border: '#E2E8F0', borderStrong: '#CBD5E1', success: '#15803D', warning: '#B45309', danger: '#DC2626', info: '#1D4ED8', overlay: 'rgba(15, 23, 42, 0.55)' };
 const darkA: ThemeColors = { background: '#0B1120', surface: '#131C31', surfaceMuted: '#1E293B', surfaceSunken: '#090E1A', primary: '#2DD4BF', primaryPressed: '#14B8A6', primaryTint: '#134E4A', onPrimary: '#042F2E', accent: '#60A5FA', textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textMuted: '#94A3B8', border: '#1E293B', borderStrong: '#334155', success: '#4ADE80', warning: '#FBBF24', danger: '#F87171', info: '#60A5FA', overlay: 'rgba(0, 0, 0, 0.68)' };
 
-const lightB: ThemeColors = { background: '#EBEFF8', surface: '#FFFFFF', surfaceMuted: '#E3E9F6', surfaceSunken: '#D8DFF0', primary: '#3730A3', primaryPressed: '#2E2788', primaryTint: '#E3E6FA', onPrimary: '#FFFFFF', accent: '#0E7490', textPrimary: '#0F172A', textSecondary: '#334155', textMuted: '#475569', border: '#D5DCEE', borderStrong: '#B8C2DC', success: '#15803D', warning: '#B45309', danger: '#B91C1C', info: '#1D4ED8', overlay: 'rgba(15, 23, 42, 0.5)' };
-const darkB: ThemeColors = { background: '#080C1C', surface: '#10162D', surfaceMuted: '#171F3E', surfaceSunken: '#0A0F22', primary: '#818CF8', primaryPressed: '#6366F1', primaryTint: '#1C2550', onPrimary: '#0A0F22', accent: '#22D3EE', textPrimary: '#F3F4F6', textSecondary: '#D1D5DB', textMuted: '#A3AEC9', border: '#232C4E', borderStrong: '#34406B', success: '#86EFAC', warning: '#FCD34D', danger: '#FCA5A5', info: '#7DD3FC', overlay: 'rgba(0, 0, 0, 0.7)' };
+const lightB: ThemeColors = { background: '#F1F5F9', surface: '#FFFFFF', surfaceMuted: '#E2E8F0', surfaceSunken: '#CBD5E1', primary: '#0F766E', primaryPressed: '#115E59', primaryTint: '#CCFBF1', onPrimary: '#FFFFFF', accent: '#0284C7', textPrimary: '#0F172A', textSecondary: '#334155', textMuted: '#475569', border: '#E2E8F0', borderStrong: '#CBD5E1', success: '#15803D', warning: '#B45309', danger: '#DC2626', info: '#0284C7', overlay: 'rgba(15, 23, 42, 0.55)' };
+const darkB: ThemeColors = { background: '#0B1120', surface: '#131C31', surfaceMuted: '#1E293B', surfaceSunken: '#090E1A', primary: '#2DD4BF', primaryPressed: '#14B8A6', primaryTint: '#134E4A', onPrimary: '#042F2E', accent: '#38BDF8', textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textMuted: '#94A3B8', border: '#1E293B', borderStrong: '#334155', success: '#4ADE80', warning: '#FBBF24', danger: '#F87171', info: '#38BDF8', overlay: 'rgba(0, 0, 0, 0.7)' };
 
 const lightC: ThemeColors = { background: '#FFF7ED', surface: '#FFFFFF', surfaceMuted: '#FFEDD5', surfaceSunken: '#FDE3C3', primary: '#C2410C', primaryPressed: '#9A3412', primaryTint: '#FFEDD5', onPrimary: '#FFFFFF', accent: '#DB2777', textPrimary: '#1F2937', textSecondary: '#44403C', textMuted: '#57534E', border: '#F1E4D3', borderStrong: '#E5CDB0', success: '#15803D', warning: '#B45309', danger: '#B91C1C', info: '#1D4ED8', overlay: 'rgba(31, 24, 18, 0.5)' };
 const darkC: ThemeColors = { background: '#1C1410', surface: '#2A1D16', surfaceMuted: '#36261D', surfaceSunken: '#150F0B', primary: '#FB923C', primaryPressed: '#F97316', primaryTint: '#3D2A1D', onPrimary: '#2A1205', accent: '#F472B6', textPrimary: '#FFF7ED', textSecondary: '#E7D5C4', textMuted: '#B8A594', border: '#4A3527', borderStrong: '#634632', success: '#86EFAC', warning: '#FCD34D', danger: '#FCA5A5', info: '#93C5FD', overlay: 'rgba(0, 0, 0, 0.7)' };
@@ -79,25 +79,25 @@ export function getDesignTokens(id: DesignId, mode: Mode): DesignTokens {
     return {
       ...base,
       blobs: dim ? [] : dark
-        ? [{ color: '#4F46E5', alpha: 0.40, cx: '14%', cy: '4%', r: '60%' }, { color: '#06B6D4', alpha: 0.26, cx: '98%', cy: '32%', r: '56%' }, { color: '#F59E0B', alpha: 0.18, cx: '18%', cy: '94%', r: '56%' }]
-        : [{ color: '#4F46E5', alpha: 0.18, cx: '14%', cy: '4%', r: '60%' }, { color: '#06B6D4', alpha: 0.16, cx: '98%', cy: '32%', r: '56%' }],
-      radiusCard: 16, radiusChip: 10, radiusButton: 12, radiusHero: 20, radiusBar: 20,
-      cardFill: dim ? colors.surface : dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.82)',
-      cardBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.95)',
-      shadow: dim ? null : sh('#000000', dark ? 0.45 : 0.10, 16, 6, 3),
-      heroShadow: dim ? null : sh('#6366F1', 0.45, 20, 8, 6),
-      heroGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#0891B2'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#6366F1', '#06B6D4'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#0891B2'],
-      barFill: dim ? colors.surface : dark ? 'rgba(16,22,45,0.95)' : 'rgba(255,255,255,0.95)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.95)',
+        ? [{ color: '#0F766E', alpha: 0.22, cx: '14%', cy: '4%', r: '55%' }, { color: '#0284C7', alpha: 0.18, cx: '96%', cy: '30%', r: '50%' }]
+        : [{ color: '#0D9488', alpha: 0.12, cx: '14%', cy: '4%', r: '55%' }, { color: '#0284C7', alpha: 0.12, cx: '96%', cy: '30%', r: '50%' }],
+      radiusCard: 22, radiusChip: 999, radiusButton: 16, radiusHero: 28, radiusBar: 26,
+      cardFill: dim ? colors.surface : colors.surface,
+      cardBorder: dim ? colors.border : dark ? 'rgba(148,163,184,0.18)' : '#E2E8F0',
+      shadow: dim ? null : sh('#0F172A', dark ? 0.35 : 0.07, 14, 4, 2),
+      heroShadow: dim ? null : sh('#0F766E', 0.28, 20, 8, 6),
+      heroGrad: dim ? ['#2A2214', '#15130F'] : ['#0F172A', '#0F766E'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#0F766E', '#0284C7'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#0F172A', '#0F766E'],
+      barFill: dim ? colors.surface : dark ? 'rgba(16,22,45,0.98)' : 'rgba(255,255,255,0.98)', barBorder: dim ? colors.border : dark ? 'rgba(148,163,184,0.18)' : '#E2E8F0',
     };
   }
   return {
     ...base,
     blobs: dim ? [] : dark
-      ? [{ color: '#EA580C', alpha: 0.30, cx: '92%', cy: '4%', r: '56%' }, { color: '#DB2777', alpha: 0.22, cx: '4%', cy: '44%', r: '54%' }]
-      : [{ color: '#FDBA74', alpha: 0.46, cx: '92%', cy: '4%', r: '56%' }, { color: '#F9A8D4', alpha: 0.36, cx: '4%', cy: '44%', r: '54%' }, { color: '#86EFAC', alpha: 0.36, cx: '72%', cy: '96%', r: '56%' }],
-    radiusCard: 22, radiusChip: 16, radiusButton: 16, radiusHero: 28, radiusBar: 28,
+      ? [{ color: '#EA580C', alpha: 0.22, cx: '92%', cy: '4%', r: '52%' }, { color: '#0F766E', alpha: 0.16, cx: '6%', cy: '42%', r: '50%' }]
+      : [{ color: '#FDBA74', alpha: 0.26, cx: '92%', cy: '4%', r: '52%' }, { color: '#5EEAD4', alpha: 0.20, cx: '6%', cy: '42%', r: '50%' }],
+    radiusCard: 22, radiusChip: 999, radiusButton: 16, radiusHero: 28, radiusBar: 26,
     cardFill: dim ? colors.surface : colors.surface, cardBorder: dim ? colors.border : colors.border,
-    shadow: dim ? null : sh(dark ? '#000000' : '#9A3412', dark ? 0.4 : 0.10, 14, 5, 3),
+    shadow: dim ? null : sh(dark ? '#000000' : '#9A3412', dark ? 0.35 : 0.08, 14, 4, 2),
     heroShadow: dim ? null : sh('#EA580C', 0.35, 18, 8, 6),
     heroGrad: dim ? ['#2A2214', '#15130F'] : ['#EA580C', '#DB2777'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#EA580C', '#DB2777'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#EA580C', '#DB2777'],
     barFill: dim ? colors.surface : colors.surface, barBorder: dim ? colors.border : colors.border,

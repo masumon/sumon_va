@@ -130,21 +130,21 @@ export default function DashboardScreen() {
             </Text>
             <Text style={{ color: heroInk, fontSize: 19, fontWeight: '800', marginTop: 2 }}>{welcome}</Text>
             <Text style={{ color: heroSoft, fontSize: 12.5, marginTop: 2 }}>{summary}</Text>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => go('/f0')}
-                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)' }}
+                style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center' }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' }}>{bn ? '🎤 ভয়েস সহকারী' : '🎤 Voice AI'}</Text>
+                <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '800' }}>{bn ? '🎤 সহকারীকে বলুন' : '🎤 Voice AI'}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 disabled={busy}
                 onPress={() => void run(() => va.sendOwnerReport(), bn ? '✓ রিপোর্ট ২য় WhatsApp-এ পাঠানো হয়েছে' : '✓ Report sent')}
-                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)' }}
+                style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center' }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '800' }}>{bn ? '📊 ২য় WA রিপোর্ট' : '📊 2nd WA Report'}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>{bn ? '📊 ২য় WA রিপোর্ট' : '📊 2nd WA Report'}</Text>
               </Pressable>
             </View>
           </View>

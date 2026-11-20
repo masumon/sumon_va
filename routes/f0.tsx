@@ -156,8 +156,8 @@ export default function F0Screen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <AppIcon name="robot-happy-outline" size={20} color={colors.primary} />
-            <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '800', color: colors.textPrimary, flexShrink: 1 }}>
-              {bn ? 'ব্যক্তিগত AI সচিব (F0)' : 'Personal AI Secretary (F0)'}
+            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary, flexShrink: 1 }}>
+              {bn ? 'স্মার্ট সহকারী' : 'Smart Assistant'}
             </Text>
           </View>
           <Pressable
