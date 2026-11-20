@@ -327,14 +327,16 @@ async def run(db: AsyncSession, text: str, now: datetime | None = None) -> dict[
         return _reply("set_owner_wa", f"আপনার দ্বিতীয় WhatsApp আপডেট নম্বর ({num}) সেভ করা হয়েছে। এখন থেকে গুরুত্বপূর্ণ আপডেট ও সারাংশ এই নম্বরেও যাবে।")
     if intent == "unknown":
         clean_q = _ID.sub("", text or "").strip()
-        if len(clean_q) >= 4:
+        if len(clean_q) >= 2:
             try:
-                from app.assistant import wa_ai
+                from app.assistant import ai_hub, wa_ai
 
                 ans = (await wa_ai.ask(db, clean_q)).strip()
                 if ans:
                     return _reply("ai_answer", ans)
-            except Exception:  # noqa: BLE001 - fall back to help text when no AI key is configured
+            except ai_hub.HubError as he:
+                return _reply("ai_answer", f"AI এখন সাড়া দিতে পারেনি: {he.message_bn}। তবুও আমি ইনবক্স/টাস্ক/রিপোর্টের সব কমান্ড সরাসরি চালাতে পারি।")
+            except Exception:  # noqa: BLE001
                 pass
         return _reply("unknown", UNKNOWN_HELP)
     if intent == "help":
@@ -546,7 +548,7 @@ async def _overview_intents(db: AsyncSession, intent: str, p: dict[str, Any], no
         rep = await alerts_mod.send_owner_report(db, cfg)
         return _reply("send_report_wa", f"রিপোর্ট পাঠানো হয়েছে:\n{rep['text']}")
     if intent == "switch_role":
-        q_role = (parsed.get("msg") or "").strip().lower()
+        q_role = (p.get("msg") or "").strip().lower()
         roles = cfg.get("custom_roles") or []
         hit = next((r for r in roles if isinstance(r, dict) and (q_role in str(r.get("name", "")).lower() or q_role in str(r.get("id", "")).lower())), None)
         if not hit:
@@ -555,7 +557,7 @@ async def _overview_intents(db: AsyncSession, intent: str, p: dict[str, Any], no
         await wcfg.save_config(db, {"active_role": hit["id"]}, scope="app")
         return _reply("switch_role", f"রোল চালু হয়েছে: {hit['name']}")
     if intent == "toggle_auto":
-        on = parsed.get("msg") == "on"
+        on = p.get("msg") == "on"
         await wcfg.save_config(db, {"enabled": True if on else cfg.get("enabled"), "mode": "auto" if on else "shadow"}, scope="app")
         return _reply("toggle_auto", "অটো-উত্তর চালু করা হয়েছে ✓" if on else "অটো-উত্তর বন্ধ করা হয়েছে (এখন শুধু খসড়া হবে)")
     if intent == "rules":
