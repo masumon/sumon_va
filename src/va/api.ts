@@ -142,6 +142,7 @@ export type AssistantConfig = {
   owner_whatsapp?: string;
   active_role?: string;
   custom_roles?: CustomRole[];
+  automation?: { auto_spam_clean?: boolean; auto_callback_done?: boolean; daily_briefing?: boolean; briefing_time?: string };
   grouping?: { window_min: number };
   reminders?: { unanswered_min: number; only_important: boolean; task_lead_min: number };
   limits?: Limits;

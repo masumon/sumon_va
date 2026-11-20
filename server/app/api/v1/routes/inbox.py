@@ -222,6 +222,10 @@ async def device_ingest(body: IngestIn, background: BackgroundTasks, dev: InboxD
                         c.hold_until = now + timedelta(hours=int(cfg.get("hold_hours", 12)))
                         c.last_message_at = c.last_outbound_at = now
                         await alerts.clear_held_for_contact(db, c)
+                        # Auto-complete open callback tasks for this contact when the owner replies
+                        from sqlalchemy import update as _upd
+                        from app.models.wa import WaTask
+                        await db.execute(_upd(WaTask).where(WaTask.contact_id == c.id, WaTask.is_done == False).values(is_done=True, done_at=now))  # noqa: E712
                     continue
                 if email_filter.is_email_source(it.channel, app_):  # mail: only what matters (promotions never reach the database)
                     known = (await db.execute(select(WaContact.id).where(WaContact.phone == key, (WaContact.is_vip == True) | (WaContact.is_family == True) | (WaContact.tags.isnot(None))).limit(1))).first() is not None  # noqa: E712
