@@ -12,8 +12,8 @@ export const DEFAULT_DESIGN: DesignId = 'aurora';
 
 type Mode = 'light' | 'dark' | 'dim';
 
-const lightA: ThemeColors = { background: '#F4F6FB', surface: '#FFFFFF', surfaceMuted: '#EEF0FB', surfaceSunken: '#E4E7F5', primary: '#4F46E5', primaryPressed: '#4338CA', primaryTint: '#EEF0FF', onPrimary: '#FFFFFF', accent: '#7C3AED', textPrimary: '#111827', textSecondary: '#374151', textMuted: '#4B5563', border: '#E1E4F2', borderStrong: '#C9CEE6', success: '#15803D', warning: '#B45309', danger: '#B91C1C', info: '#1D4ED8', overlay: 'rgba(17, 24, 39, 0.5)' };
-const darkA: ThemeColors = { background: '#0B1020', surface: '#151B34', surfaceMuted: '#1E2547', surfaceSunken: '#0E1428', primary: '#A5B4FC', primaryPressed: '#8B9CF5', primaryTint: '#222A57', onPrimary: '#0B1020', accent: '#C4B5FD', textPrimary: '#F3F4F6', textSecondary: '#D1D5DB', textMuted: '#A9B2C8', border: '#27304D', borderStrong: '#3A4672', success: '#86EFAC', warning: '#FCD34D', danger: '#FCA5A5', info: '#93C5FD', overlay: 'rgba(0, 0, 0, 0.66)' };
+const lightA: ThemeColors = { background: '#F1F5F9', surface: '#FFFFFF', surfaceMuted: '#E2E8F0', surfaceSunken: '#CBD5E1', primary: '#0F766E', primaryPressed: '#115E59', primaryTint: '#CCFBF1', onPrimary: '#FFFFFF', accent: '#1D4ED8', textPrimary: '#0F172A', textSecondary: '#334155', textMuted: '#475569', border: '#E2E8F0', borderStrong: '#CBD5E1', success: '#15803D', warning: '#B45309', danger: '#DC2626', info: '#1D4ED8', overlay: 'rgba(15, 23, 42, 0.55)' };
+const darkA: ThemeColors = { background: '#0B1120', surface: '#131C31', surfaceMuted: '#1E293B', surfaceSunken: '#090E1A', primary: '#2DD4BF', primaryPressed: '#14B8A6', primaryTint: '#134E4A', onPrimary: '#042F2E', accent: '#60A5FA', textPrimary: '#F8FAFC', textSecondary: '#CBD5E1', textMuted: '#94A3B8', border: '#1E293B', borderStrong: '#334155', success: '#4ADE80', warning: '#FBBF24', danger: '#F87171', info: '#60A5FA', overlay: 'rgba(0, 0, 0, 0.68)' };
 
 const lightB: ThemeColors = { background: '#EBEFF8', surface: '#FFFFFF', surfaceMuted: '#E3E9F6', surfaceSunken: '#D8DFF0', primary: '#3730A3', primaryPressed: '#2E2788', primaryTint: '#E3E6FA', onPrimary: '#FFFFFF', accent: '#0E7490', textPrimary: '#0F172A', textSecondary: '#334155', textMuted: '#475569', border: '#D5DCEE', borderStrong: '#B8C2DC', success: '#15803D', warning: '#B45309', danger: '#B91C1C', info: '#1D4ED8', overlay: 'rgba(15, 23, 42, 0.5)' };
 const darkB: ThemeColors = { background: '#080C1C', surface: '#10162D', surfaceMuted: '#171F3E', surfaceSunken: '#0A0F22', primary: '#818CF8', primaryPressed: '#6366F1', primaryTint: '#1C2550', onPrimary: '#0A0F22', accent: '#22D3EE', textPrimary: '#F3F4F6', textSecondary: '#D1D5DB', textMuted: '#A3AEC9', border: '#232C4E', borderStrong: '#34406B', success: '#86EFAC', warning: '#FCD34D', danger: '#FCA5A5', info: '#7DD3FC', overlay: 'rgba(0, 0, 0, 0.7)' };
@@ -71,7 +71,7 @@ export function getDesignTokens(id: DesignId, mode: Mode): DesignTokens {
       cardBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.9)',
       shadow: dim ? null : sh(dark ? '#000000' : '#4F46E5', dark ? 0.35 : 0.12, 16, 6, 3),
       heroShadow: dim ? null : sh('#4F46E5', 0.35, 18, 8, 6),
-      heroGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#7C3AED'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#4F46E5', '#7C3AED'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#4F46E5', '#7C3AED'],
+      heroGrad: dim ? ['#2A2214', '#15130F'] : ['#0F766E', '#1D4ED8'], ctaGrad: dim ? ['#D6A453', '#BF8F44'] : ['#0F766E', '#1D4ED8'], drawerGrad: dim ? ['#2A2214', '#15130F'] : ['#0F172A', '#0F766E'],
       barFill: dim ? colors.surface : dark ? 'rgba(21,27,52,0.95)' : 'rgba(255,255,255,0.95)', barBorder: dim ? colors.border : dark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.95)',
     };
   }

@@ -75,6 +75,7 @@ type Native = {
   openFullScreenSettings(): boolean;
   smsHistory(days: number, limit: number): Promise<string>;
   requestDeviceAdmin(): boolean;
+  startVoiceInput(lang: string): Promise<{ ok: boolean; text?: string; error?: string }>;
 };
 
 // Optional, like device-state: null in tests and in any build without the native side.
@@ -88,9 +89,14 @@ export const emptyStatus: BridgeStatus = {
   lastError: null, pollSeconds: 20, packages: [], accountName: null, accountEmail: null, activity: false, alertUrgent: 3, alertImportant: 2, alertNormal: 1, alertVolume: 3, location: false, contacts: false, storage: false, microphone: false, exactAlarm: false, fullScreen: false,
 };
 
-export function getStatus(): BridgeStatus {
-  try { return native ? native.getStatus() : emptyStatus; } catch { return emptyStatus; }
-}
+export const getStatus = (() => {
+  return () => {
+    try { return native ? native.getStatus() : emptyStatus; } catch { return emptyStatus; }
+  };
+})();
+
+export const startVoiceInput = (lang = 'bn-BD'): Promise<{ ok: boolean; text?: string; error?: string }> =>
+  native ? native.startVoiceInput(lang) : Promise.resolve({ ok: false, error: 'এই ফোনে ভয়েস ইনপুট নেই' });
 
 export const pair = (base: string, code: string, name: string) =>
   native ? native.pair(base, code, name) : Promise.resolve({ ok: false, error: 'এই বিল্ডে ফোন-মডিউল নেই' });

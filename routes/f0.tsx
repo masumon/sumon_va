@@ -12,7 +12,7 @@ import { va, errTone, type F0Result } from '../src/va/api';
 import { Page } from '../src/va/Page';
 import { useAppActive, useLoad } from '../src/va/hooks';
 import { CHANNEL, MESSAGE_STATUS } from '../src/va/labels';
-import { readMediaUri, readSharedMedia, type SharedMediaResult } from '../modules/va-bridge';
+import { readMediaUri, readSharedMedia, startVoiceInput, type SharedMediaResult } from '../modules/va-bridge';
 
 function outcome(r: unknown, bn: boolean): { text: string; ok: boolean } | null {
   const m = r && typeof r === 'object' ? (r as { status?: string; error?: string | null }) : {};
@@ -352,6 +352,25 @@ export default function F0Screen() {
               fontSize: 13.5,
             }}
           />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={bn ? 'ভয়েস কমান্ড দিন' : 'Voice command'}
+            disabled={busy}
+            onPress={() => {
+              void startVoiceInput(bn ? 'bn-BD' : 'en-US').then((v) => {
+                if (v.ok && v.text) {
+                  setText(v.text);
+                  setAsked(v.text);
+                  void send(v.text);
+                } else if (v.error) {
+                  showSnackbar(v.error, 'info');
+                }
+              });
+            }}
+            style={{ width: 44, height: 46, borderRadius: 12, backgroundColor: colors.primaryTint, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <AppIcon name="microphone" size={20} color={colors.primary} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={bn ? 'ভয়েস, ছবি বা ভিডিও বাছুন' : 'Pick voice, photo or video'}

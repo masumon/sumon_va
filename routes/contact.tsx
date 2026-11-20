@@ -285,7 +285,13 @@ export default function ContactScreen() {
                     : (bn ? `অ্যাপের সাধারণ নিয়মে চলবে (${ac.mode === 'auto' ? 'অটো চালু' : 'শুধু খসড়া'}${ac.ai.enabled ? ' · AI চালু' : ' · AI বন্ধ'})।` : `Follows app default (${ac.mode === 'auto' ? 'auto' : 'drafts'}${ac.ai.enabled ? ' · AI on' : ' · AI off'}).`);
 
   return (
-    <Page title={c ? displayName(c) : '…'} subtitle={c ? (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) ?? c.channel : undefined} back={bn ? 'ইনবক্স' : 'Inbox'} right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null} onRefresh={detail.reload} refreshing={detail.loading && !!detail.data}
+    <Page
+      title={c ? displayName(c) : '…'}
+      subtitle={c ? [c.source_label || (bn ? CHANNEL[c.channel]?.bn : CHANNEL[c.channel]?.en) || c.channel, c.ago].filter(Boolean).join(' · ') : undefined}
+      back={bn ? 'ইনবক্স' : 'Inbox'}
+      right={c ? <ChatMenuButton contact={c} onChanged={() => void detail.reload()} size={26} /> : null}
+      onRefresh={detail.reload}
+      refreshing={detail.loading && !!detail.data}
       footer={c ? (
         <View style={{ gap: 8 }}>
           {draftMeta ? (

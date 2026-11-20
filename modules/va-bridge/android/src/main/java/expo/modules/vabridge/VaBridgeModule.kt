@@ -24,6 +24,8 @@ import org.json.JSONObject
 class VaBridgeModule : Module() {
   private val ctx: Context get() = appContext.reactContext ?: throw IllegalStateException("no context")
   private val io = java.util.concurrent.Executors.newFixedThreadPool(6)
+  @Volatile private var voicePromise: Promise? = null
+  private val VOICE_REQ_CODE = 7421
 
   private fun granted(permission: String) = ContextCompat.checkSelfPermission(ctx, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -383,6 +385,38 @@ class VaBridgeModule : Module() {
     AsyncFunction("readChatFile") { uriStr: String, promise: Promise ->
       val c = ctx
       io.execute { promise.resolve(readChatText(c, Uri.parse(uriStr))) }
+    }
+    AsyncFunction("startVoiceInput") { lang: String, promise: Promise ->
+      val act = appContext.currentActivity
+      if (act == null) {
+        promise.resolve(mapOf("ok" to false, "error" to "অ্যাক্টিভিটি পাওয়া যায়নি"))
+        return@AsyncFunction
+      }
+      try {
+        voicePromise?.resolve(mapOf("ok" to false, "error" to "বাতিল হয়েছে"))
+        voicePromise = promise
+        val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+          putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+          putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, if (lang.isNotBlank()) lang else "bn-BD")
+          putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "বলুন, সহকারী শুনছে...")
+        }
+        act.startActivityForResult(intent, VOICE_REQ_CODE)
+      } catch (e: Exception) {
+        voicePromise = null
+        promise.resolve(mapOf("ok" to false, "error" to "এই ফোনে ভয়েস ইনপুট চালু করা যায়নি"))
+      }
+    }
+    OnActivityResult { _, payload ->
+      if (payload.requestCode == VOICE_REQ_CODE) {
+        val p = voicePromise
+        voicePromise = null
+        if (p != null) {
+          val matches = payload.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+          val text = matches?.firstOrNull()?.trim().orEmpty()
+          if (text.isNotEmpty()) p.resolve(mapOf("ok" to true, "text" to text))
+          else p.resolve(mapOf("ok" to false, "error" to "কোনো কথা শোনা যায়নি"))
+        }
+      }
     }
   }
 

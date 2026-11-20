@@ -182,6 +182,21 @@ class PollService : Service() {
           for (k in keys) {
             if (ReplyBoxes.send(ctx, k, body)) { sent = true; break }
           }
+          if (!sent && VaAutoSendService.isEnabled(ctx)) {
+            val waPkgs = listOf("com.whatsapp", "com.whatsapp.w4b")
+            val installedPkg = waPkgs.firstOrNull {
+              try { ctx.packageManager.getPackageInfo(it, 0); true } catch (_: Exception) { false }
+            }
+            if (installedPkg != null) {
+              AutoSendQueue.arm(installedPkg, 15_000L)
+              val (how, _) = ChatOpener.open(ctx, installedPkg, clean, body)
+              if (how == "chat") {
+                sent = true
+              } else {
+                AutoSendQueue.disarm()
+              }
+            }
+          }
           if (sent) null
           else {
             val guard = smsGuard(ctx, clean)
