@@ -70,6 +70,22 @@ class VaNotificationListener : NotificationListenerService() {
       if (chat.isEmpty() || chat.lowercase() in SELF_NAMES || rawTitle.lowercase() in SELF_NAMES) return
       rememberReplyBox(sbn.packageName, chat, n)
 
+      // Check if the owner himself just replied in this chat app (so server clears urgent alerts & marks handled)
+      val selfMsg = lastSelfMessageOf(extras)
+      if (selfMsg != null && !ReplyBoxes.wasJustSent(selfMsg.first)) {
+        val selfKey = "${sbn.packageName}|$chat|self|${selfMsg.first}|${selfMsg.second / 60000}"
+        if (!Outbox.duplicate(selfKey)) {
+          val extSelf = "sr:" + sha(selfKey)
+          val selfItem = item("self_replied", "notif", chat, sbn.packageName, selfMsg.first, extSelf, null, group)
+          worker.execute {
+            try {
+              Outbox.add(ctx, selfItem)
+              Awake.hold(ctx, 30_000, "notif") { Outbox.flush(ctx) }
+            } catch (_: Exception) {}
+          }
+        }
+      }
+
       // Several messages often arrive in ONE notification: read each of them, not only the last line.
       val list = messagesOf(extras)
       val items = if (list.isNotEmpty()) list else listOf(Triple(if (group) rawTitle.substringAfter(": ", "") else "", text, sbn.postTime))
@@ -135,6 +151,21 @@ class VaNotificationListener : NotificationListenerService() {
     val action = n.actions?.firstOrNull { a -> a.remoteInputs?.isNotEmpty() == true } ?: return
     ReplyBoxes.put("notif:${pkg.take(30)}:$sender", action.actionIntent, action.remoteInputs)
   }
+
+  /** Returns (text, time) of the newest message sent by the owner ("You" / selfPerson) inside this chat notification, if any. */
+  private fun lastSelfMessageOf(extras: Bundle): Pair<String, Long>? = try {
+    @Suppress("DEPRECATION") val arr = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
+    val since = System.currentTimeMillis() - 10 * 60_000L
+    @Suppress("DEPRECATION")
+    val selfPerson = if (Build.VERSION.SDK_INT >= 28) extras.getParcelable<android.app.Person>(Notification.EXTRA_MESSAGING_PERSON)?.name?.toString()?.trim()?.lowercase().orEmpty() else ""
+    Notification.MessagingStyle.Message.getMessagesFromBundleArray(arr)
+      .filter {
+        val s = it.senderPerson?.name?.toString()?.trim()?.lowercase().orEmpty()
+        it.timestamp >= since && !it.text.isNullOrBlank() && (s in SELF_NAMES || (selfPerson.isNotEmpty() && s == selfPerson))
+      }
+      .maxByOrNull { it.timestamp }
+      ?.let { it.text.toString().trim() to it.timestamp }
+  } catch (_: Exception) { null }
 
   /** (sender, text, time) of every message inside a chat notification, newest last; only today's, so old ones are not re-sent. */
   private fun messagesOf(extras: Bundle): List<Triple<String, String, Long>> = try {

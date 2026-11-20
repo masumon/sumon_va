@@ -32,6 +32,10 @@ const QUICK: readonly { bn: string; en: string; cmd: string; icon: IconName }[] 
   { bn: 'কী পাঠানো হলো', en: 'What was sent', cmd: 'কী কী পাঠানো হয়েছে', icon: 'send-check-outline' },
   { bn: 'সহকারীর অবস্থা', en: 'Status', cmd: 'সহকারীর অবস্থা', icon: 'robot-outline' },
   { bn: 'নিয়ম', en: 'Rules', cmd: 'নিয়ম', icon: 'shield-check-outline' },
+  { bn: 'ইনবক্স সাজাও', en: 'Organize inbox', cmd: 'ইনবক্স সাজাও', icon: 'auto-fix' },
+  { bn: 'সব স্প্যাম মুছো', en: 'Clean spam', cmd: 'সব স্প্যাম মুছো', icon: 'delete-sweep-outline' },
+  { bn: 'টাস্ক সাজাও', en: 'Organize tasks', cmd: 'টাস্ক সাজাও', icon: 'checkbox-multiple-marked-outline' },
+  { bn: '২য় WA রিপোর্ট', en: '2nd WA Report', cmd: 'রিপোর্ট পাঠাও', icon: 'whatsapp' },
 ];
 
 export default function F0Screen() {

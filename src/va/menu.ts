@@ -23,7 +23,7 @@ export const MENU: MenuSection[] = [
   {
     key: 'modules', bn: 'আমার অ্যাপগুলো', en: 'My apps',
     items: [
-      { href: '/channels', icon: 'apps', bn: 'সব অ্যাপ', en: 'All apps', hintBn: 'WhatsApp, SMS, Telegram… কোনটা যুক্ত', hintEn: 'Which apps are connected' },
+      { href: '/channels', icon: 'apps', bn: 'মাধ্যম ও ফোন সংযোগ', en: 'Apps & phone link', hintBn: 'WhatsApp, SMS, কল ও ফোন অনুমতির অবস্থা', hintEn: 'Which apps & phone permissions are connected' },
       ...MODULES.map((m) => ({ href: `/m/${m.key}`, icon: m.icon, bn: m.bn, en: m.en, hintBn: m.hintBn, hintEn: m.hintEn })),
     ],
   },

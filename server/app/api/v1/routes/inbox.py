@@ -27,7 +27,7 @@ from app.api.v1.routes.wa_assistant import OWNER, _api_base, _audit
 from app.assistant import channels as ch
 from app.assistant import wa_config as wcfg
 from app.assistant import wa_flow as flow
-from app.assistant.channels import email_filter, imap_mail, phone_login, telegram, wake
+from app.assistant.channels import alerts, email_filter, imap_mail, phone_login, telegram, wake
 from app.assistant.channels.ingest import ingest
 from app.assistant.wa_send import SendError
 from app.api.v1.routes.auth import _client_ip, _clear_failures, _is_locked, _record_failure, _register_account_failure
@@ -160,7 +160,7 @@ async def device_pair(body: PairIn, db: AsyncSession = Depends(get_db)):
 
 
 class IngestItem(BaseModel):
-    type: str = Field(default="msg", pattern="^(msg|call|seen|guard)$")  # seen = a chat notification was dismissed (NOT proof it was read); guard = the phone's protection was touched
+    type: str = Field(default="msg", pattern="^(msg|call|seen|guard|self_replied)$")  # seen = notification dismissed; self_replied = owner replied directly in chat app; guard = protection touched
     channel: str = Field(pattern="^(sms|notif)$")
     sender: str = Field(min_length=1, max_length=60)      # SMS number, or the person's name shown in the notification
     app: str | None = Field(default=None, max_length=60)  # package name, for notif
@@ -206,6 +206,22 @@ async def device_ingest(body: IngestIn, background: BackgroundTasks, dev: InboxD
                     continue
                 if it.type == "seen":  # only a signal on the person's latest message; it never creates a message or an alert
                     await flow.mark_dismissed(db, key, datetime.fromtimestamp(it.at / 1000, tz=timezone.utc) if it.at and it.at > 10**11 else None)
+                    continue
+                if it.type == "self_replied":
+                    # The owner opened the chat app on his phone and answered himself: mark handled, clear unread & urgent alerts.
+                    c = (await db.execute(select(WaContact).where(WaContact.phone == key).limit(1))).scalar_one_or_none()
+                    if c:
+                        now = _now()
+                        for d in (await db.execute(select(WaMessage).where(WaMessage.contact_id == c.id, WaMessage.direction == "out", WaMessage.status.in_(("draft", "failed"))))).scalars().all():
+                            d.status = "discarded"
+                        if text_in:
+                            stored_self = privacy.seal(text_in) if privacy.is_private(c) else text_in
+                            db.add(WaMessage(contact_id=c.id, direction="out", kind="text", body=stored_self, reason="owner",
+                                             status="sent", delivery="manual", sent_at=now, ext_id=ext, meta={"via": "phone-self"}))
+                        c.state, c.unread = "owner", 0
+                        c.hold_until = now + timedelta(hours=int(cfg.get("hold_hours", 12)))
+                        c.last_message_at = c.last_outbound_at = now
+                        await alerts.clear_held_for_contact(db, c)
                     continue
                 if email_filter.is_email_source(it.channel, app_):  # mail: only what matters (promotions never reach the database)
                     known = (await db.execute(select(WaContact.id).where(WaContact.phone == key, (WaContact.is_vip == True) | (WaContact.is_family == True) | (WaContact.tags.isnot(None))).limit(1))).first() is not None  # noqa: E712

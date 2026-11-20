@@ -49,16 +49,47 @@ export default function InboxScreen() {
   if (params.view !== linkSeen) { setLinkSeen(params.view); if (fromLink) { setView(fromLink); setPage(1); setItems([]); } }
   const [q, setQ] = useState('');
   const [askClear, setAskClear] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [askBulkDelete, setAskBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const { showSnackbar } = useAppFeedback();
   const [term, setTerm] = useState('');
-  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); setItems([]); }, 350); return () => clearTimeout(t); }, [q]);
+  useEffect(() => { const t = setTimeout(() => { setTerm(q); setPage(1); }, 350); return () => clearTimeout(t); }, [q]);
   const list = useLoad(async () => {
     const r = await va.contacts(view, term, page);
     setItems((prev) => (page === 1 ? r.items : [...prev, ...r.items]));
     return r;
   }, `contacts:${view}|${term}|${page}`, 20000);
   const total = list.data?.total ?? 0;
-  const shown = items;
+  const shown = items.length > 0 ? items : (list.data?.items ?? []);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const runBulk = async (action: 'auto_organize' | 'approve_all_drafts' | 'mark_done' | 'delete_contacts') => {
+    setBulkBusy(true);
+    try {
+      const r = await va.bulkInbox(action, selectedIds);
+      const msg = action === 'auto_organize'
+        ? (bn ? `✨ সাজানো হয়েছে: ${num(r.drafted ?? 0, true)}টি খসড়া, ${num(r.spam_cleared ?? 0, true)}টি স্প্যাম আলাদা` : `Organized: ${r.drafted ?? 0} drafts`)
+        : action === 'approve_all_drafts'
+          ? (bn ? `✓ ${num(r.sent ?? 0, true)}টি খসড়া পাঠানো হয়েছে` : `Sent ${r.sent ?? 0} drafts`)
+          : action === 'mark_done'
+            ? (bn ? `✓ ${num(r.count ?? 0, true)}টি চ্যাট শেষ হয়েছে` : `Marked ${r.count ?? 0} done`)
+            : (bn ? `✓ ${num(r.count ?? 0, true)}টি চ্যাট মুছে ফেলা হয়েছে` : `Deleted ${r.count ?? 0} chats`);
+      showSnackbar(msg, 'success');
+      setSelectedIds([]);
+      setSelectMode(false);
+      setPage(1);
+      await list.reload();
+    } catch (e) {
+      showSnackbar(e instanceof Error ? e.message : '', 'danger');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   return (
     <Page
@@ -110,7 +141,7 @@ export default function InboxScreen() {
               key={v.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              onPress={() => { setView(v.key); setPage(1); setItems([]); }}
+              onPress={() => { setView(v.key); setPage(1); }}
               style={{
                 paddingHorizontal: 13,
                 paddingVertical: 7,
@@ -133,6 +164,59 @@ export default function InboxScreen() {
       {VIEW_HINT[view] ? (
         <Text style={{ fontSize: 12, color: colors.textSecondary }}>{bn ? VIEW_HINT[view]!.bn : VIEW_HINT[view]!.en}</Text>
       ) : null}
+
+      {/* Smart Bulk AI & Multi-Select Bar */}
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={bulkBusy}
+          onPress={() => void runBulk('auto_organize')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.primaryTint, borderWidth: 1, borderColor: colors.primary, opacity: bulkBusy ? 0.6 : 1 }}
+        >
+          <AppIcon name="auto-fix" size={15} color={colors.primary} />
+          <Text style={{ fontSize: 11.5, fontWeight: '800', color: colors.primary }}>{bn ? 'AI দিয়ে সাজান' : 'AI Organize'}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={bulkBusy}
+          onPress={() => void runBulk('approve_all_drafts')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, opacity: bulkBusy ? 0.6 : 1 }}
+        >
+          <AppIcon name="send-check-outline" size={15} color={colors.success} />
+          <Text style={{ fontSize: 11.5, fontWeight: '800', color: colors.textPrimary }}>{bn ? 'সব খসড়া পাঠান' : 'Send all drafts'}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { setSelectMode((v) => !v); setSelectedIds([]); }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 12, backgroundColor: selectMode ? colors.primary : colors.surface, borderWidth: 1, borderColor: selectMode ? colors.primary : colors.border }}
+        >
+          <AppIcon name="checkbox-multiple-marked-outline" size={15} color={selectMode ? colors.onPrimary : colors.textPrimary} />
+          <Text style={{ fontSize: 11.5, fontWeight: '800', color: selectMode ? colors.onPrimary : colors.textPrimary }}>{selectMode ? (bn ? 'বাছাই শেষ' : 'Cancel select') : (bn ? 'একাধিক বাছুন' : 'Select')}</Text>
+        </Pressable>
+      </View>
+
+      {selectMode && selectedIds.length > 0 ? (
+        <View style={{ flexDirection: 'row', gap: 8, padding: 10, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary }}>
+          <View style={{ flex: 1 }}>
+            <AppButton label={bn ? `✓ কাজ শেষ (${num(selectedIds.length, true)})` : `Done (${selectedIds.length})`} loading={bulkBusy} onPress={() => void runBulk('mark_done')} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton variant="danger" label={bn ? `মুছুন (${num(selectedIds.length, true)})` : `Delete (${selectedIds.length})`} disabled={bulkBusy} onPress={() => setAskBulkDelete(true)} />
+          </View>
+        </View>
+      ) : null}
+
+      <AppConfirmDialog
+        visible={askBulkDelete}
+        danger
+        icon="delete-outline"
+        title={bn ? 'বাছাই করা চ্যাট মুছবেন?' : 'Delete selected chats?'}
+        description={bn ? `${num(selectedIds.length, true)}টি চ্যাট স্থায়ীভাবে মুছে যাবে। পরিবার ও VIP কখনো মোছা হয় না।` : `${selectedIds.length} chats will be permanently deleted. Family & VIP are protected.`}
+        confirmLabel={bn ? 'হ্যাঁ, মুছুন' : 'Delete'}
+        cancelLabel={bn ? 'না' : 'No'}
+        onCancel={() => setAskBulkDelete(false)}
+        onConfirm={() => { setAskBulkDelete(false); void runBulk('delete_contacts'); }}
+      />
 
       {view === 'spam' ? (
         <View style={{ gap: 8 }}>
@@ -177,6 +261,9 @@ export default function InboxScreen() {
             <ContactRow
               key={c.id}
               contact={c}
+              selectable={selectMode}
+              selected={selectedIds.includes(c.id)}
+              onToggleSelect={() => toggleSelect(c.id)}
               onPress={() => router.push({ pathname: '/contact', params: { id: c.id } } as never)}
               onChanged={() => { setPage(1); void list.reload(); }}
             />

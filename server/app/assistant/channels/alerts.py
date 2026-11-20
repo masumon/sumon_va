@@ -74,11 +74,30 @@ async def held_alerts(db: AsyncSession, hours: int = 24) -> list[dict[str, Any]]
     return [i for i in _load_held(await flow._get_val(db, HELD_KEY)) if str(i.get("ts", "")) >= cut]
 
 
-async def _record_held(db: AsyncSession, who: str, priority: int, reason: str) -> None:
+async def _record_held(db: AsyncSession, who: str, priority: int, reason: str, contact_id: str | None = None) -> None:
     items = _load_held(await flow._get_val(db, HELD_KEY))
-    items.append({"who": who[:60], "p": priority, "why": reason, "ts": flow.utcnow().isoformat(timespec="seconds")})
+    items.append({"who": who[:60], "cid": contact_id or "", "p": priority, "why": reason, "ts": flow.utcnow().isoformat(timespec="seconds")})
     await flow._set_val(db, HELD_KEY, json.dumps({"items": items[-HELD_MAX:]}, ensure_ascii=False))
     await db.commit()
+
+
+async def clear_held_for_contact(db: AsyncSession, contact: WaContact) -> None:
+    """Remove any held urgent alert for this contact and cancel unsent alert commands once the owner replied or marked done."""
+    from sqlalchemy import update
+
+    who = (contact.name or contact.phone.split(":", 1)[-1])[:60]
+    cid = str(contact.id)
+    items = _load_held(await flow._get_val(db, HELD_KEY))
+    kept = [i for i in items if i.get("cid") != cid and i.get("who") != who]
+    if len(kept) != len(items):
+        await flow._set_val(db, HELD_KEY, json.dumps({"items": kept}, ensure_ascii=False))
+    await db.execute(
+        update(InboxCommand)
+        .where(InboxCommand.kind == "alert", InboxCommand.msg_id == contact.id, InboxCommand.acked_at.is_(None))
+        .values(acked_at=flow.utcnow(), status="cancelled")
+    )
+    # Also tell the phone to dismiss any active alert notification for this contact
+    db.add(InboxCommand(device_id=None, kind="clear_alert", target=cid, body="", msg_id=contact.id))
 
 
 def _queue_owner_whatsapp(db: AsyncSession, cfg: dict[str, Any] | None, text: str) -> bool:
@@ -99,15 +118,71 @@ async def relay_to_owner_whatsapp(db: AsyncSession, cfg: dict[str, Any], text: s
     return True
 
 
+async def build_owner_report_text(db: AsyncSession) -> str:
+    """Build a crisp Bangla summary report for the owner's 2nd WhatsApp and Telegram."""
+    from sqlalchemy import func, select
+    from app.models.wa import WaMessage, WaTask
+
+    now = flow.utcnow()
+    day_ago = now - timedelta(hours=24)
+    n = brain.bn_digits
+    waiting = (await db.execute(select(func.count()).select_from(WaContact).where(WaContact.unread > 0, WaContact.state != "done", WaContact.is_blocked == False))).scalar_one()  # noqa: E712
+    urgent = (await db.execute(select(func.count()).select_from(WaContact).where(WaContact.unread > 0, WaContact.state != "done", WaContact.priority <= 2, WaContact.is_blocked == False))).scalar_one()  # noqa: E712
+    sent_24 = (await db.execute(select(func.count()).select_from(WaMessage).where(WaMessage.direction == "out", WaMessage.status == "sent", WaMessage.created_at >= day_ago))).scalar_one()
+    in_24 = (await db.execute(select(func.count()).select_from(WaMessage).where(WaMessage.direction == "in", WaMessage.created_at >= day_ago))).scalar_one()
+    tasks_open = (await db.execute(select(func.count()).select_from(WaTask).where(WaTask.is_done == False))).scalar_one()  # noqa: E712
+    lines = [
+        "📊 সুমন সহকারীর রিপোর্ট (গত ২৪ ঘণ্টা):",
+        f"• বার্তা এসেছে: {n(in_24)}টি · উত্তর গেছে: {n(sent_24)}টি",
+        f"• উত্তর বাকি: {n(waiting)} জন (জরুরি: {n(urgent)} জন)",
+        f"• বাকি কাজ (Tasks): {n(tasks_open)}টি",
+    ]
+    return "\n".join(lines)
+
+
+async def send_owner_report(db: AsyncSession, cfg: dict[str, Any]) -> dict[str, Any]:
+    """Send an immediate report to the owner's 2nd WhatsApp number and Telegram."""
+    text = await build_owner_report_text(db)
+    tg_ok = False
+    if telegram.configured() and settings.TELEGRAM_OWNER_ID:
+        try:
+            await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
+            tg_ok = True
+        except Exception:  # noqa: BLE001
+            logger.warning("owner report telegram failed", exc_info=True)
+    wa_ok = _queue_owner_whatsapp(db, cfg, text)
+    if wa_ok:
+        await db.commit()
+        wake.notify()
+    return {"text": text, "telegram": tg_ok, "whatsapp_queued": wa_ok}
+
+
 async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
-    """Once the quiet time is over (and the daily cap has room), tell the owner ONCE what was held back. Returns how many were summarised."""
+    """Once the quiet time is over (and the daily cap has room), tell the owner ONCE what was held back.
+    Skips any contact who was already answered or marked done in the meantime.
+    """
+    from sqlalchemy import select
+
     now = brain.now_dhaka()
     limits = cfg.get("limits") or {}
     items = await held_alerts(db)
     if not items or in_quiet_hours(limits, now):
         return 0
-    names = ", ".join(dict.fromkeys(i["who"] for i in items))[:300]
-    text = f"⏸ {brain.bn_digits(len(items))}টি জরুরি বার্তা অপেক্ষায় ছিল ({items[-1].get('why', '')}): {names}। অ্যাপে দেখুন।"
+    # Filter out contacts already handled/replied/done
+    cids = [i["cid"] for i in items if i.get("cid")]
+    still_waiting_ids: set[str] = set()
+    if cids:
+        rows = (await db.execute(select(WaContact).where(WaContact.id.in_(cids)))).scalars().all()
+        for c in rows:
+            if c.unread > 0 and c.state not in ("done", "owner") and not c.is_blocked:
+                still_waiting_ids.add(str(c.id))
+    active_items = [i for i in items if (not i.get("cid")) or (i["cid"] in still_waiting_ids)]
+    await flow._set_val(db, HELD_KEY, json.dumps({"items": []}))
+    if not active_items:
+        await db.commit()
+        return 0
+    names = ", ".join(dict.fromkeys(i["who"] for i in active_items))[:300]
+    text = f"⏸ {brain.bn_digits(len(active_items))}টি জরুরি বার্তা অপেক্ষায় ছিল ({active_items[-1].get('why', '')}): {names}। অ্যাপে দেখুন।"
     if telegram.configured() and settings.TELEGRAM_OWNER_ID:
         try:
             await telegram.send_text(settings.TELEGRAM_OWNER_ID, text)
@@ -115,10 +190,9 @@ async def send_held_digest(db: AsyncSession, cfg: dict[str, Any]) -> int:
             logger.warning("held digest telegram failed", exc_info=True)
     db.add(InboxCommand(device_id=None, kind="alert", target="p2", body=text[:400]))
     _queue_owner_whatsapp(db, cfg, text)
-    await flow._set_val(db, HELD_KEY, json.dumps({"items": []}))
     await db.commit()
     wake.notify()
-    return len(items)
+    return len(active_items)
 
 
 async def send_app_digest(db: AsyncSession) -> bool:
@@ -176,7 +250,7 @@ async def push_owner(db: AsyncSession, cfg: dict[str, Any], contact: WaContact, 
         who = contact.name or contact.phone.split(":", 1)[-1]
         why = await block_reason(db, cfg, d.priority, now)
         if why:
-            await _record_held(db, who, d.priority, why)  # held, not lost: shown in the app and summarised once the quiet time ends
+            await _record_held(db, who, d.priority, why, str(contact.id))  # held, not lost: shown in the app and summarised once the quiet time ends
             return False
         label = label or flow.PRIO_LABEL.get(d.priority, "")
         if contact.is_family:

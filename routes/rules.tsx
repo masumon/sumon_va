@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import { AppText as Text } from '../src/ui/AppText';
 import { AppButton } from '../src/ui/AppSurface';
 import { Card, ChipGroup, Field, ToggleRow, useKit } from '../src/ui/AppKit';
-import { useAppFeedback } from '../src/ui/AppFeedback';
-import { va, errTone } from '../src/va/api';
+import { AppConfirmDialog, useAppFeedback } from '../src/ui/AppFeedback';
+import { va, errTone, type CustomRole } from '../src/va/api';
 import { useLoad } from '../src/va/hooks';
 import { Hero } from '../src/va/Hero';
 import { CATEGORY, CATEGORY_KEYS } from '../src/va/labels';
@@ -34,6 +34,10 @@ export default function RulesScreen() {
   const [names, setNames] = useState<{ assistant?: string; owner?: string; replyBy?: string }>({});
   const [lists, setLists] = useState<{ allow?: string; block?: string }>({});
   const [ownerWa, setOwnerWa] = useState<string | undefined>(undefined);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleInstr, setNewRoleInstr] = useState('');
+  const [dropRole, setDropRole] = useState<CustomRole | null>(null);
+  const [sendingReport, setSendingReport] = useState(false);
 
   const save = async (patch: Record<string, unknown>): Promise<boolean> => {
     try { await va.saveAssistantConfig(patch); await cfg.reload(); showSnackbar(bn ? 'সংরক্ষণ হয়েছে' : 'Saved', 'success'); return true; }
@@ -107,9 +111,85 @@ export default function RulesScreen() {
 
               <Card icon="whatsapp" title={bn ? 'আমার দ্বিতীয় WhatsApp নম্বর (সব আপডেট)' : 'My second WhatsApp number'}>
                 <Field label={bn ? 'আপডেট পাওয়ার WhatsApp নম্বর' : 'Second WhatsApp number'} value={ownerWa ?? (c.owner_whatsapp ?? '')} onChangeText={setOwnerWa} placeholder={bn ? 'যেমন: 017XXXXXXXX' : 'e.g. 017XXXXXXXX'} hint={bn ? 'বট দেখার সময় না পেলেও জরুরি অ্যালার্ট, খসড়া ও সারাংশ আপনার এই আলাদা WhatsApp নম্বরে যাবে।' : 'Urgent alerts & summaries also go to this number.'} />
-                <AppButton variant="secondary" label={bn ? 'দ্বিতীয় WhatsApp নম্বর সংরক্ষণ' : 'Save second WhatsApp number'} disabled={ownerWa === undefined}
-                  onPress={() => void save({ owner_whatsapp: (ownerWa ?? '').trim() }).then((ok) => { if (ok) setOwnerWa(undefined); })} />
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <View style={{ flex: 1 }}>
+                    <AppButton variant="secondary" label={bn ? 'নম্বর সংরক্ষণ' : 'Save number'} disabled={ownerWa === undefined}
+                      onPress={() => void save({ owner_whatsapp: (ownerWa ?? '').trim() }).then((ok) => { if (ok) setOwnerWa(undefined); })} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppButton
+                      icon="send-check-outline"
+                      label={bn ? 'টেস্ট রিপোর্ট পাঠান' : 'Send test report'}
+                      loading={sendingReport}
+                      onPress={() => {
+                        setSendingReport(true);
+                        void va.sendOwnerReport()
+                          .then((r) => showSnackbar(r.whatsapp_queued ? (bn ? '✓ রিপোর্ট ২য় WhatsApp-এ পাঠানো হয়েছে' : 'Report queued for 2nd WhatsApp') : (bn ? '✓ রিপোর্ট Telegram-এ পাঠানো হয়েছে' : 'Report sent to Telegram'), 'success'))
+                          .catch((e: unknown) => showSnackbar(e instanceof Error ? e.message : '', errTone(e)))
+                          .finally(() => setSendingReport(false));
+                      }}
+                    />
+                  </View>
+                </View>
               </Card>
+
+              <Card icon="account-tie-outline" title={bn ? 'কাস্টম রোল (সহকারীর ভূমিকা)' : 'Custom Roles'}>
+                <InfoHint text={bn ? 'সহকারী এখন কোন ভূমিকায় উত্তর দেবে তা ১ ট্যাপে বাছুন বা নিজের মতো নতুন রোল বানান।' : 'Pick a role or create your own custom assistant role.'} />
+                {(c.custom_roles ?? []).map((r) => {
+                  const active = c.active_role === r.id;
+                  return (
+                    <View key={r.id} style={{ padding: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primaryTint : colors.surfaceMuted, gap: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <Text style={{ fontWeight: '800', color: active ? colors.primary : colors.textPrimary, flex: 1 }}>{r.name}{active ? (bn ? ' (সক্রিয় ✓)' : ' (Active ✓)') : ''}</Text>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {!active ? (
+                            <Pressable onPress={() => void save({ active_role: r.id })} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.primary }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.onPrimary }}>{bn ? 'চালু করুন' : 'Activate'}</Text>
+                            </Pressable>
+                          ) : null}
+                          {!r.builtin ? (
+                            <Pressable onPress={() => setDropRole(r)} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.danger }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.danger }}>{bn ? 'মুছুন' : 'Delete'}</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary }}>{r.instruction}</Text>
+                    </View>
+                  );
+                })}
+                <Field label={bn ? 'নতুন রোলের নাম' : 'New role name'} value={newRoleName} onChangeText={setNewRoleName} placeholder={bn ? 'যেমন: অফিস ম্যানেজার' : 'e.g. Office Manager'} />
+                <Field label={bn ? 'এই রোলে সহকারী কীভাবে কথা বলবে?' : 'Role instructions'} value={newRoleInstr} onChangeText={setNewRoleInstr} placeholder={bn ? 'যেমন: ভদ্রভাবে অর্ডার ও সময় জেনে নেবে' : 'e.g. Politely ask for order & time'} />
+                <AppButton
+                  variant="secondary"
+                  icon="plus"
+                  label={bn ? 'নতুন কাস্টম রোল যোগ করুন' : 'Add custom role'}
+                  disabled={!newRoleName.trim() || !newRoleInstr.trim()}
+                  onPress={() => {
+                    const id = `role_${Date.now()}`;
+                    const next: CustomRole[] = [...(c.custom_roles ?? []), { id, name: newRoleName.trim(), tone: 'warm', auto_level: 'balanced', instruction: newRoleInstr.trim(), builtin: false }];
+                    void save({ custom_roles: next, active_role: id }).then((ok) => { if (ok) { setNewRoleName(''); setNewRoleInstr(''); } });
+                  }}
+                />
+              </Card>
+              <AppConfirmDialog
+                visible={!!dropRole}
+                danger
+                icon="trash-can-outline"
+                title={bn ? 'কাস্টম রোলটি মুছবেন?' : 'Delete custom role?'}
+                description={dropRole?.name}
+                confirmLabel={bn ? 'মুছুন' : 'Delete'}
+                cancelLabel={bn ? 'না' : 'No'}
+                onCancel={() => setDropRole(null)}
+                onConfirm={() => {
+                  const target = dropRole;
+                  setDropRole(null);
+                  if (!target) return;
+                  const next = (c.custom_roles ?? []).filter((x) => x.id !== target.id);
+                  const nextActive = c.active_role === target.id ? (next[0]?.id ?? 'personal_secretary') : c.active_role;
+                  void save({ custom_roles: next, active_role: nextActive });
+                }}
+              />
 
               <Card icon="calendar-clock" title={bn ? 'সময়সূচি, অবস্থা ও জায়গা' : 'Routine, status and places'}>
                 <AppButton variant="secondary" icon="calendar-clock" label={bn ? 'সময়সূচি ও স্থান খুলুন' : 'Open routine & places'} onPress={() => router.push('/routine' as never)} />

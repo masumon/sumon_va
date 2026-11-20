@@ -152,6 +152,15 @@ class PollService : Service() {
     if ((kind == "sms" || kind == "reply" || kind == "owner_wa") && (body.isBlank() || body.trimStart().startsWith("enc1:"))) "উত্তরের লেখা খালি বা ভাঙা (সার্ভার থেকে ঠিকমতো আসেনি), তাই পাঠানো হয়নি"
     else when (kind) {
       "alert" -> { showAlert(ctx, target, body, id, open); null }
+      "clear_alert" -> {
+        try {
+          val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+          for (sbn in nm.activeNotifications) {
+            if (sbn.id != 1) nm.cancel(sbn.tag, sbn.id)
+          }
+        } catch (_: Exception) {}
+        null
+      }
       "sms" -> { val bad = smsGuard(ctx, target); if (bad != null) bad else {
         val number = target.filter { it != ' ' && it != '-' && it != '(' && it != ')' }
         val sms = if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(SmsManager::class.java) else @Suppress("DEPRECATION") SmsManager.getDefault()

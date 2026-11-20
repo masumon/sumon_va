@@ -19,7 +19,7 @@ import { sourceLabel } from './modules';
 import { num } from './bd';
 
 /** One person in a list. High-density 3-line card with priority left-border accent and 1-tap inline draft approval. */
-export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged }: { contact: Contact; onPress: () => void; onChanged?: () => void }) {
+export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged, selectable, selected, onToggleSelect }: { contact: Contact; onPress: () => void; onChanged?: () => void; selectable?: boolean; selected?: boolean; onToggleSelect?: () => void }) {
   const { colors, language, design } = useAppPreferences();
   const bn = language === 'bn';
   const styles = useMemo(() => makeStyles(colors, design), [colors, design]);
@@ -27,9 +27,9 @@ export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged
   const [sendingDraft, setSendingDraft] = useState(false);
   const pr = PRIORITY[contact.priority] ?? PRIORITY[5]!;
   const urgent = contact.unread > 0 && contact.priority === 1;
-  const when = contact.last_message_at
+  const when = contact.ago || (contact.last_message_at
     ? (formatBangladeshRelativeDate(contact.last_message_at, language) === (bn ? 'আজ' : 'Today') ? formatBangladeshTime(contact.last_message_at, language) : formatBangladeshRelativeDate(contact.last_message_at, language))
-    : '';
+    : '');
   const refreshAll = useShell((st) => st.refresh);
   const { showSnackbar } = useAppFeedback();
   const swipe = useRef<SwipeableMethods | null>(null);
@@ -67,12 +67,15 @@ export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged
         android_ripple={{ color: 'rgba(128,128,128,0.12)' }}
         accessibilityRole="button"
         accessibilityLabel={[displayName(contact), contact.unread > 0 ? (bn ? `${num(contact.unread, true)}টি নতুন বার্তা` : `${contact.unread} new`) : '', previewText].filter(Boolean).join(', ')}
-        onPress={onPress}
-        onLongPress={() => setMenu(true)}
+        onPress={selectable ? onToggleSelect : onPress}
+        onLongPress={() => (selectable ? onToggleSelect?.() : setMenu(true))}
         delayLongPress={350}
-        style={({ pressed }) => [styles.row, { borderLeftWidth: 4, borderLeftColor: accentLeft }, urgent && styles.urgent, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.row, { borderLeftWidth: 4, borderLeftColor: accentLeft }, urgent && styles.urgent, selected && { borderColor: colors.primary, backgroundColor: colors.primaryTint }, pressed && styles.pressed]}
       >
         <View style={styles.topRow}>
+          {selectable ? (
+            <AppIcon name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={selected ? colors.primary : colors.textMuted} />
+          ) : null}
           <BrandLogo brand={brandFor(contact.channel, contact.phone)} size={38} />
           <View style={styles.main}>
             <View style={styles.top}>
@@ -89,7 +92,7 @@ export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged
             </View>
             <View style={styles.subRow}>
               <Text numberOfLines={1} style={styles.source}>
-                {sourceLabel(contact.phone, contact.channel, bn)}
+                {contact.source_label || sourceLabel(contact.phone, contact.channel, bn)}
                 {contact.category ? ` · ${bn ? CATEGORY[contact.category].bn : CATEGORY[contact.category].en}` : ''}
               </Text>
               {contact.unread > 0 ? (
@@ -101,7 +104,7 @@ export const ContactRow = memo(function ContactRow({ contact, onPress, onChanged
           </View>
         </View>
         <Text numberOfLines={2} style={styles.preview}>
-          {contact.need ? '💡 ' : ''}{previewText}
+          {contact.purpose ? `🎯 ${contact.purpose}` : previewText}
         </Text>
         {contact.draft_id && contact.draft_body ? (
           <View style={styles.draftBar}>

@@ -176,9 +176,54 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "channels": {"telegram": {"enabled": False, "auto": False}, "device": {"enabled": True, "auto_sms": False}, "email": {"enabled": False}},
     "platforms": platforms.default_block(),
     "custom_platforms": [],        # apps the owner added himself: [{"key","name","packages":[...]}], see platforms.normalize_custom
+    "active_role": "personal_secretary",
+    "custom_roles": [
+        {
+            "id": "personal_secretary",
+            "name": "ব্যক্তিগত সচিব",
+            "tone": "warm",
+            "auto_level": "balanced",
+            "instruction": "ভদ্র ও আন্তরিক বাংলায় উত্তর দাও। জরুরি হলে সুমন ভাইকে জানাও, সাধারণ কথায় সাহায্য করো।",
+            "builtin": True,
+        },
+        {
+            "id": "shop_manager",
+            "name": "দোকান ও ব্যবসা ম্যানেজার",
+            "tone": "formal",
+            "auto_level": "high",
+            "instruction": "ব্যবসায়িক ও অর্ডার সংক্রান্ত প্রশ্নে পেশাদার ও দ্রুত উত্তর দাও। দাম বা ডেলিভারি নিশ্চিত না হলে জানিয়ে দাও দেখে বলছ।",
+            "builtin": True,
+        },
+        {
+            "id": "project_assistant",
+            "name": "প্রজেক্ট সহকারী",
+            "tone": "formal",
+            "auto_level": "balanced",
+            "instruction": "কাজের আপডেট, সময়সূচি ও ফাইল সংক্রান্ত প্রশ্নের স্পষ্ট উত্তর দাও এবং বাকি কাজ টাস্কে যোগ করো।",
+            "builtin": True,
+        },
+        {
+            "id": "urgent_only",
+            "name": "শুধু জরুরি ফিল্টার",
+            "tone": "short",
+            "auto_level": "low",
+            "instruction": "শুধু জরুরি বিষয়ে খসড়া বানাও ও অ্যালার্ট দাও; অপ্রয়োজনীয় মেসেজে সংক্ষেপে উত্তর দাও।",
+            "builtin": True,
+        },
+    ],
     # Which number the panel is connected to. "main" (the owner's real number) can only be switched on after every box is ticked.
     "readiness": {"target": "test", "backup": False, "app_updated": False, "spare_tested": False, "limits_read": False, "disconnect_known": False},
 }
+
+
+def active_role_obj(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return the currently active role dict from cfg['custom_roles']."""
+    rid = str(cfg.get("active_role") or "personal_secretary")
+    roles = cfg.get("custom_roles") or []
+    for r in roles:
+        if isinstance(r, dict) and r.get("id") == rid:
+            return r
+    return roles[0] if roles and isinstance(roles[0], dict) else {"id": "personal_secretary", "name": "ব্যক্তিগত সচিব", "tone": "warm", "auto_level": "balanced", "instruction": ""}
 
 READINESS_LABELS = {
     "backup": "ফোনের WhatsApp Business-এ চ্যাট ব্যাকআপ নিয়েছি",
